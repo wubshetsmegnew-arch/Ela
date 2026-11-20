@@ -18,6 +18,7 @@ const PORT = process.env.PORT || 3000;
 const HOUSE_COMMISSION = 0.20; // 20% house commission
 const LOBBY_SECONDS = 30; // 30s lobby countdown
 const CALL_INTERVAL_MS = 2500; // 2.5s number call interval
+const TOTAL_BOARDS = 600; // 1 to 600 cards (ካርቴላ)
 
 // Standard 75-ball Bingo column ranges: B(1-15), I(16-30), N(31-45), G(46-60), O(61-75)
 function generateBoard(boardId) {
@@ -28,7 +29,6 @@ function generateBoard(boardId) {
     [46, 60],
     [61, 75]
   ];
-  // 5x5 grid stored column-major or row-major; here grid[row][col]
   const grid = Array.from({ length: 5 }, () => Array(5).fill(null));
 
   for (let col = 0; col < 5; col++) {
@@ -40,37 +40,52 @@ function generateBoard(boardId) {
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
     for (let row = 0; row < 5; row++) {
-      if (row === 2 && col === 2) {
-        grid[row][col] = 'FREE';
-      } else {
-        grid[row][col] = pool[row];
-      }
+      grid[row][col] = (row === 2 && col === 2) ? 'FREE' : pool[row];
     }
   }
 
   return { boardId, grid };
 }
 
-// Pre-generate pool of boards (e.g., 100 boards)
-const TOTAL_BOARDS = 100;
 const boardTemplates = new Map();
 for (let i = 1; i <= TOTAL_BOARDS; i++) {
   boardTemplates.set(i, generateBoard(i));
 }
 
 let gameState = {
-  phase: 'LOBBY', // 'LOBBY' | 'PLAYING' | 'FINISHED'
+  phase: 'LOBBY',
   countdown: LOBBY_SECONDS,
-  stake: 10, // Default stake (can be updated per session/room)
-  takenBoards: new Map(), // boardId -> { socketId, username, board }
+  stake: 10,
+  roundNumber: 1,
+  gameId: 1,
+  takenBoards: new Map(), // boardId -> { socketId, userId, username, board }
   calledNumbers: [],
   availableNumbers: [],
   winners: [],
   prizePool: 0
 };
 
+const wallets = new Map(); // socketKey -> { main, bonus, dep }
+
+function getWallet(key) {
+  if (!wallets.has(key)) {
+    wallets.set(key, { main: 0, bonus: 0, dep: 0 });
+  }
+  return wallets.get(key);
+}
+
+function getSocketKey(socket) {
+  return socket.data.userId || socket.id;
+}
+
 let lobbyTimer = null;
 let drawTimer = null;
+
+function mapPhaseForClient(phase) {
+  if (phase === 'LOBBY') return 'lobby';
+  if (phase === 'PLAYING') return 'play';
+  return 'win';
+}
 
 function resetPool() {
   const nums = [];
@@ -83,15 +98,12 @@ function resetPool() {
   gameState.calledNumbers = [];
 }
 
-function getTakenBoardsSummary() {
-  const summary = {};
+function getBookedMap() {
+  const booked = {};
   for (const [boardId, info] of gameState.takenBoards.entries()) {
-    summary[boardId] = {
-      username: info.username,
-      socketId: info.socketId
-    };
+    booked[boardId] = info.username;
   }
-  return summary;
+  return booked;
 }
 
 function calculatePrizePool() {
@@ -105,41 +117,54 @@ function checkWinPattern(grid, calledSet) {
     return val === 'FREE' || calledSet.has(val);
   };
 
-  // Horizontal
   for (let r = 0; r < 5; r++) {
     if ([0, 1, 2, 3, 4].every((c) => isMarked(r, c))) {
-      return `Horizontal (Row ${r + 1})`;
+      return { pattern: `Horizontal (Row ${r + 1})`, line: { type: 'row', index: r } };
     }
   }
 
-  // Vertical
   for (let c = 0; c < 5; c++) {
     if ([0, 1, 2, 3, 4].every((r) => isMarked(r, c))) {
-      return `Vertical (Col ${c + 1})`;
+      return { pattern: `Vertical (Col ${c + 1})`, line: { type: 'col', index: c } };
     }
   }
 
-  // Main Diagonal
   if ([0, 1, 2, 3, 4].every((i) => isMarked(i, i))) {
-    return 'Diagonal (Top-Left to Bottom-Right)';
+    return { pattern: 'Diagonal (Top-Left to Bottom-Right)', line: { type: 'diag', index: 0 } };
   }
 
-  // Anti-Diagonal
   if ([0, 1, 2, 3, 4].every((i) => isMarked(i, 4 - i))) {
-    return 'Diagonal (Top-Right to Bottom-Left)';
+    return { pattern: 'Diagonal (Top-Right to Bottom-Left)', line: { type: 'diag', index: 1 } };
   }
 
-  // 4-Corners
-  if (
-    isMarked(0, 0) &&
-    isMarked(0, 4) &&
-    isMarked(4, 0) &&
-    isMarked(4, 4)
-  ) {
-    return '4-Corners';
+  if (isMarked(0, 0) && isMarked(0, 4) && isMarked(4, 0) && isMarked(4, 4)) {
+    return { pattern: '4-Corners', line: { type: 'corners', index: 0 } };
   }
 
   return null;
+}
+
+function emitRoomStateToSocket(socket) {
+  const key = getSocketKey(socket);
+  const mine = [];
+  for (const [boardId, info] of gameState.takenBoards.entries()) {
+    if (info.socketId === socket.id) mine.push(boardId);
+  }
+
+  socket.emit('room:state', {
+    phase: mapPhaseForClient(gameState.phase),
+    t: gameState.countdown,
+    stake: gameState.stake,
+    rn: gameState.roundNumber,
+    booked: getBookedMap(),
+    mine,
+    called: gameState.calledNumbers,
+    gid: gameState.gameId,
+    gcode: `G-${gameState.roundNumber}`,
+    pool: calculatePrizePool(),
+    players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size,
+    wallet: getWallet(key)
+  });
 }
 
 function evaluateWinners() {
@@ -147,13 +172,15 @@ function evaluateWinners() {
   const foundWinners = [];
 
   for (const [boardId, player] of gameState.takenBoards.entries()) {
-    const pattern = checkWinPattern(player.board.grid, calledSet);
-    if (pattern) {
+    const winInfo = checkWinPattern(player.board.grid, calledSet);
+    if (winInfo) {
       foundWinners.push({
         socketId: player.socketId,
-        username: player.username,
-        boardId,
-        pattern
+        userId: player.userId,
+        name: player.username,
+        board: boardId,
+        pattern: winInfo.pattern,
+        line: winInfo.line
       });
     }
   }
@@ -162,19 +189,32 @@ function evaluateWinners() {
     clearInterval(drawTimer);
     drawTimer = null;
     gameState.phase = 'FINISHED';
+
     const totalPrize = calculatePrizePool();
     const splitAmount = Number((totalPrize / foundWinners.length).toFixed(2));
 
-    gameState.winners = foundWinners.map((w) => ({
-      ...w,
+    const winnersPayload = foundWinners.map((w) => ({
+      board: w.board,
+      name: w.name,
+      userId: w.userId,
+      pattern: w.pattern,
+      line: w.line,
       prize: splitAmount
     }));
 
-    io.emit('game_over', {
-      winners: gameState.winners,
-      prizePool: totalPrize,
-      splitAmount,
-      calledNumbers: gameState.calledNumbers
+    for (const w of foundWinners) {
+      const wKey = w.userId || w.socketId;
+      const wallet = getWallet(wKey);
+      wallet.main = Number((wallet.main + splitAmount).toFixed(2));
+      io.to(w.socketId).emit('wallet:update', wallet);
+    }
+
+    io.emit('game:win', {
+      winners: winnersPayload,
+      prize: splitAmount,
+      pool: totalPrize,
+      called: gameState.calledNumbers,
+      t: 8
     });
 
     setTimeout(() => {
@@ -189,9 +229,11 @@ function startDrawing() {
   gameState.prizePool = calculatePrizePool();
   resetPool();
 
-  io.emit('game_started', {
-    prizePool: gameState.prizePool,
-    totalBoards: gameState.takenBoards.size
+  io.emit('game:start', {
+    gid: gameState.gameId,
+    gcode: `G-${gameState.roundNumber}`,
+    pool: gameState.prizePool,
+    players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size
   });
 
   drawTimer = setInterval(() => {
@@ -199,11 +241,12 @@ function startDrawing() {
       clearInterval(drawTimer);
       drawTimer = null;
       gameState.phase = 'FINISHED';
-      io.emit('game_over', {
+      io.emit('game:win', {
         winners: [],
-        prizePool: gameState.prizePool,
-        splitAmount: 0,
-        calledNumbers: gameState.calledNumbers,
+        prize: 0,
+        pool: gameState.prizePool,
+        called: gameState.calledNumbers,
+        t: 6,
         message: 'All 75 numbers called with no winner.'
       });
       setTimeout(() => startLobby(), 6000);
@@ -213,10 +256,9 @@ function startDrawing() {
     const nextNumber = gameState.availableNumbers.shift();
     gameState.calledNumbers.push(nextNumber);
 
-    io.emit('number_called', {
-      number: nextNumber,
-      calledNumbers: gameState.calledNumbers,
-      count: gameState.calledNumbers.length
+    io.emit('game:call', {
+      n: nextNumber,
+      called: gameState.calledNumbers
     });
 
     evaluateWinners();
@@ -231,25 +273,36 @@ function startLobby() {
 
   gameState.phase = 'LOBBY';
   gameState.countdown = LOBBY_SECONDS;
+  gameState.gameId += 1;
   gameState.takenBoards.clear();
   gameState.calledNumbers = [];
   gameState.availableNumbers = [];
   gameState.winners = [];
   gameState.prizePool = 0;
 
-  io.emit('lobby_reset', {
-    countdown: gameState.countdown,
-    stake: gameState.stake,
-    totalBoards: TOTAL_BOARDS
-  });
+  for (const [, sock] of io.sockets.sockets) {
+    emitRoomStateToSocket(sock);
+  }
 
   lobbyTimer = setInterval(() => {
     gameState.countdown -= 1;
-    io.emit('countdown_tick', { countdown: gameState.countdown });
+    io.emit('room:state', {
+      phase: 'lobby',
+      t: gameState.countdown,
+      stake: gameState.stake,
+      rn: gameState.roundNumber,
+      booked: getBookedMap(),
+      called: [],
+      gid: gameState.gameId,
+      gcode: `G-${gameState.roundNumber}`,
+      pool: calculatePrizePool(),
+      players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size
+    });
 
     if (gameState.countdown <= 0) {
       clearInterval(lobbyTimer);
       lobbyTimer = null;
+      gameState.roundNumber += 1;
       startDrawing();
     }
   }, 1000);
@@ -261,68 +314,115 @@ app.get('/', (req, res) => {
     service: '75-Ball Bingo Multiplayer Backend',
     phase: gameState.phase,
     countdown: gameState.countdown,
-    takenBoardsCount: gameState.takenBoards.size
+    takenBoardsCount: gameState.takenBoards.size,
+    totalBoards: TOTAL_BOARDS
   });
 });
 
 io.on('connection', (socket) => {
-  socket.emit('sync_state', {
-    phase: gameState.phase,
-    countdown: gameState.countdown,
-    stake: gameState.stake,
-    totalBoards: TOTAL_BOARDS,
-    takenBoards: getTakenBoardsSummary(),
-    calledNumbers: gameState.calledNumbers,
-    prizePool: calculatePrizePool(),
-    winners: gameState.winners
+  socket.on('room:join', (payload = {}) => {
+    if (payload.stake) {
+      gameState.stake = Number(payload.stake) || gameState.stake;
+    }
+    if (payload.user) {
+      socket.data.userId = payload.user.id ? String(payload.user.id) : socket.id;
+      socket.data.username = payload.user.name || 'Player';
+    }
+    emitRoomStateToSocket(socket);
   });
 
-  socket.on('select_boards', ({ boardIds = [], username = 'Player' }) => {
+  socket.on('room:leave', () => {
+    let changed = false;
+    for (const [boardId, info] of gameState.takenBoards.entries()) {
+      if (info.socketId === socket.id && gameState.phase === 'LOBBY') {
+        gameState.takenBoards.delete(boardId);
+        io.emit('board:released', { board: boardId });
+        changed = true;
+      }
+    }
+    if (changed) {
+      io.emit('room:state', {
+        phase: mapPhaseForClient(gameState.phase),
+        t: gameState.countdown,
+        stake: gameState.stake,
+        rn: gameState.roundNumber,
+        booked: getBookedMap(),
+        called: gameState.calledNumbers,
+        gid: gameState.gameId,
+        gcode: `G-${gameState.roundNumber}`,
+        pool: calculatePrizePool(),
+        players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size
+      });
+    }
+  });
+
+  socket.on('board:pick', ({ board } = {}) => {
+    const boardId = Number(board);
+    const username = socket.data.username || 'Player';
+    const userId = socket.data.userId || socket.id;
+
     if (gameState.phase !== 'LOBBY') {
-      socket.emit('selection_error', { message: 'Game already in progress.' });
+      socket.emit('board:rejected', { board: boardId, reason: 'in_progress' });
       return;
     }
 
-    // Support 1 or 2 boards per player
-    const requested = [...new Set(boardIds)].slice(0, 2);
-    const existingCount = [...gameState.takenBoards.values()].filter(
+    const myBoardsCount = [...gameState.takenBoards.values()].filter(
       (b) => b.socketId === socket.id
     ).length;
 
-    if (existingCount + requested.length > 2) {
-      socket.emit('selection_error', { message: 'Maximum 2 boards allowed.' });
+    if (myBoardsCount >= 2) {
+      socket.emit('board:rejected', { board: boardId, reason: 'max_boards' });
       return;
     }
 
-    const assigned = [];
-    for (const id of requested) {
-      if (!boardTemplates.has(id)) continue;
-      if (gameState.takenBoards.has(id)) {
-        socket.emit('selection_error', { message: `Board #${id} is already taken.` });
-        continue;
-      }
-
-      const template = boardTemplates.get(id);
-      gameState.takenBoards.set(id, {
-        socketId: socket.id,
-        username,
-        board: template
-      });
-      assigned.push(template);
+    if (!boardTemplates.has(boardId) || gameState.takenBoards.has(boardId)) {
+      socket.emit('board:rejected', { board: boardId, reason: 'taken' });
+      return;
     }
 
-    if (assigned.length > 0) {
-      socket.emit('boards_assigned', { boards: assigned });
-      io.emit('boards_updated', {
-        takenBoards: getTakenBoardsSummary(),
-        prizePool: calculatePrizePool()
-      });
+    const template = boardTemplates.get(boardId);
+    gameState.takenBoards.set(boardId, {
+      socketId: socket.id,
+      userId,
+      username,
+      board: template
+    });
+
+    io.emit('board:taken', {
+      board: boardId,
+      name: username,
+      pool: calculatePrizePool()
+    });
+  });
+
+  socket.on('board:release', ({ board } = {}) => {
+    const boardId = Number(board);
+    const existing = gameState.takenBoards.get(boardId);
+    if (existing && existing.socketId === socket.id && gameState.phase === 'LOBBY') {
+      gameState.takenBoards.delete(boardId);
+      io.emit('board:released', { board: boardId, pool: calculatePrizePool() });
     }
   });
 
-  socket.on('claim_bingo', () => {
+  socket.on('game:mark', () => {
     if (gameState.phase === 'PLAYING') {
       evaluateWinners();
+    }
+  });
+
+  socket.on('game:auto', () => {
+    // Auto-daub preference handled on client; server evaluates wins on calls/marks
+  });
+
+  socket.on('wallet:topup_test', (payload = {}, ack) => {
+    const amount = Number(payload.amount) || 100;
+    const key = payload.user?.id ? String(payload.user.id) : getSocketKey(socket);
+    const wallet = getWallet(key);
+    wallet.main = Number((wallet.main + amount).toFixed(2));
+
+    socket.emit('wallet:update', wallet);
+    if (typeof ack === 'function') {
+      ack({ wallet });
     }
   });
 
@@ -331,13 +431,22 @@ io.on('connection', (socket) => {
     for (const [boardId, info] of gameState.takenBoards.entries()) {
       if (info.socketId === socket.id && gameState.phase === 'LOBBY') {
         gameState.takenBoards.delete(boardId);
+        io.emit('board:released', { board: boardId });
         changed = true;
       }
     }
     if (changed) {
-      io.emit('boards_updated', {
-        takenBoards: getTakenBoardsSummary(),
-        prizePool: calculatePrizePool()
+      io.emit('room:state', {
+        phase: mapPhaseForClient(gameState.phase),
+        t: gameState.countdown,
+        stake: gameState.stake,
+        rn: gameState.roundNumber,
+        booked: getBookedMap(),
+        called: gameState.calledNumbers,
+        gid: gameState.gameId,
+        gcode: `G-${gameState.roundNumber}`,
+        pool: calculatePrizePool(),
+        players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size
       });
     }
   });
