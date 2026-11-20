@@ -5,6 +5,7 @@ const cors = require('cors');
 
 const app = express();
 app.use(cors());
+app.use(express.static(__dirname));
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -15,12 +16,11 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
-const HOUSE_COMMISSION = 0.20; // 20% house commission
-const LOBBY_SECONDS = 30; // 30s lobby countdown
-const CALL_INTERVAL_MS = 2500; // 2.5s number call interval
-const TOTAL_BOARDS = 600; // 1 to 600 cards (ካርቴላ)
+const HOUSE_COMMISSION = 0.20;
+const LOBBY_SECONDS = 30;
+const CALL_INTERVAL_MS = 2500;
+const TOTAL_BOARDS = 600;
 
-// Standard 75-ball Bingo column ranges: B(1-15), I(16-30), N(31-45), G(46-60), O(61-75)
 function generateBoard(boardId) {
   const ranges = [
     [1, 15],
@@ -58,14 +58,14 @@ let gameState = {
   stake: 10,
   roundNumber: 1,
   gameId: 1,
-  takenBoards: new Map(), // boardId -> { socketId, userId, username, board }
+  takenBoards: new Map(),
   calledNumbers: [],
   availableNumbers: [],
   winners: [],
   prizePool: 0
 };
 
-const wallets = new Map(); // socketKey -> { main, bonus, dep }
+const wallets = new Map();
 
 function getWallet(key) {
   if (!wallets.has(key)) {
@@ -308,7 +308,7 @@ function startLobby() {
   }, 1000);
 }
 
-app.get('/', (req, res) => {
+app.get('/status', (req, res) => {
   res.json({
     status: 'ok',
     service: '75-Ball Bingo Multiplayer Backend',
@@ -410,9 +410,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('game:auto', () => {
-    // Auto-daub preference handled on client; server evaluates wins on calls/marks
-  });
+  socket.on('game:auto', () => {});
 
   socket.on('wallet:topup_test', (payload = {}, ack) => {
     const amount = Number(payload.amount) || 100;
