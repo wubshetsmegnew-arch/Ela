@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const crypto = require('crypto');
 
 const app = express();
 app.use(cors());
@@ -20,6 +21,11 @@ const HOUSE_COMMISSION = 0.20;
 const LOBBY_SECONDS = 30;
 const CALL_INTERVAL_MS = 2500;
 const TOTAL_BOARDS = 600;
+
+function generateRoundCode(roundNumber) {
+  const suffix = crypto.randomBytes(3).toString('hex').toUpperCase();
+  return `${roundNumber}_${suffix}`;
+}
 
 function generateBoard(boardId) {
   const ranges = [
@@ -58,6 +64,7 @@ let gameState = {
   stake: 10,
   roundNumber: 1,
   gameId: 1,
+  gameCode: generateRoundCode(1),
   takenBoards: new Map(),
   calledNumbers: [],
   availableNumbers: [],
@@ -111,7 +118,7 @@ function calculatePrizePool() {
   return Number((totalPot * (1 - HOUSE_COMMISSION)).toFixed(2));
 }
 
-function checkWinPattern(grid, calledSet) {
+function getWinningCells(grid, calledSet) {
   const isMarked = (r, c) => {
     const val = grid[r][c];
     return val === 'FREE' || calledSet.has(val);
@@ -119,26 +126,46 @@ function checkWinPattern(grid, calledSet) {
 
   for (let r = 0; r < 5; r++) {
     if ([0, 1, 2, 3, 4].every((c) => isMarked(r, c))) {
-      return { pattern: `Horizontal (Row ${r + 1})`, line: { type: 'row', index: r } };
+      return {
+        pattern: `Horizontal (Row ${r + 1})`,
+        line: { type: 'row', index: r },
+        cells: [0, 1, 2, 3, 4].map((c) => [r, c])
+      };
     }
   }
 
   for (let c = 0; c < 5; c++) {
     if ([0, 1, 2, 3, 4].every((r) => isMarked(r, c))) {
-      return { pattern: `Vertical (Col ${c + 1})`, line: { type: 'col', index: c } };
+      return {
+        pattern: `Vertical (Col ${c + 1})`,
+        line: { type: 'col', index: c },
+        cells: [0, 1, 2, 3, 4].map((r) => [r, c])
+      };
     }
   }
 
   if ([0, 1, 2, 3, 4].every((i) => isMarked(i, i))) {
-    return { pattern: 'Diagonal (Top-Left to Bottom-Right)', line: { type: 'diag', index: 0 } };
+    return {
+      pattern: 'Diagonal (Top-Left to Bottom-Right)',
+      line: { type: 'diag', index: 0 },
+      cells: [0, 1, 2, 3, 4].map((i) => [i, i])
+    };
   }
 
   if ([0, 1, 2, 3, 4].every((i) => isMarked(i, 4 - i))) {
-    return { pattern: 'Diagonal (Top-Right to Bottom-Left)', line: { type: 'diag', index: 1 } };
+    return {
+      pattern: 'Diagonal (Top-Right to Bottom-Left)',
+      line: { type: 'diag', index: 1 },
+      cells: [0, 1, 2, 3, 4].map((i) => [i, 4 - i])
+    };
   }
 
   if (isMarked(0, 0) && isMarked(0, 4) && isMarked(4, 0) && isMarked(4, 4)) {
-    return { pattern: '4-Corners', line: { type: 'corners', index: 0 } };
+    return {
+      pattern: '4-Corners',
+      line: { type: 'corners', index: 0 },
+      cells: [[0, 0], [0, 4], [4, 0], [4, 4]]
+    };
   }
 
   return null;
@@ -160,7 +187,7 @@ function emitRoomStateToSocket(socket) {
     mine,
     called: gameState.calledNumbers,
     gid: gameState.gameId,
-    gcode: `G-${gameState.roundNumber}`,
+    gcode: gameState.gameCode,
     pool: calculatePrizePool(),
     players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size,
     wallet: getWallet(key)
@@ -172,15 +199,17 @@ function evaluateWinners() {
   const foundWinners = [];
 
   for (const [boardId, player] of gameState.takenBoards.entries()) {
-    const winInfo = checkWinPattern(player.board.grid, calledSet);
+    const winInfo = getWinningCells(player.board.grid, calledSet);
     if (winInfo) {
       foundWinners.push({
         socketId: player.socketId,
         userId: player.userId,
         name: player.username,
         board: boardId,
+        grid: player.board.grid,
         pattern: winInfo.pattern,
-        line: winInfo.line
+        line: winInfo.line,
+        cells: winInfo.cells
       });
     }
   }
@@ -192,13 +221,16 @@ function evaluateWinners() {
 
     const totalPrize = calculatePrizePool();
     const splitAmount = Number((totalPrize / foundWinners.length).toFixed(2));
+    const winSeconds = 8;
 
     const winnersPayload = foundWinners.map((w) => ({
       board: w.board,
+      grid: w.grid,
       name: w.name,
       userId: w.userId,
       pattern: w.pattern,
       line: w.line,
+      cells: w.cells,
       prize: splitAmount
     }));
 
@@ -210,16 +242,18 @@ function evaluateWinners() {
     }
 
     io.emit('game:win', {
+      gid: gameState.gameId,
+      gcode: gameState.gameCode,
       winners: winnersPayload,
       prize: splitAmount,
       pool: totalPrize,
       called: gameState.calledNumbers,
-      t: 8
+      t: winSeconds
     });
 
     setTimeout(() => {
       startLobby();
-    }, 8000);
+    }, winSeconds * 1000);
   }
 }
 
@@ -231,7 +265,7 @@ function startDrawing() {
 
   io.emit('game:start', {
     gid: gameState.gameId,
-    gcode: `G-${gameState.roundNumber}`,
+    gcode: gameState.gameCode,
     pool: gameState.prizePool,
     players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size
   });
@@ -242,6 +276,8 @@ function startDrawing() {
       drawTimer = null;
       gameState.phase = 'FINISHED';
       io.emit('game:win', {
+        gid: gameState.gameId,
+        gcode: gameState.gameCode,
         winners: [],
         prize: 0,
         pool: gameState.prizePool,
@@ -274,6 +310,8 @@ function startLobby() {
   gameState.phase = 'LOBBY';
   gameState.countdown = LOBBY_SECONDS;
   gameState.gameId += 1;
+  gameState.roundNumber = gameState.gameId;
+  gameState.gameCode = generateRoundCode(gameState.gameId);
   gameState.takenBoards.clear();
   gameState.calledNumbers = [];
   gameState.availableNumbers = [];
@@ -294,7 +332,7 @@ function startLobby() {
       booked: getBookedMap(),
       called: [],
       gid: gameState.gameId,
-      gcode: `G-${gameState.roundNumber}`,
+      gcode: gameState.gameCode,
       pool: calculatePrizePool(),
       players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size
     });
@@ -302,7 +340,6 @@ function startLobby() {
     if (gameState.countdown <= 0) {
       clearInterval(lobbyTimer);
       lobbyTimer = null;
-      gameState.roundNumber += 1;
       startDrawing();
     }
   }, 1000);
@@ -314,6 +351,8 @@ app.get('/status', (req, res) => {
     service: '75-Ball Bingo Multiplayer Backend',
     phase: gameState.phase,
     countdown: gameState.countdown,
+    gameId: gameState.gameId,
+    gameCode: gameState.gameCode,
     takenBoardsCount: gameState.takenBoards.size,
     totalBoards: TOTAL_BOARDS
   });
@@ -349,7 +388,7 @@ io.on('connection', (socket) => {
         booked: getBookedMap(),
         called: gameState.calledNumbers,
         gid: gameState.gameId,
-        gcode: `G-${gameState.roundNumber}`,
+        gcode: gameState.gameCode,
         pool: calculatePrizePool(),
         players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size
       });
@@ -442,7 +481,7 @@ io.on('connection', (socket) => {
         booked: getBookedMap(),
         called: gameState.calledNumbers,
         gid: gameState.gameId,
-        gcode: `G-${gameState.roundNumber}`,
+        gcode: gameState.gameCode,
         pool: calculatePrizePool(),
         players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size
       });
