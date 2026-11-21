@@ -86,7 +86,7 @@ const L='BINGO',CL={B:'#F59E0B',I:'#10B981',N:'#3B82F6',G:'#EF4444',O:'#8B5CF6'}
 const $=s=>document.querySelector(s),ltr=n=>L[Math.floor((n-1)/15)];
 const NAMES=['Abebe','Tigist','Dawit','Selam','Kebede','Hana','Yonas','Meron','Biniam','Rahel','Samuel','Lidya','Mulu','Fikir','Henok','Saba'];
 function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-function card(id){const r=rng(id*7919+13),c=[];for(let k=0;k<5;k++){const p=[...Array(15)].map((_,i)=>k*15+i+1);for(let i=14;i>0;i--){const j=Math.floor(r()*(i+1));[p[i],p[j]]=[p[j],p[i]]}c.push(p.slice(0,5))}c[2][2]=0;return c}
+function genCard(id){const r=rng(id*7919+13),c=[];for(let k=0;k<5;k++){const p=[...Array(15)].map((_,i)=>k*15+i+1);for(let i=14;i>0;i--){const j=Math.floor(r()*(i+1));[p[i],p[j]]=[p[j],p[i]]}c.push(p.slice(0,5))}c[2][2]=0;return c}
 const LINES=[];for(let i=0;i<5;i++){LINES.push([...Array(5)].map((_,k)=>[k,i]));LINES.push([...Array(5)].map((_,k)=>[i,k]))}
 LINES.push([...Array(5)].map((_,k)=>[k,k]),[...Array(5)].map((_,k)=>[k,4-k]));
 const CORNERS=[[0,0],[4,0],[0,4],[4,4]],MINCALLS=12;
@@ -94,7 +94,8 @@ const PATS=[];for(let i=0;i<5;i++){PATS.push({t:'h',c:[0,1,2,3,4].map(k=>[k,i])}
 PATS.push({t:'d',c:[0,1,2,3,4].map(k=>[k,k])},{t:'d',c:[0,1,2,3,4].map(k=>[k,4-k])},{t:'c',c:CORNERS});
 const PNAME={h:'Horizontal Line · ወደጎን መስመር',v:'Vertical Line · ወደታች መስመር',d:'Diagonal Line · ሰያፍ መስመር',c:'4 Corners · አራቱ ማእዘናት'};
 const winLine=(c,s,cs)=>PATS.find(p=>p.c.every(([x,y])=>{const n=c[x][y];return n===0||(cs.has(n)&&s.has(n))}));
-const S={phase:'lobby',t:30,tick:0,room:null,rn:1,rooms:[{s:10,n:1},{s:10,n:2}],paid:{},bonus:0,dep:0,tx:[],won:0,hide:true,wtab:'bal',gcode:'',booked:{},mine:[],marks:{},wallet:0,stake:10,round:1,gid:1042,called:[],auto:true,sound:true,tab:'game',left:false,win:null,hist:[],pool:0,players:0};
+const S={phase:'lobby',t:30,tick:0,room:null,rn:1,rooms:[{s:10,n:1},{s:10,n:2}],paid:{},cards:{},claimed:{},bonus:0,dep:0,tx:[],won:0,hide:true,wtab:'bal',gcode:'',booked:{},mine:[],marks:{},wallet:0,stake:10,round:1,gid:1042,called:[],auto:true,sound:true,tab:'game',left:false,win:null,hist:[],pool:0,players:0};
+const card=id=>(S.cards&&S.cards[id])||genCard(id);
 const APP='Bingo Arena',UID=String(10000000+Math.floor(Math.random()*9e7));
 const fmt=n=>'Br '+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}),tot=()=>S.wallet+S.bonus,rid=()=>Math.random().toString(36).slice(2,10).toUpperCase(),rb=()=>1+Math.floor(Math.random()*600);
 function addTx(l,a){S.tx.unshift({l,a,ts:Date.now()})}
@@ -117,7 +118,7 @@ function evalWin(){if(S.phase!=='play')return;const cs=new Set(S.called),hits=[]
  if(hits.length){const h=hits.find(x=>x.mine)||hits[Math.floor(Math.random()*hits.length)],name=h.mine?ME.name+' (You)':S.booked[h.id],prize=Math.floor(S.pool/hits.length),mh=hits.filter(x=>x.mine);S.phase='win';S.t=10;S.win={...h,name,prize,called:[...S.called],wc:hits.length,pool:S.pool,co:hits.map(x=>({id:x.id,name:x.mine?'You':S.booked[x.id]}))};if(mh.length){S.wallet+=prize*mh.length;S.won++;addTx('Game prize',prize*mh.length)}if(S.mine.length)S.hist.unshift({gid:S.gcode,ts:Date.now(),stake:S.stake,prize,win:mh.length>0,my:[...S.mine],wb:hits.map(x=>x.id),wc:hits.length});
   }}
 function newRound(){S.round++;S.phase='lobby';S.t=30;S.booked={};S.paid={};S.mine=[];S.marks={};S.called=[];S.win=null;S.left=false}
-function tick(){if(LIVE)return;S.h=(S.h||0)+1;const sec=S.h%2===0;
+function tick(){if(LIVE){if(S.phase==='win'&&S.win&&!S.win.pending){S.h=(S.h||0)+1;if(S.h%2===0&&S.t>0){S.t--;render()}}return}S.h=(S.h||0)+1;const sec=S.h%2===0;
  if(S.phase==='lobby'){if(!sec)return;S.t--;botBook(1+Math.floor(Math.random()*4));if(S.t<=0)start()}
  else if(S.phase==='play'){S.tick++;if(!(S.tick>=6&&(S.tick-6)%5===0))return;call()}
  else{if(!sec)return;if(--S.t<=0)newRound()}
@@ -141,7 +142,7 @@ function arena(){const cs=new Set(S.called),lc=S.called.at(-1),l3=S.called.slice
  <div class="arena"><div class="mb">${mb}</div><div><div class="cur">${lc?ball(lc,64):'<div class="ball" style="--c:#334;--s:64px"><b>…</b></div>'}<div class="last">${l3.map(n=>`<span class="rc" style="--c:${CL[ltr(n)]}">${ltr(n)}${n}</span>`).join('')}</div></div>
  <div class="tg"><button data-a="sound" class="${S.sound?'on':''}">Sound ${S.sound?'ON':'OFF'}</button><button data-a="auto" class="${S.auto?'on':''}">Auto ${S.auto?'ON':'OFF'}</button></div>${cards}</div></div></div>
  <div class="foot"><button class="btn red" data-a="leave">Leave</button><button class="btn" data-a="refresh">Refresh</button><button class="btn ${S.auto?'on':''}" data-a="auto">Automatic</button></div>`}
-function modal(){const w=S.win;return `<div class="ov"><div class="modal"><h1>BINGO!</h1><p style="font-size:16px;margin:6px 0 10px"><span style="color:var(--gr)">${w.name}</span> has won the game</p><div style="color:var(--ye);font-size:13px;margin:-4px 0 8px">${PNAME[w.pt]}</div><div class="card"><div class="t"><span>Board № ${w.id}</span><span>Prize ${w.prize}</span></div>${cardHtml(w.id,null,'win',w.ln)}</div>${w.wc>1?`<div class="split">እኩል ተካፍለዋል · Split equally<br>${fmt(w.pool)} ÷ ${w.wc} = <b>${fmt(w.prize)}</b> each<small>${w.co.slice(0,6).map(x=>x.name+' (№'+x.id+')').join(', ')}${w.co.length>6?' …':''}</small></div>`:`<div class="split">Prize <b>${fmt(w.prize)}</b></div>`}<p style="color:var(--mu);font-size:13px;margin:6px 0 0">Next round in <b style="color:#fff">${S.t}s</b></p></div></div>`}
+function modal(){const w=S.win;return `<div class="ov"><div class="modal"><h1>BINGO!</h1><p style="font-size:16px;margin:6px 0 10px"><span style="color:var(--gr)">${w.name}</span> has won the game</p><div style="color:var(--ye);font-size:13px;margin:-4px 0 8px">${PNAME[w.pt]}</div><div class="card"><div class="t"><span>Board № ${w.id}</span><span>Prize ${fmt(w.prize)}</span></div>${cardHtml(w.id,null,'win',w.ln)}</div>${w.wc>1?`<div class="split">እኩል ተካፍለዋል · Split equally<br>${fmt(w.pool)} ÷ ${w.wc} = <b>${fmt(w.prize)}</b> each<small>${w.co.slice(0,6).map(x=>x.name+' (№'+x.id+')').join(', ')}${w.co.length>6?' …':''}</small></div>`:`<div class="split">${w.pending?'Prize (up to) ':'Prize '}<b>${fmt(w.prize)}</b></div>`}<p style="color:var(--mu);font-size:13px;margin:6px 0 0">${w.pending?'Verifying with server…':`Next round in <b style="color:#fff">${S.t}s</b>`}</p></div></div>`}
 function panel(){const t=S.tab;let b='';
  if(t==='history')b=S.hist.length?S.hist.map(h=>`<div class="row"><span>#${h.gid} · ${h.name} (№${h.id})</span><span style="color:var(--gr)">${h.prize}</span></div>`).join(''):'<p style="color:var(--mu)">No rounds finished yet.</p>';
  if(t==='wallet')b=`<div class="pill" style="margin:8px 0"><small>Balance</small><b style="font-size:28px">${S.wallet}</b></div><div class="bar"><button class="btn grn" data-a="topup">Add 500 (test)</button></div>`;
@@ -172,9 +173,9 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
  else if(a==='leave'&&LIVE){liveLeave()}
  else if(a==='leave'){if(S.phase==='lobby'){S.mine.forEach(id=>{refund(id);delete S.booked[id]});S.mine=[];S.room=null}else if(S.left)S.room=null;else S.left=true}
  else if(a==='watch')S.left=false;
- else if(a==='auto'){S.auto=!S.auto;if(LIVE)emit(EV.auto,{room:roomKey(),auto:S.auto});if(S.auto&&S.phase==='play')S.mine.forEach(id=>S.called.forEach(n=>S.marks[id].add(n)));if(S.auto&&S.phase==='play'&&!LIVE)evalWin()}
+ else if(a==='auto'){S.auto=!S.auto;if(LIVE)emit(EV.auto,{room:roomKey(),auto:S.auto});if(S.auto&&S.phase==='play')S.mine.forEach(id=>S.called.forEach(n=>S.marks[id].add(n)));if(S.auto&&S.phase==='play'){if(LIVE)S.mine.forEach(liveBingo);else evalWin()}}
  else if(a==='sound')S.sound=!S.sound;
- else if(a==='cell'&&!S.auto&&S.phase==='play'&&S.called.includes(+el.dataset.n)&&S.marks[i]){S.marks[i].add(+el.dataset.n);if(LIVE){emit(EV.mark,{room:roomKey(),board:i,n:+el.dataset.n});const cs=new Set(S.called);if(winLine(card(i),S.marks[i],cs))emit(EV.claim,{room:roomKey(),board:i})}else evalWin()}
+ else if(a==='cell'&&!S.auto&&S.phase==='play'&&S.called.includes(+el.dataset.n)&&S.marks[i]){S.marks[i].add(+el.dataset.n);if(LIVE){emit(EV.mark,{room:roomKey(),board:i,n:+el.dataset.n});liveBingo(i)}else evalWin()}
  else if(a==='tab')S.tab=el.dataset.t;
  else if(a==='dep'){const v=+el.dataset.v;if(LIVE)liveTopup(v);else{S.wallet+=v;S.dep+=v;addTx('Deposit',v);settle()}}
  else if(a==='bonus'){S.bonus+=50;addTx('Bonus',50);settle()}
@@ -194,7 +195,7 @@ const SERVER_URL=new URLSearchParams(location.search).get('server')||'https://el
 const EV={
   // client -> server
   join:'room:join', leave:'room:leave', pick:'board:pick', release:'board:release',
-  mark:'game:mark', auto:'game:auto', claim:'game:claim', topup:'wallet:topup_test',
+  mark:'game:mark', auto:'game:auto', claim:'game:claim', card:'board:card', topup:'wallet:topup_test',
   // server -> client
   state:'room:state', taken:'board:taken', freed:'board:released', rejected:'board:rejected',
   start:'game:start', call:'game:call', win:'game:win', wallet:'wallet:update'
@@ -213,6 +214,11 @@ function liveLeave(){if(S.phase==='lobby'||S.left){emit(EV.leave,{room:roomKey()
 function livePick(i){const rk=roomKey();
   if(S.mine.includes(i)){S.mine=S.mine.filter(x=>x!==i);delete S.booked[i];delete S.paid[i];emit(EV.release,{room:rk,board:i})}
   else if(!S.booked[i]&&S.mine.length<2){S.mine.push(i);S.booked[i]=ME.name;S.paid[i]=1;S.lowNeed=0;emit(EV.pick,{room:rk,board:i})}}
+function toCols(rows){const c=[0,1,2,3,4].map(k=>[0,1,2,3,4].map(r=>{const v=rows[r][k];return(v==null||v===0||v==='*'||String(v).toUpperCase()==='FREE')?0:+v}));c[2][2]=0;return c}
+function setCards(m){if(!m)return;for(const k in m){try{S.cards[k]=toCols(m[k])}catch(e){}}}
+function liveBingo(id){if(S.phase!=='play'||S.claimed[id]||!S.marks[id])return;const cs=new Set(S.called),p=winLine(card(id),S.marks[id],cs);if(!p)return;
+  S.claimed[id]=1;emit(EV.claim,{room:roomKey(),board:id});const nm=ME.name+' (You)';
+  S.win={id,name:nm,ln:p.c,pt:p.t,mine:true,called:[...S.called],wc:1,pool:S.pool,prize:S.pool,pending:true,co:[{id,name:nm}]};S.phase='win';S.t=0}
 function applyWallet(w){if(w.main!=null)S.wallet=+w.main;if(w.bonus!=null)S.bonus=+w.bonus;if(w.dep!=null)S.dep=+w.dep}
 function liveTopup(v){if(!socket)return;socket.timeout(2500).emit(EV.topup,{amount:v,user:ME},(err,res)=>{
   if(err){S.wallet+=v;S.dep+=v;addTx('Deposit (local, no server reply)',v)}else if(res&&res.wallet)applyWallet(res.wallet);
@@ -222,9 +228,9 @@ function applyState(d){
   if(d.phase)S.phase=d.phase;if(d.t!=null)S.t=d.t;if(d.stake)S.stake=d.stake;if(d.rn)S.rn=d.rn;
   if(d.booked)S.booked=d.booked;if(d.mine)S.mine=d.mine.map(Number);if(d.paid)S.paid=d.paid;
   if(d.called)S.called=d.called;if(d.gid!=null)S.gid=d.gid;if(d.gcode!==undefined||d.gid!=null)S.gcode=d.gcode||'';
-  if(d.pool!=null)S.pool=d.pool;if(d.players!=null)S.players=d.players;if(d.wallet)applyWallet(d.wallet);
+  if(d.pool!=null)S.pool=d.pool;if(d.players!=null)S.players=d.players;if(d.wallet)applyWallet(d.wallet);if(d.cards)setCards(d.cards);
   S.mine.forEach(id=>{if(S.paid[id]==null)S.paid[id]=1});
-  if(S.phase==='lobby'){S.marks={};S.win=null;S.left=false;S.called=[]}else initMarks()}
+  if(S.phase==='lobby'){S.marks={};S.win=null;S.left=false;S.called=[];S.claimed={}}else if(S.phase==='play')initMarks()}
 function liveInit(){
   if(!window.io||SERVER_URL.includes('PASTE'))return;
   socket=io(SERVER_URL,{transports:['websocket','polling'],auth:{userId:ME.id,name:ME.name,initData:ME.initData}});
@@ -236,10 +242,11 @@ function liveInit(){
   socket.on(EV.freed,d=>{if(!S.mine.includes(+d.board))delete S.booked[d.board];render()});
   socket.on(EV.rejected,d=>{const b=+d.board;S.mine=S.mine.filter(x=>x!==b);delete S.paid[b];delete S.booked[b];if(d.reason==='insufficient')S.lowNeed=S.stake;render(1)});
   socket.on(EV.wallet,w=>{applyWallet(w);render(1)});
-  socket.on(EV.start,d=>{applyState({...d,phase:'play',called:[]});S.left=false;render(1)});
-  socket.on(EV.call,d=>{S.called=d.called||[...S.called,d.n];if(S.auto)S.mine.forEach(id=>S.marks[id]&&S.marks[id].add(d.n));beep();render(1)});
+  socket.on(EV.card,d=>{if(d&&d.rows)setCards({[d.board]:d.rows});render()});
+  socket.on(EV.start,d=>{S.claimed={};applyState({...d,phase:'play',called:[]});S.left=false;render(1)});
+  socket.on(EV.call,d=>{S.called=d.called||[...S.called,d.n];if(S.auto)S.mine.forEach(id=>S.marks[id]&&S.marks[id].add(d.n));beep();S.mine.forEach(liveBingo);render(1)});
   socket.on(EV.win,d=>{
-    const w=d.winners||[];if(!w.length)return;const mh=w.filter(isMine),h=mh[0]||w[0],called=d.called||[...S.called];
+    const w=d.winners||[];if(!w.length)return;setCards(d.cards);w.forEach(x=>{if(x.rows||x.card)setCards({[x.board]:x.rows||x.card})});const mh=w.filter(isMine),h=mh[0]||w[0],called=d.called||[...S.called];
     let ln=h.line,pt=h.pattern;if(!ln||!pt){const cs=new Set(called),p=winLine(card(+h.board),cs,cs);if(p){ln=p.c;pt=p.t}}
     const pool=d.pool!=null?d.pool:S.pool;
     S.phase='win';S.t=d.t||10;S.called=called;
