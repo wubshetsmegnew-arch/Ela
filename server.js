@@ -6,6 +6,7 @@ const crypto = require('crypto');
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 app.use(express.static(__dirname));
 
 const server = http.createServer(app);
@@ -17,6 +18,12 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
+const BOT_TOKEN = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '';
+const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME || '@zinabingo';
+const CHANNEL_URL = process.env.CHANNEL_URL || 'https://t.me/zinabingo';
+const WEBAPP_URL = process.env.WEBAPP_URL || 'https://ela-jbix.onrender.com';
+const SUPPORT_USERNAME = process.env.SUPPORT_USERNAME || '@ZinaBingoBot';
+
 const HOUSE_COMMISSION = 0.20;
 const LOBBY_SECONDS = 30;
 const CALL_INTERVAL_MS = 2500;
@@ -345,6 +352,229 @@ function startLobby() {
   }, 1000);
 }
 
+// --- Telegram Bot (@ZinaBingoBot) + @zinabingo Membership Check ---
+async function tgApi(method, body = {}) {
+  if (!BOT_TOKEN) return null;
+  const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
+async function isChannelMember(userId) {
+  if (!BOT_TOKEN || !CHANNEL_USERNAME || !userId) return true;
+  try {
+    const data = await tgApi('getChatMember', {
+      chat_id: CHANNEL_USERNAME,
+      user_id: userId
+    });
+    const status = data?.result?.status;
+    return ['member', 'administrator', 'creator'].includes(status);
+  } catch (err) {
+    console.error('getChatMember error:', err);
+    return false;
+  }
+}
+
+function getMainMenuKeyboard() {
+  return {
+    keyboard: [
+      [{ text: '🎮 Play Game', web_app: { url: WEBAPP_URL } }],
+      [{ text: '💰 Deposit' }, { text: '💸 Withdraw' }],
+      [{ text: '💳 Balance' }],
+      [{ text: '📞 Support' }, { text: '📊 Instructions' }],
+      [{ text: '🎁 Invite Friends' }]
+    ],
+    resize_keyboard: true
+  };
+}
+
+async function sendJoinPrompt(chatId, textPrefix = '') {
+  const text =
+    `${textPrefix ? textPrefix + '\n\n' : ''}` +
+    `📢 *Zina Bingo* ጨዋታን ለመጠቀም እባክዎ መጀመሪያ ይፋዊ ቻናላችንን (*${CHANNEL_USERNAME}*) ይቀላቀሉ።\n` +
+    `ከተቀላቀሉ በኋላ *"✅ ተቀላቅያለሁ"* የሚለውን ቁልፍ ይንኩ።`;
+
+  await tgApi('sendMessage', {
+    chat_id: chatId,
+    text,
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '📢 ቻናል ይክፈቱ (Join Channel)', url: CHANNEL_URL }],
+        [{ text: '✅ ተቀላቅያለሁ (Verify)', callback_data: 'verify_channel' }]
+      ]
+    }
+  });
+}
+
+async function sendMainMenu(chatId, firstName = 'Player') {
+  const text =
+    `🎉 *እንኳን ወደ Zina Bingo በደህና መጡ፣ ${firstName}!*\n\n` +
+    `ከታች ካሉት ቁልፎች አንዱን በመምረጥ ይጀምሩ፦`;
+
+  await tgApi('sendMessage', {
+    chat_id: chatId,
+    text,
+    parse_mode: 'Markdown',
+    reply_markup: getMainMenuKeyboard()
+  });
+}
+
+async function handleBotMessage(msg) {
+  const chatId = msg.chat?.id;
+  const user = msg.from;
+  const text = (msg.text || '').trim();
+  if (!chatId || !user) return;
+
+  const member = await isChannelMember(user.id);
+  if (!member) {
+    await sendJoinPrompt(chatId);
+    return;
+  }
+
+  const wallet = getWallet(String(user.id));
+
+  if (text === '/start' || text.startsWith('/start ')) {
+    await sendMainMenu(chatId, user.first_name || 'Player');
+    return;
+  }
+
+  if (text === '💳 Balance') {
+    await tgApi('sendMessage', {
+      chat_id: chatId,
+      text:
+        `💳 *የZina Bingo ቀሪ ሂሳብዎ*\n\n` +
+        `🆔 ID: \`${user.id}\`\n` +
+        `💰 Main Balance: *${wallet.main.toFixed(2)}*\n` +
+        `🎁 Bonus: *${wallet.bonus.toFixed(2)}*`,
+      parse_mode: 'Markdown',
+      reply_markup: getMainMenuKeyboard()
+    });
+    return;
+  }
+
+  if (text === '💰 Deposit') {
+    await tgApi('sendMessage', {
+      chat_id: chatId,
+      text:
+        `💰 *ገንዘብ ማስገቢያ (Deposit) — Zina Bingo*\n\n` +
+        `🆔 የእርስዎ ID: \`${user.id}\`\n` +
+        `ለማስገባት ድጋፍን ያነጋግሩ፦ ${SUPPORT_USERNAME}`,
+      parse_mode: 'Markdown',
+      reply_markup: getMainMenuKeyboard()
+    });
+    return;
+  }
+
+  if (text === '💸 Withdraw') {
+    await tgApi('sendMessage', {
+      chat_id: chatId,
+      text:
+        `💸 *ገንዘብ ማውጫ (Withdraw) — Zina Bingo*\n\n` +
+        `🆔 የእርስዎ ID: \`${user.id}\`\n` +
+        `💰 Main Balance: *${wallet.main.toFixed(2)}*\n` +
+        `ለማውጣት ድጋፍን ያነጋግሩ፦ ${SUPPORT_USERNAME}`,
+      parse_mode: 'Markdown',
+      reply_markup: getMainMenuKeyboard()
+    });
+    return;
+  }
+
+  if (text === '📞 Support') {
+    await tgApi('sendMessage', {
+      chat_id: chatId,
+      text: `📞 *Zina Bingo Support*\n\nለማንኛውም ጥያቄ ወይም እገዛ፦ ${SUPPORT_USERNAME}`,
+      parse_mode: 'Markdown',
+      reply_markup: getMainMenuKeyboard()
+    });
+    return;
+  }
+
+  if (text === '📊 Instructions') {
+    await tgApi('sendMessage', {
+      chat_id: chatId,
+      text:
+        `📊 *የZina Bingo አጫዋወት መመሪያ*\n\n` +
+        `1️⃣ *Play Game* ን በመንካት ጨዋታውን ይክፈቱ።\n` +
+        `2️⃣ ከሚገኙት ካርቴላዎች (እስከ 2 ካርቴላ) ይምረጡ።\n` +
+        `3️⃣ ቁጥሮች ሲጠሩ መስመር ወይም 4 ማዕዘን ሲሞላ *BINGO* ያሸንፋሉ።`,
+      parse_mode: 'Markdown',
+      reply_markup: getMainMenuKeyboard()
+    });
+    return;
+  }
+
+  if (text === '🎁 Invite Friends') {
+    const inviteLink = `https://t.me/ZinaBingoBot?start=ref_${user.id}`;
+    await tgApi('sendMessage', {
+      chat_id: chatId,
+      text: `🎁 *ጓደኞችዎን ይጋብዙ (Zina Bingo)*\n\nየመጋበዣ ሊንክዎ፦\n${inviteLink}`,
+      parse_mode: 'Markdown',
+      reply_markup: getMainMenuKeyboard()
+    });
+    return;
+  }
+
+  await sendMainMenu(chatId, user.first_name || 'Player');
+}
+
+async function handleBotCallback(cb) {
+  const user = cb.from;
+  const chatId = cb.message?.chat?.id;
+  if (!user || !chatId) return;
+
+  if (cb.data === 'verify_channel') {
+    const member = await isChannelMember(user.id);
+    if (member) {
+      await tgApi('answerCallbackQuery', {
+        callback_query_id: cb.id,
+        text: '✅ ቻናሉን ተቀላቅለዋል! እንኳን ደህና መጡ።'
+      });
+      await sendMainMenu(chatId, user.first_name || 'Player');
+    } else {
+      await tgApi('answerCallbackQuery', {
+        callback_query_id: cb.id,
+        text: '❌ አሁንም ቻናሉን አልተቀላቀሉም። እባክዎ መጀመሪያ ይቀላቀሉ።',
+        show_alert: true
+      });
+      await sendJoinPrompt(chatId);
+    }
+  }
+}
+
+async function startBotPolling() {
+  if (!BOT_TOKEN) {
+    console.warn('BOT_TOKEN is not set; Telegram bot polling skipped.');
+    return;
+  }
+
+  let offset = 0;
+  while (true) {
+    try {
+      const res = await fetch(
+        `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?timeout=25&offset=${offset}`
+      );
+      const data = await res.json();
+      if (data?.ok && Array.isArray(data.result)) {
+        for (const update of data.result) {
+          offset = update.update_id + 1;
+          if (update.message) {
+            await handleBotMessage(update.message);
+          } else if (update.callback_query) {
+            await handleBotCallback(update.callback_query);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Telegram polling error:', err.message);
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+  }
+}
+
 app.get('/status', (req, res) => {
   res.json({
     status: 'ok',
@@ -492,4 +722,5 @@ io.on('connection', (socket) => {
 server.listen(PORT, () => {
   console.log(`Bingo server running on port ${PORT}`);
   startLobby();
+  startBotPolling();
 });
