@@ -14,6 +14,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+app.use('/uploads', express.static(UPLOADS_DIR));
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -25,6 +31,7 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = (process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const ADMIN_ID = Number(process.env.ADMIN_ID || 7379955498);
+const ADMIN_PIN = String(process.env.ADMIN_PIN || '1234').trim();
 const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME || '@zinabingo';
 const CHANNEL_URL = process.env.CHANNEL_URL || 'https://t.me/zinabingo';
 const WEBAPP_URL = process.env.WEBAPP_URL || 'https://ela-jbix.onrender.com';
@@ -492,6 +499,29 @@ function tgApi(method, body = {}, timeoutMs = 30000) {
   });
 }
 
+function downloadTelegramFile(filePath, destFullPath) {
+  return new Promise((resolve, reject) => {
+    if (!BOT_TOKEN || !filePath) return reject(new Error('Missing BOT_TOKEN or filePath'));
+    const url = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
+    https.get(
+      url,
+      {
+        family: 4,
+        lookup: (hostname, opts, cb) => dns.lookup(hostname, { family: 4 }, cb)
+      },
+      (res) => {
+        if (res.statusCode !== 200) {
+          return reject(new Error(`Download failed with status ${res.statusCode}`));
+        }
+        const out = fs.createWriteStream(destFullPath);
+        res.pipe(out);
+        out.on('finish', () => out.close(() => resolve(true)));
+        out.on('error', reject);
+      }
+    ).on('error', reject);
+  });
+}
+
 async function isChannelMember(userId) {
   if (!BOT_TOKEN || !CHANNEL_USERNAME || !userId) return true;
   try {
@@ -532,15 +562,15 @@ function getAdminKeyboard() {
   return {
     inline_keyboard: [
       [
-        { text: '📱 Change Telebirr', callback_data: 'adm_set_telebirr' },
-        { text: '🏦 Change CBE', callback_data: 'adm_set_cbe' }
+        { text: '📱 ቴሌብር ቀይር', callback_data: 'adm_set_telebirr' },
+        { text: '🏦 ሲቢኢ ቀይር', callback_data: 'adm_set_cbe' }
       ],
       [
-        { text: '🎁 Change Welcome Bonus', callback_data: 'adm_set_bonus' },
-        { text: '➕ Add Balance', callback_data: 'adm_add_balance' }
+        { text: '🎁 የጀማሪ ቦነስ ቀይር', callback_data: 'adm_set_bonus' },
+        { text: '➕ ሂሳብ ጨምር/ቀንስ', callback_data: 'adm_add_balance' }
       ],
       [
-        { text: '📊 View Settings', callback_data: 'adm_view_settings' }
+        { text: '📊 ቅንብሮችን ተመልከት', callback_data: 'adm_view_settings' }
       ]
     ]
   };
@@ -553,7 +583,8 @@ async function sendAdminPanel(chatId) {
     `• *CBE:* \`${store.settings.cbe}\`\n` +
     `• *Welcome Bonus:* *${store.settings.welcomeBonus} ብር*\n` +
     `• *Min Deposit:* *${store.settings.minDeposit} ብር*\n` +
-    `• *Min Withdraw:* *${store.settings.minWithdraw} ብር*`;
+    `• *Min Withdraw:* *${store.settings.minWithdraw} ብር*\n` +
+    `• *Web Studio:* ${WEBAPP_URL}/studio`;
 
   await tgApi('sendMessage', {
     chat_id: chatId,
@@ -616,11 +647,99 @@ function formatHistoryText(user) {
   return `📜 *የእርስዎ የቅርብ ጊዜ ታሪክ (History)*\n\n` + lines.join('\n');
 }
 
+function approveRequestById(reqId) {
+  const reqObj = store.requests[reqId];
+  if (!reqObj) return { ok: false, error: 'ጥያቄው አልተገኘም።' };
+  if (reqObj.status !== 'pending') {
+    return { ok: false, error: `ይህ ጥያቄ ቀድሞውኑ ${reqObj.status.toUpperCase()} ተደርጓል።` };
+  }
+
+  const targetUser = getOrCreateUser(reqObj.userId, { firstName: reqObj.userName });
+
+  if (reqObj.type === 'deposit') {
+    targetUser.main = Number((targetUser.main + reqObj.amount).toFixed(2));
+    targetUser.dep = Number((targetUser.dep + reqObj.amount).toFixed(2));
+    reqObj.status = 'approved';
+    addHistory(targetUser, {
+      type: 'deposit_approved',
+      amount: reqObj.amount,
+      txNumber: reqObj.txNumber || '',
+      reqId
+    });
+    saveStore();
+
+    tgApi('sendMessage', {
+      chat_id: reqObj.userId,
+      text:
+        `✅ *ገንዘብዎ ገብቷል!* *${reqObj.amount.toFixed(2)} ብር* በMain Balance ላይ ተጨምሯል።\n` +
+        (reqObj.txNumber ? `🧾 Tx No: \`${reqObj.txNumber}\`\n` : '') +
+        `💳 አዲስ Main Balance: *${targetUser.main.toFixed(2)} ብር*`,
+      parse_mode: 'Markdown'
+    });
+
+    return { ok: true, request: reqObj, user: targetUser };
+  }
+
+  if (reqObj.type === 'withdraw') {
+    if (targetUser.main < reqObj.amount) {
+      return { ok: false, error: 'በቂ Main Balance የለውም!' };
+    }
+    targetUser.main = Number((targetUser.main - reqObj.amount).toFixed(2));
+    targetUser.withd = Number((targetUser.withd + reqObj.amount).toFixed(2));
+    reqObj.status = 'approved';
+    addHistory(targetUser, {
+      type: 'withdraw_approved',
+      amount: reqObj.amount,
+      reqId,
+      accountInfo: reqObj.accountInfo
+    });
+    saveStore();
+
+    tgApi('sendMessage', {
+      chat_id: reqObj.userId,
+      text:
+        `✅ የ *${reqObj.amount.toFixed(2)} ብር* Withdraw ጥያቄዎ ተፈጽሟል።\n` +
+        `💳 ቀሪ Main Balance: *${targetUser.main.toFixed(2)} ብር*`,
+      parse_mode: 'Markdown'
+    });
+
+    return { ok: true, request: reqObj, user: targetUser };
+  }
+
+  return { ok: false, error: 'ያልታወቀ የጥያቄ ዓይነት።' };
+}
+
+function rejectRequestById(reqId) {
+  const reqObj = store.requests[reqId];
+  if (!reqObj) return { ok: false, error: 'ጥያቄው አልተገኘም።' };
+  if (reqObj.status !== 'pending') {
+    return { ok: false, error: `ይህ ጥያቄ ቀድሞውኑ ${reqObj.status.toUpperCase()} ተደርጓል።` };
+  }
+
+  const targetUser = getOrCreateUser(reqObj.userId, { firstName: reqObj.userName });
+  reqObj.status = 'rejected';
+  addHistory(targetUser, {
+    type: `${reqObj.type}_rejected`,
+    amount: reqObj.amount,
+    note: `${reqObj.type} rejected`
+  });
+  saveStore();
+
+  tgApi('sendMessage', {
+    chat_id: reqObj.userId,
+    text: `❌ የእርስዎ የ *${reqObj.type.toUpperCase()}* (\`${reqId}\`፣ *${reqObj.amount} ብር*) ጥያቄ ተቀባይነት አላገኘም። ዝርዝር ካስፈለገዎት ${SUPPORT_USERNAME} ያነጋግሩ።`,
+    parse_mode: 'Markdown'
+  });
+
+  return { ok: true, request: reqObj, user: targetUser };
+}
+
 async function handleBotMessage(msg) {
   const chatId = msg.chat?.id;
   const user = msg.from;
-  const text = (msg.text || '').trim();
-  if (!chatId || !user) return;
+  const text = (msg.text || msg.caption || '').trim();
+  const photos = Array.isArray(msg.photo) ? msg.photo : [];
+  if (!chatId || !user || (!text && photos.length === 0)) return;
 
   const member = await isChannelMember(user.id);
   if (!member) {
@@ -645,13 +764,86 @@ async function handleBotMessage(msg) {
         });
         return;
       }
+
+      adminSessions.set(user.id, {
+        mode: 'await_deposit_tx',
+        tempAmount: Number(amt.toFixed(2))
+      });
+
+      await tgApi('sendMessage', {
+        chat_id: chatId,
+        text:
+          `✅ መጠን: *${amt.toFixed(2)} ብር* ተመዝግቧል።\n\n` +
+          `አሁን የክፍያውን **Transaction No** (የግብይት መለያ ቁጥር) ይጻፉ፦`,
+        parse_mode: 'Markdown'
+      });
+      return;
+    }
+
+    if (session.mode === 'await_deposit_tx') {
+      const txNumber = text.trim();
+      if (txNumber.length < 4) {
+        await tgApi('sendMessage', {
+          chat_id: chatId,
+          text: '❌ እባክዎ ትክክለኛ **Transaction No** ይጻፉ።',
+          parse_mode: 'Markdown'
+        });
+        return;
+      }
+
+      adminSessions.set(user.id, {
+        mode: 'await_deposit_photo',
+        tempAmount: session.tempAmount,
+        txNumber
+      });
+
+      await tgApi('sendMessage', {
+        chat_id: chatId,
+        text:
+          `✅ Transaction No: \`${txNumber}\` ተመዝግቧል።\n\n` +
+          `አሁን የክፍያውን **Screenshot (ፎቶ)** ወደዚህ ይላኩ፦`,
+        parse_mode: 'Markdown'
+      });
+      return;
+    }
+
+    if (session.mode === 'await_deposit_photo') {
+      if (photos.length === 0) {
+        await tgApi('sendMessage', {
+          chat_id: chatId,
+          text: '❌ እባክዎ የክፍያውን **Screenshot (ፎቶ)** ብቻ ይላኩ።',
+          parse_mode: 'Markdown'
+        });
+        return;
+      }
+
+      const bestPhoto = photos[photos.length - 1];
+      const fileInfo = await tgApi('getFile', { file_id: bestPhoto.file_id });
+      const tgFilePath = fileInfo?.result?.file_path;
+
       const reqId = `DEP_${Date.now()}_${user.id}`;
+      let photoUrl = '';
+
+      if (tgFilePath) {
+        const ext = path.extname(tgFilePath) || '.jpg';
+        const fileName = `${reqId}${ext}`;
+        const fullPath = path.join(UPLOADS_DIR, fileName);
+        try {
+          await downloadTelegramFile(tgFilePath, fullPath);
+          photoUrl = `/uploads/${fileName}`;
+        } catch (err) {
+          console.error('Photo save error:', err.message);
+        }
+      }
+
       store.requests[reqId] = {
         id: reqId,
         type: 'deposit',
         userId: String(user.id),
         userName: user.first_name || 'Player',
-        amount: Number(amt.toFixed(2)),
+        amount: Number(session.tempAmount),
+        txNumber: session.txNumber,
+        photoUrl,
         status: 'pending',
         createdAt: new Date().toISOString()
       };
@@ -661,11 +853,11 @@ async function handleBotMessage(msg) {
       await tgApi('sendMessage', {
         chat_id: chatId,
         text:
-          `✅ *የDeposit ጥያቄዎ ተልኳል!*\n\n` +
+          `✅ *የDeposit ጥያቄዎ ከScreenshot እና Transaction No ጋር ተልኳል!*\n\n` +
           `• መለያ: \`${reqId}\`\n` +
-          `• መጠን: *${amt.toFixed(2)} ብር*\n` +
-          `• ሁኔታ: *Pending (በመጠባበቅ ላይ)*\n\n` +
-          `እባክዎ ደረሰኝ (Screenshot/SMS) ካለዎት ለድጋፍ (${SUPPORT_USERNAME}) ይላኩ። አስተዳዳሪው ሲያረጋግጥ ሂሳብዎ ይጨምራል።`,
+          `• መጠን: *${Number(session.tempAmount).toFixed(2)} ብር*\n` +
+          `• Transaction No: \`${session.txNumber}\`\n` +
+          `• ሁኔታ: *Pending (በመጠባበቅ ላይ)*`,
         parse_mode: 'Markdown',
         reply_markup: getMainMenuKeyboard(user.id)
       });
@@ -676,8 +868,9 @@ async function handleBotMessage(msg) {
           `💰 *አዲስ የDeposit ጥያቄ!*\n\n` +
           `• Request ID: \`${reqId}\`\n` +
           `• ተጫዋች: *${user.first_name || 'Player'}* (\`${user.id}\`)\n` +
-          `• መጠን: *${amt.toFixed(2)} ብር*\n\n` +
-          `በስልክ/ባንክዎ ገንዘቡ መግባቱን ካረጋገጡ በኋላ Approve ያድርጉ፦`,
+          `• መጠን: *${Number(session.tempAmount).toFixed(2)} ብር*\n` +
+          `• Transaction No: \`${session.txNumber}\`\n` +
+          `• Studio: ${WEBAPP_URL}/studio`,
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
@@ -755,8 +948,8 @@ async function handleBotMessage(msg) {
           `• ተጫዋች: *${user.first_name || 'Player'}* (\`${user.id}\`)\n` +
           `• Main Balance: *${u.main.toFixed(2)} ብር*\n` +
           `• የሚወጣ መጠን: *${amt.toFixed(2)} ብር*\n` +
-          `• መቀበያ አካውንት: \`${accountInfo}\`\n\n` +
-          `ገንዘቡን ከላኩ በኋላ Approve ሲያደርጉ ከሂሳቡ ይቀነሳል፦`,
+          `• መቀበያ አካውንት: \`${accountInfo}\`\n` +
+          `• Studio: ${WEBAPP_URL}/studio`,
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
@@ -777,7 +970,7 @@ async function handleBotMessage(msg) {
         adminSessions.delete(user.id);
         await tgApi('sendMessage', {
           chat_id: chatId,
-          text: `✅ Telebirr አካውንት ተቀይሯል፦ \`${text}\``,
+          text: `✅ ቴሌብር አካውንት ተቀይሯል፦ \`${text}\``,
           parse_mode: 'Markdown'
         });
         await sendAdminPanel(chatId);
@@ -790,7 +983,7 @@ async function handleBotMessage(msg) {
         adminSessions.delete(user.id);
         await tgApi('sendMessage', {
           chat_id: chatId,
-          text: `✅ CBE አካውንት ተቀይሯል፦ \`${text}\``,
+          text: `✅ ሲቢኢ አካውንት ተቀይሯል፦ \`${text}\``,
           parse_mode: 'Markdown'
         });
         await sendAdminPanel(chatId);
@@ -920,7 +1113,7 @@ async function handleBotMessage(msg) {
         `• *Telebirr:* \`${store.settings.telebirr}\`\n` +
         `• *CBE:* \`${store.settings.cbe}\`\n` +
         `• *ዝቅተኛ መጠን:* *${store.settings.minDeposit} ብር*\n\n` +
-        `ገንዘብ ከላኩ በኋላ ያስገቡትን የብር መጠን በቁጥር ይጻፉ (ለምሳሌ፡ \`50\`)፦`,
+        `1️⃣ መጀመሪያ የገንዘቡን መጠን በቁጥር ይጻፉ (ለምሳሌ፡ \`50\`)፦`,
       parse_mode: 'Markdown',
       reply_markup: getMainMenuKeyboard(user.id)
     });
@@ -1083,104 +1276,28 @@ async function handleBotCallback(cb) {
 
     const isApprove = data.startsWith('req_app_');
     const reqId = data.replace(/^req_(app|rej)_/, '');
-    const reqObj = store.requests[reqId];
+    const resObj = isApprove ? approveRequestById(reqId) : rejectRequestById(reqId);
 
-    if (!reqObj) {
+    if (!resObj.ok) {
       await tgApi('answerCallbackQuery', {
         callback_query_id: cb.id,
-        text: '⚠️ ጥያቄው አልተገኘም።',
+        text: `⚠️ ${resObj.error}`,
         show_alert: true
       });
       return;
     }
 
-    if (reqObj.status !== 'pending') {
-      await tgApi('answerCallbackQuery', {
-        callback_query_id: cb.id,
-        text: `⚠️ ይህ ጥያቄ ቀድሞውኑ ${reqObj.status.toUpperCase()} ተደርጓል።`,
-        show_alert: true
-      });
-      return;
-    }
-
-    const targetUser = getOrCreateUser(reqObj.userId, { firstName: reqObj.userName });
-
-    if (!isApprove) {
-      reqObj.status = 'rejected';
-      addHistory(targetUser, {
-        type: `${reqObj.type}_rejected`,
-        amount: reqObj.amount,
-        note: `${reqObj.type} rejected`
-      });
-      saveStore();
-      await tgApi('answerCallbackQuery', { callback_query_id: cb.id, text: '❌ ተቀባይነት አላገኘም (Rejected)' });
-      await tgApi('sendMessage', {
-        chat_id: chatId,
-        text: `❌ ጥያቄ \`${reqId}\` Rejected ተደርጓል።`,
-        parse_mode: 'Markdown'
-      });
-      await tgApi('sendMessage', {
-        chat_id: reqObj.userId,
-        text: `❌ የእርስዎ የ *${reqObj.type.toUpperCase()}* (\`${reqId}\`፣ *${reqObj.amount} ብር*) ጥያቄ ተቀባይነት አላገኘም። ዝርዝር ካስፈለገዎት ${SUPPORT_USERNAME} ያነጋግሩ።`,
-        parse_mode: 'Markdown'
-      });
-      return;
-    }
-
-    if (reqObj.type === 'deposit') {
-      targetUser.main = Number((targetUser.main + reqObj.amount).toFixed(2));
-      targetUser.dep = Number((targetUser.dep + reqObj.amount).toFixed(2));
-      reqObj.status = 'approved';
-      addHistory(targetUser, {
-        type: 'deposit_approved',
-        amount: reqObj.amount,
-        reqId
-      });
-      saveStore();
-
-      await tgApi('answerCallbackQuery', { callback_query_id: cb.id, text: '✅ Deposit Approved!' });
-      await tgApi('sendMessage', {
-        chat_id: chatId,
-        text: `✅ Deposit \`${reqId}\` (*${reqObj.amount} ብር*) Approved ተደርጓል። የተጫዋቹ አዲስ Main Balance: *${targetUser.main.toFixed(2)} ብር*።`,
-        parse_mode: 'Markdown'
-      });
-      await tgApi('sendMessage', {
-        chat_id: reqObj.userId,
-        text: `✅ *ገንዘብዎ ገብቷል!* *${reqObj.amount.toFixed(2)} ብር* በMain Balance ላይ ተጨምሯል።\n💳 አዲስ Main Balance: *${targetUser.main.toFixed(2)} ብር*`,
-        parse_mode: 'Markdown'
-      });
-    } else if (reqObj.type === 'withdraw') {
-      if (targetUser.main < reqObj.amount) {
-        await tgApi('answerCallbackQuery', {
-          callback_query_id: cb.id,
-          text: '❌ በቂ Main Balance የለውም!',
-          show_alert: true
-        });
-        return;
-      }
-      targetUser.main = Number((targetUser.main - reqObj.amount).toFixed(2));
-      targetUser.withd = Number((targetUser.withd + reqObj.amount).toFixed(2));
-      reqObj.status = 'approved';
-      addHistory(targetUser, {
-        type: 'withdraw_approved',
-        amount: reqObj.amount,
-        reqId,
-        accountInfo: reqObj.accountInfo
-      });
-      saveStore();
-
-      await tgApi('answerCallbackQuery', { callback_query_id: cb.id, text: '✅ Withdraw Approved!' });
-      await tgApi('sendMessage', {
-        chat_id: chatId,
-        text: `✅ Withdraw \`${reqId}\` (*${reqObj.amount} ብር*) Approved ተደርጓል እና ከሂሳቡ ተቀንሷል። ቀሪ Main Balance: *${targetUser.main.toFixed(2)} ብር*።`,
-        parse_mode: 'Markdown'
-      });
-      await tgApi('sendMessage', {
-        chat_id: reqObj.userId,
-        text: `✅ የ *${reqObj.amount.toFixed(2)} ብር* Withdraw ጥያቄዎ ተፈጽሟል።\n💳 ቀሪ Main Balance: *${targetUser.main.toFixed(2)} ብር*`,
-        parse_mode: 'Markdown'
-      });
-    }
+    await tgApi('answerCallbackQuery', {
+      callback_query_id: cb.id,
+      text: isApprove ? '✅ Approved!' : '❌ Rejected!'
+    });
+    await tgApi('sendMessage', {
+      chat_id: chatId,
+      text: isApprove
+        ? `✅ ጥያቄ \`${reqId}\` Approved ተደርጓል። የተጫዋቹ Main Balance: *${resObj.user.main.toFixed(2)} ብር*።`
+        : `❌ ጥያቄ \`${reqId}\` Rejected ተደርጓል።`,
+      parse_mode: 'Markdown'
+    });
   }
 }
 
@@ -1216,6 +1333,15 @@ async function startBotPolling() {
   }
 }
 
+// --- Studio & Admin API Endpoints ---
+function requireStudioPin(req, res, next) {
+  const pin = String(req.headers['x-admin-pin'] || req.query.pin || '').trim();
+  if (pin !== ADMIN_PIN) {
+    return res.status(401).json({ ok: false, error: 'Unauthorized: Invalid PIN' });
+  }
+  next();
+}
+
 app.get('/status', (req, res) => {
   res.json({
     status: 'ok',
@@ -1227,6 +1353,317 @@ app.get('/status', (req, res) => {
     takenBoardsCount: gameState.takenBoards.size,
     totalBoards: TOTAL_BOARDS
   });
+});
+
+app.get('/api/studio/data', requireStudioPin, (req, res) => {
+  const requestsList = Object.values(store.requests).sort(
+    (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+  );
+  res.json({
+    ok: true,
+    live: {
+      phase: gameState.phase,
+      countdown: gameState.countdown,
+      gameId: gameState.gameId,
+      gameCode: gameState.gameCode,
+      takenBoardsCount: gameState.takenBoards.size,
+      totalBoards: TOTAL_BOARDS,
+      prizePool: calculatePrizePool()
+    },
+    settings: store.settings,
+    requests: requestsList,
+    usersCount: Object.keys(store.users).length
+  });
+});
+
+app.post('/api/studio/settings', requireStudioPin, (req, res) => {
+  const { telebirr, cbe, welcomeBonus, minDeposit, minWithdraw } = req.body || {};
+  if (typeof telebirr === 'string' && telebirr.trim()) store.settings.telebirr = telebirr.trim();
+  if (typeof cbe === 'string' && cbe.trim()) store.settings.cbe = cbe.trim();
+  if (Number.isFinite(Number(welcomeBonus)) && Number(welcomeBonus) >= 0) {
+    store.settings.welcomeBonus = Number(welcomeBonus);
+  }
+  if (Number.isFinite(Number(minDeposit)) && Number(minDeposit) >= 1) {
+    store.settings.minDeposit = Number(minDeposit);
+  }
+  if (Number.isFinite(Number(minWithdraw)) && Number(minWithdraw) >= 1) {
+    store.settings.minWithdraw = Number(minWithdraw);
+  }
+  saveStore();
+  res.json({ ok: true, settings: store.settings });
+});
+
+app.post('/api/studio/balance', requireStudioPin, (req, res) => {
+  const targetId = String(req.body?.userId || '').trim();
+  const delta = Number(req.body?.delta);
+  if (!targetId || !Number.isFinite(delta)) {
+    return res.status(400).json({ ok: false, error: 'User ID እና Amount ያስገቡ።' });
+  }
+  const targetUser = getOrCreateUser(targetId);
+  const nextMain = Number((targetUser.main + delta).toFixed(2));
+  if (nextMain < 0) {
+    return res.status(400).json({ ok: false, error: 'ሂሳብ ከዜሮ በታች ሊሆን አይችልም።' });
+  }
+  targetUser.main = nextMain;
+  addHistory(targetUser, {
+    type: 'admin_add',
+    amount: delta,
+    note: 'Studio balance adjustment'
+  });
+  saveStore();
+
+  tgApi('sendMessage', {
+    chat_id: targetId,
+    text: `ℹ️ በአስተዳዳሪ በኩል በሂሳብዎ ላይ *${delta >= 0 ? '+' : ''}${delta.toFixed(2)} ብር* ለውጥ ተደርጓል። አዲስ Main Balance: *${targetUser.main.toFixed(2)} ብር*።`,
+    parse_mode: 'Markdown'
+  });
+
+  res.json({ ok: true, user: targetUser });
+});
+
+app.post('/api/studio/requests/:id/approve', requireStudioPin, (req, res) => {
+  const result = approveRequestById(req.params.id);
+  if (!result.ok) return res.status(400).json(result);
+  res.json(result);
+});
+
+app.post('/api/studio/requests/:id/reject', requireStudioPin, (req, res) => {
+  const result = rejectRequestById(req.params.id);
+  if (!result.ok) return res.status(400).json(result);
+  res.json(result);
+});
+
+app.get('/studio', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="am">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zina Bingo Studio</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 14px; }
+    .card { background: #1e293b; border-radius: 12px; padding: 14px; margin-bottom: 14px; border: 1px solid #334155; }
+    h2, h3 { margin: 0 0 10px 0; }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .stat { background: #0f172a; padding: 10px; border-radius: 8px; }
+    .label { font-size: 11px; color: #94a3b8; }
+    .val { font-size: 18px; font-weight: 700; margin-top: 3px; color: #38bdf8; }
+    input, select { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff; margin-bottom: 8px; }
+    button, a.btn { cursor: pointer; border: none; border-radius: 8px; padding: 9px 12px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 13px; }
+    .btn-blue { background: #2563eb; color: #fff; }
+    .btn-green { background: #16a34a; color: #fff; }
+    .btn-red { background: #dc2626; color: #fff; }
+    .btn-gray { background: #334155; color: #f8fafc; }
+    .req-item { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+    .req-img { max-width: 100%; max-height: 220px; border-radius: 8px; margin: 8px 0; display: block; border: 1px solid #475569; }
+    .badge { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .pending { background: #f59e0b; color: #0f172a; }
+    .approved { background: #16a34a; color: #fff; }
+    .rejected { background: #dc2626; color: #fff; }
+    #lockBox { max-width: 360px; margin: 40px auto; }
+    #appBox { display: none; max-width: 720px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <div id="lockBox" class="card">
+    <h2>🔐 Zina Bingo Studio</h2>
+    <div class="label" style="margin-bottom:8px;">የAdmin PIN ያስገቡ፦</div>
+    <input type="password" id="pinInput" placeholder="Admin PIN" />
+    <button class="btn-blue" style="width:100%;" onclick="unlockStudio()">ክፈት (Unlock)</button>
+    <div id="lockErr" style="color:#f87171; font-size:13px; margin-top:8px;"></div>
+  </div>
+
+  <div id="appBox">
+    <h2>🎬 Zina Bingo Studio</h2>
+
+    <div class="card">
+      <h3>📡 የቀጥታ ጨዋታ ሁኔታ</h3>
+      <div class="grid">
+        <div class="stat"><div class="label">Phase</div><div class="val" id="sPhase">-</div></div>
+        <div class="stat"><div class="label">Countdown</div><div class="val" id="sCount">-</div></div>
+        <div class="stat"><div class="label">Game Code</div><div class="val" id="sCode">-</div></div>
+        <div class="stat"><div class="label">Boards / Pool</div><div class="val" id="sPool">-</div></div>
+      </div>
+      <div style="margin-top:10px;">
+        <a class="btn btn-blue" href="${WEBAPP_URL}" target="_blank">🎮 Mini App ክፈት</a>
+        <button class="btn-gray" onclick="loadAll()">🔄 አድስ</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>⚙️ ቅንብሮችን አስተካክል (Edit Settings)</h3>
+      <div class="label">Telebirr</div>
+      <input type="text" id="cfgTelebirr" />
+      <div class="label">CBE</div>
+      <input type="text" id="cfgCbe" />
+      <div class="grid">
+        <div>
+          <div class="label">Welcome Bonus (ብር)</div>
+          <input type="number" id="cfgBonus" />
+        </div>
+        <div>
+          <div class="label">Min Deposit (ብር)</div>
+          <input type="number" id="cfgMinDep" />
+        </div>
+      </div>
+      <div class="label">Min Withdraw (ብር)</div>
+      <input type="number" id="cfgMinWdr" />
+      <button class="btn-green" onclick="saveSettings()">💾 ቅንብሮችን አስቀምጥ</button>
+    </div>
+
+    <div class="card">
+      <h3>💳 የተጫዋች ሂሳብ ጨምር / ቀንስ</h3>
+      <div class="grid">
+        <input type="text" id="balUserId" placeholder="User ID (ለምሳሌ 7379955498)" />
+        <input type="number" id="balDelta" placeholder="መጠን (ለምሳሌ 50 ወይም -20)" />
+      </div>
+      <button class="btn-blue" onclick="adjustBalance()">ሂሳብ አዘምን</button>
+    </div>
+
+    <div class="card">
+      <h3>📥 Deposit & Withdraw ጥያቄዎች (Screenshot + Tx No)</h3>
+      <div id="requestsList">በመጫን ላይ...</div>
+    </div>
+  </div>
+
+  <script>
+    let currentPin = '';
+
+    function headers() {
+      return {
+        'Content-Type': 'application/json',
+        'x-admin-pin': currentPin
+      };
+    }
+
+    async function unlockStudio() {
+      currentPin = document.getElementById('pinInput').value.trim();
+      const r = await fetch('/api/studio/data', { headers: { 'x-admin-pin': currentPin } });
+      if (r.ok) {
+        document.getElementById('lockBox').style.display = 'none';
+        document.getElementById('appBox').style.display = 'block';
+        loadAll();
+        setInterval(loadAll, 4000);
+      } else {
+        document.getElementById('lockErr').textContent = '❌ የተሳሳተ PIN ነው።';
+      }
+    }
+
+    let settingsInitialized = false;
+
+    async function loadAll() {
+      if (!currentPin) return;
+      const r = await fetch('/api/studio/data', { headers: { 'x-admin-pin': currentPin } });
+      if (!r.ok) return;
+      const d = await r.json();
+
+      document.getElementById('sPhase').textContent = d.live.phase;
+      document.getElementById('sCount').textContent = d.live.countdown + 's';
+      document.getElementById('sCode').textContent = d.live.gameCode;
+      document.getElementById('sPool').textContent = d.live.takenBoardsCount + 'b / ' + d.live.prizePool + 'ብር';
+
+      if (!settingsInitialized) {
+        document.getElementById('cfgTelebirr').value = d.settings.telebirr || '';
+        document.getElementById('cfgCbe').value = d.settings.cbe || '';
+        document.getElementById('cfgBonus').value = d.settings.welcomeBonus ?? 0;
+        document.getElementById('cfgMinDep').value = d.settings.minDeposit ?? 20;
+        document.getElementById('cfgMinWdr').value = d.settings.minWithdraw ?? 50;
+        settingsInitialized = true;
+      }
+
+      renderRequests(d.requests || []);
+    }
+
+    function renderRequests(list) {
+      const box = document.getElementById('requestsList');
+      if (!list.length) {
+        box.innerHTML = '<div class="label">ምንም ጥያቄ የለም።</div>';
+        return;
+      }
+      box.innerHTML = list.map((req) => {
+        const badgeClass = req.status === 'approved' ? 'approved' : (req.status === 'rejected' ? 'rejected' : 'pending');
+        const imgHtml = req.photoUrl
+          ? '<a href="' + req.photoUrl + '" target="_blank"><img class="req-img" src="' + req.photoUrl + '" alt="Screenshot" /></a>'
+          : '';
+        const txHtml = req.txNumber ? '<div><b>Tx No:</b> <code>' + req.txNumber + '</code></div>' : '';
+        const accHtml = req.accountInfo ? '<div><b>Account:</b> <code>' + req.accountInfo + '</code></div>' : '';
+        const actionsHtml = req.status === 'pending'
+          ? '<div style="margin-top:8px;">' +
+              '<button class="btn-green" style="margin-right:8px;" onclick="decideReq(\'' + req.id + '\', \'approve\')">✅ Approve</button>' +
+              '<button class="btn-red" onclick="decideReq(\'' + req.id + '\', \'reject\')">❌ Reject</button>' +
+            '</div>'
+          : '';
+        return (
+          '<div class="req-item">' +
+            '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+              '<b>' + req.type.toUpperCase() + ' • ' + req.amount + ' ብር</b>' +
+              '<span class="badge ' + badgeClass + '">' + req.status + '</span>' +
+            '</div>' +
+            '<div style="font-size:13px; margin-top:6px;">' +
+              '<div><b>User:</b> ' + (req.userName || 'Player') + ' (<code>' + req.userId + '</code>)</div>' +
+              txHtml +
+              accHtml +
+            '</div>' +
+            imgHtml +
+            actionsHtml +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    async function saveSettings() {
+      const body = {
+        telebirr: document.getElementById('cfgTelebirr').value,
+        cbe: document.getElementById('cfgCbe').value,
+        welcomeBonus: Number(document.getElementById('cfgBonus').value),
+        minDeposit: Number(document.getElementById('cfgMinDep').value),
+        minWithdraw: Number(document.getElementById('cfgMinWdr').value)
+      };
+      const r = await fetch('/api/studio/settings', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify(body)
+      });
+      if (r.ok) {
+        alert('✅ ቅንብሮች ተቀምጠዋል!');
+        loadAll();
+      }
+    }
+
+    async function adjustBalance() {
+      const userId = document.getElementById('balUserId').value.trim();
+      const delta = Number(document.getElementById('balDelta').value);
+      const r = await fetch('/api/studio/balance', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ userId, delta })
+      });
+      const d = await r.json();
+      if (r.ok) {
+        alert('✅ ሂሳብ ተዘምኗል! አዲስ Main Balance: ' + d.user.main + ' ብር');
+        document.getElementById('balUserId').value = '';
+        document.getElementById('balDelta').value = '';
+      } else {
+        alert('❌ ' + (d.error || 'ስህተት'));
+      }
+    }
+
+    async function decideReq(id, action) {
+      const r = await fetch('/api/studio/requests/' + encodeURIComponent(id) + '/' + action, {
+        method: 'POST',
+        headers: headers()
+      });
+      const d = await r.json();
+      if (r.ok) {
+        loadAll();
+      } else {
+        alert('❌ ' + (d.error || 'ስህተት'));
+      }
+    }
+  </script>
+</body>
+</html>`);
 });
 
 io.on('connection', (socket) => {
