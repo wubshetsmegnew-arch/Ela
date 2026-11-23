@@ -1,6 +1,7 @@
 const express = require('express');
 const http = require('http');
-const https = require('https');
+const https = require('https');const dns = require('dns');
+
 const fs = require('fs');
 const path = require('path');
 const { Server } = require('socket.io');
@@ -459,6 +460,9 @@ function tgApi(method, body = {}, timeoutMs = 30000) {
         path: `/bot${BOT_TOKEN}/${method}`,
         method: 'POST',
         family: 4,
+                port: 443,
+        lookup: (hostname, opts, cb) => dns.lookup(hostname, { family: 4 }, cb),
+
         timeout: timeoutMs,
         headers: {
           'Content-Type': 'application/json',
