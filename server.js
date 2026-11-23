@@ -1,5 +1,6 @@
 const express = require('express');
 const http = require('http');
+const https = require('https');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const crypto = require('crypto');
@@ -18,7 +19,7 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
-const BOT_TOKEN = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '';
+const BOT_TOKEN = (process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME || '@zinabingo';
 const CHANNEL_URL = process.env.CHANNEL_URL || 'https://t.me/zinabingo';
 const WEBAPP_URL = process.env.WEBAPP_URL || 'https://ela-jbix.onrender.com';
@@ -353,14 +354,45 @@ function startLobby() {
 }
 
 // --- Telegram Bot (@ZinaBingoBot) + @zinabingo Membership Check ---
-async function tgApi(method, body = {}) {
-  if (!BOT_TOKEN) return null;
-  const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+function tgApi(method, body = {}, timeoutMs = 30000) {
+  return new Promise((resolve) => {
+    if (!BOT_TOKEN) return resolve(null);
+    const payload = JSON.stringify(body);
+    const req = https.request(
+      {
+        hostname: 'api.telegram.org',
+        path: `/bot${BOT_TOKEN}/${method}`,
+        method: 'POST',
+        family: 4,
+        timeout: timeoutMs,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload)
+        }
+      },
+      (res) => {
+        let data = '';
+        res.on('data', (chunk) => (data += chunk));
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch {
+            resolve(null);
+          }
+        });
+      }
+    );
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(null);
+    });
+    req.on('error', (err) => {
+      console.error(`tgApi [${method}] error:`, err.message);
+      resolve(null);
+    });
+    req.write(payload);
+    req.end();
   });
-  return res.json();
 }
 
 async function isChannelMember(userId) {
@@ -551,16 +583,13 @@ async function startBotPolling() {
     return;
   }
 
-  // Webhook ካለ በራሱ እንዲጸዳ
   await tgApi('deleteWebhook', { drop_pending_updates: false });
+  console.log('Telegram bot polling started (IPv4).');
 
   let offset = 0;
   while (true) {
     try {
-      const res = await fetch(
-        `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?timeout=25&offset=${offset}`
-      );
-      const data = await res.json();
+      const data = await tgApi('getUpdates', { timeout: 20, offset }, 30000);
       if (data?.ok && Array.isArray(data.result)) {
         for (const update of data.result) {
           offset = update.update_id + 1;
@@ -570,6 +599,8 @@ async function startBotPolling() {
             await handleBotCallback(update.callback_query);
           }
         }
+      } else {
+        await new Promise((r) => setTimeout(r, 2000));
       }
     } catch (err) {
       console.error('Telegram polling error:', err.message);
