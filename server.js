@@ -551,6 +551,9 @@ async function startBotPolling() {
     return;
   }
 
+  // Webhook ካለ በራሱ እንዲጸዳ
+  await tgApi('deleteWebhook', { drop_pending_updates: false });
+
   let offset = 0;
   while (true) {
     try {
