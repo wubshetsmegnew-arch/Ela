@@ -45,8 +45,8 @@ let store = {
     minDeposit: 20,
     minWithdraw: 50
   },
-  users: {}, // userId -> { id, firstName, username, main, bonus, dep, withd, welcomeBonusGiven, history: [] }
-  requests: {} // reqId -> { id, type: 'deposit'|'withdraw', userId, amount, details, status: 'pending'|'approved'|'rejected', createdAt }
+  users: {},
+  requests: {}
 };
 
 function loadStore() {
@@ -74,7 +74,7 @@ function saveStore() {
 
 loadStore();
 
-const adminSessions = new Map(); // adminId -> { mode: 'set_telebirr'|'set_cbe'|'set_bonus'|'add_balance'|'await_deposit_amount'|'await_withdraw_request', targetUserId?, tempAmount? }
+const adminSessions = new Map();
 
 function addHistory(user, entry) {
   if (!Array.isArray(user.history)) user.history = [];
@@ -119,8 +119,7 @@ function getOrCreateUser(userId, info = {}) {
 }
 
 function getWallet(key) {
-  const u = getOrCreateUser(key);
-  return u;
+  return getOrCreateUser(key);
 }
 
 function getSocketKey(socket) {
@@ -449,7 +448,6 @@ function startLobby() {
     }
   }, 1000);
 }
-
 // --- Telegram Bot (@ZinaBingoBot) + @zinabingo Membership Check ---
 function tgApi(method, body = {}, timeoutMs = 30000) {
   return new Promise((resolve) => {
@@ -460,10 +458,9 @@ function tgApi(method, body = {}, timeoutMs = 30000) {
         hostname: 'api.telegram.org',
         path: `/bot${BOT_TOKEN}/${method}`,
         method: 'POST',
+        port: 443,
         family: 4,
-                port: 443,
         lookup: (hostname, opts, cb) => dns.lookup(hostname, { family: 4 }, cb),
-
         timeout: timeoutMs,
         headers: {
           'Content-Type': 'application/json',
@@ -636,7 +633,6 @@ async function handleBotMessage(msg) {
     username: user.username || ''
   });
 
-  // Handle active session inputs (Admin or Deposit/Withdraw)
   const session = adminSessions.get(user.id);
   if (session && !text.startsWith('/')) {
     if (session.mode === 'await_deposit_amount') {
@@ -696,7 +692,6 @@ async function handleBotMessage(msg) {
     }
 
     if (session.mode === 'await_withdraw_request') {
-      // Expected format: <amount> <phone_or_account>
       const parts = text.split(/\s+/);
       const amt = Number(parts[0]);
       const accountInfo = parts.slice(1).join(' ').trim();
@@ -825,7 +820,6 @@ async function handleBotMessage(msg) {
       }
 
       if (session.mode === 'add_balance') {
-        // Expected: <userId> <amount> (can be negative to deduct)
         const parts = text.split(/\s+/);
         const targetId = String(parts[0] || '').trim();
         const delta = Number(parts[1]);
@@ -1100,7 +1094,6 @@ async function handleBotCallback(cb) {
       return;
     }
 
-    // Prevent double approval/rejection
     if (reqObj.status !== 'pending') {
       await tgApi('answerCallbackQuery', {
         callback_query_id: cb.id,
@@ -1274,84 +1267,85 @@ io.on('connection', (socket) => {
   });
 
   socket.on('board:pick', ({ board } = {}) => {
-  const boardId = Number(board);
-  const username = socket.data.username || 'Player';
-  const userId = socket.data.userId || socket.id;
+    const boardId = Number(board);
+    const username = socket.data.username || 'Player';
+    const userId = socket.data.userId || socket.id;
 
-  if (gameState.phase !== 'LOBBY') {
-    socket.emit('board:rejected', { board: boardId, reason: 'in_progress' });
-    return;
-  }
+    if (gameState.phase !== 'LOBBY') {
+      socket.emit('board:rejected', { board: boardId, reason: 'in_progress' });
+      return;
+    }
 
-  const myBoardsCount = [...gameState.takenBoards.values()].filter(
-    (b) => b.socketId === socket.id
-  ).length;
+    const myBoardsCount = [...gameState.takenBoards.values()].filter(
+      (b) => b.socketId === socket.id
+    ).length;
 
-  if (myBoardsCount >= 2) {
-    socket.emit('board:rejected', { board: boardId, reason: 'max_boards' });
-    return;
-  }
+    if (myBoardsCount >= 2) {
+      socket.emit('board:rejected', { board: boardId, reason: 'max_boards' });
+      return;
+    }
 
-  if (!boardTemplates.has(boardId) || gameState.takenBoards.has(boardId)) {
-    socket.emit('board:rejected', { board: boardId, reason: 'taken' });
-    return;
-  }
+    if (!boardTemplates.has(boardId) || gameState.takenBoards.has(boardId)) {
+      socket.emit('board:rejected', { board: boardId, reason: 'taken' });
+      return;
+    }
 
-  gameState.takenBoards.set(boardId, {
-    boardId,
-    socketId: socket.id,
-    userId,
-    username
-  });
+    gameState.takenBoards.set(boardId, {
+      boardId,
+      socketId: socket.id,
+      userId,
+      username
+    });
 
-  io.emit('board:taken', {
-    board: boardId,
-    userId,
-    username,
-    booked: getBookedMap()
-  });
-
-  socket.emit('board:picked', {
-    board: boardId,
-    grid: boardTemplates.get(boardId)
-  });
-});
-
-socket.on('board:unpick', ({ board } = {}) => {
-  const boardId = Number(board);
-  if (gameState.phase !== 'LOBBY') return;
-
-  const entry = gameState.takenBoards.get(boardId);
-  if (entry && entry.socketId === socket.id) {
-    gameState.takenBoards.delete(boardId);
-    io.emit('board:released', {
+    io.emit('board:taken', {
       board: boardId,
+      userId,
+      username,
       booked: getBookedMap()
     });
-  }
-});
 
-socket.on('disconnect', () => {
-  let changed = false;
-  for (const [boardId, entry] of gameState.takenBoards.entries()) {
-    if (entry.socketId === socket.id) {
-      gameState.takenBoards.delete(boardId);
-      changed = true;
-    }
-  }
-  if (changed && gameState.phase === 'LOBBY') {
-    io.emit('state:sync', {
-      phase: gameState.phase,
-      countdown: gameState.countdown,
-      round: gameState.roundNumber,
-      booked: getBookedMap(),
-      called: gameState.calledNumbers,
-      gid: gameState.gameId,
-      gcode: gameState.gameCode,
-      pool: calculatePrizePool(),
-      players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size
+    socket.emit('board:picked', {
+      board: boardId,
+      grid: boardTemplates.get(boardId)
     });
-  }
+  });
+
+  socket.on('board:unpick', ({ board } = {}) => {
+    const boardId = Number(board);
+    if (gameState.phase !== 'LOBBY') return;
+
+    const entry = gameState.takenBoards.get(boardId);
+    if (entry && entry.socketId === socket.id) {
+      gameState.takenBoards.delete(boardId);
+      io.emit('board:released', {
+        board: boardId,
+        booked: getBookedMap()
+      });
+    }
+  });
+
+  socket.on('disconnect', () => {
+    let changed = false;
+    for (const [boardId, entry] of gameState.takenBoards.entries()) {
+      if (entry.socketId === socket.id) {
+        gameState.takenBoards.delete(boardId);
+        changed = true;
+      }
+    }
+    if (changed && gameState.phase === 'LOBBY') {
+      io.emit('state:sync', {
+        phase: gameState.phase,
+        countdown: gameState.countdown,
+        round: gameState.roundNumber,
+        booked: getBookedMap(),
+        called: gameState.calledNumbers,
+        gid: gameState.gameId,
+        gcode: gameState.gameCode,
+        pool: calculatePrizePool(),
+        players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size
+      });
+    }
+  });
 });
 
 server.listen(PORT, '0.0.0.0', () => {
