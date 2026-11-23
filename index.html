@@ -109,7 +109,7 @@ const mini=(l,v)=>`<div class="mini"><small>${l}</small><b>${fmt(v)}</b></div>`;
 const dt=ts=>new Date(ts).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
 let ac;function beep(){if(!S.sound)return;try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=660;g.gain.value=.08;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+.12)}catch(e){}}
 function botBook(n){for(let i=0;i<n;i++){const id=1+Math.floor(Math.random()*600);if(!S.booked[id])S.booked[id]=NAMES[Math.floor(Math.random()*16)]+' '+(10+Math.floor(Math.random()*90))}}
-function start(){botBook(Math.max(0,12-Object.keys(S.booked).length));S.phase='play';S.called=[];S.tick=0;S.left=false;S.gid++;S.gcode=S.round+'_'+rid();const n=Object.keys(S.booked).length;S.players=n-Math.max(0,S.mine.length-1);S.pool=Math.floor(n*S.stake*80/100);S.mine.forEach(id=>S.marks[id]=new Set([0]))}
+function start(){botBook(Math.max(0,12-Object.keys(S.booked).length));S.phase='play';S.called=[];S.tick=0;S.left=false;S.gid++;S.gcode=S.round+'_'+rid();const n=Object.keys(S.booked).length;S.players=n;S.pool=Math.floor(n*S.stake*80/100);S.mine.forEach(id=>S.marks[id]=new Set([0]))}
 function call(){const rest=[...Array(75)].map((_,i)=>i+1).filter(n=>!S.called.includes(n));if(!rest.length)return;const n=rest[Math.floor(Math.random()*rest.length)];S.called.push(n);beep();
  if(S.auto)S.mine.forEach(id=>S.marks[id].add(n));
 evalWin()}
@@ -138,11 +138,11 @@ function arena(){const cs=new Set(S.called),lc=S.called.at(-1),l3=S.called.slice
  let mb='';[...L].forEach(x=>mb+=`<div class="h" style="background:${CL[x]}">${x}</div>`);
  for(let i=0;i<15;i++)for(let k=0;k<5;k++){const n=k*15+i+1,on=cs.has(n);mb+=`<div class="c ${on?'on':''} ${n===lc?'now':''}" style="--c:${CL[L[k]]}">${n}</div>`}
  const cards=S.mine.length?`<div class="cards n${S.mine.length}">`+S.mine.map(id=>`<div class="card"><div class="t"><span>Board № ${id}</span><span>${S.auto?'Auto':'Tap to mark'}</span></div>${cardHtml(id,S.marks[id])}</div>`).join('')+'</div>':`<div class="am">እባክዎ ይህ ጨዋታ እስከሚጨርስ ይጠብቁ</div>`;
- return `<div class="main"><div class="strip"><div><small>Game ID</small>${S.gcode?`<span style="font-size:11px">${S.gcode}</span>`:S.gid}</div><div><small>Derash</small>${S.pool}</div><div><small>Players</small>${S.players}</div><div><small>Stake</small>${S.stake}</div><div><small>Called</small>${S.called.length}</div></div>
+ return `<div class="main"><div class="strip"><div><small>Game ID</small>${S.gcode?`<span style="font-size:11px">${S.gcode}</span>`:S.gid}</div><div><small>Derash</small>${S.pool}</div><div><small>Players</small>${playersCount()}</div><div><small>Stake</small>${S.stake}</div><div><small>Called</small>${S.called.length}</div></div>
  <div class="arena"><div class="mb">${mb}</div><div><div class="cur">${lc?ball(lc,64):'<div class="ball" style="--c:#334;--s:64px"><b>…</b></div>'}<div class="last">${l3.map(n=>`<span class="rc" style="--c:${CL[ltr(n)]}">${ltr(n)}${n}</span>`).join('')}</div></div>
  <div class="tg"><button data-a="sound" class="${S.sound?'on':''}">Sound ${S.sound?'ON':'OFF'}</button><button data-a="auto" class="${S.auto?'on':''}">Auto ${S.auto?'ON':'OFF'}</button></div>${cards}</div></div></div>
  <div class="foot"><button class="btn red" data-a="leave">Leave</button><button class="btn" data-a="refresh">Refresh</button><button class="btn ${S.auto?'on':''}" data-a="auto">Automatic</button></div>`}
-function modal(){const w=S.win;return `<div class="ov"><div class="modal"><h1>BINGO!</h1><p style="font-size:16px;margin:6px 0 10px"><span style="color:var(--gr)">${w.name}</span> has won the game</p><div style="color:var(--ye);font-size:13px;margin:-4px 0 8px">${PNAME[w.pt]}</div><div class="card"><div class="t"><span>Board № ${w.id}</span><span>Prize ${fmt(w.prize)}</span></div>${cardHtml(w.id,null,'win',w.ln)}</div>${w.wc>1?`<div class="split">እኩል ተካፍለዋል · Split equally<br>${fmt(w.pool)} ÷ ${w.wc} = <b>${fmt(w.prize)}</b> each<small>${w.co.slice(0,6).map(x=>x.name+' (№'+x.id+')').join(', ')}${w.co.length>6?' …':''}</small></div>`:`<div class="split">${w.pending?'Prize (up to) ':'Prize '}<b>${fmt(w.prize)}</b></div>`}<p style="color:var(--mu);font-size:13px;margin:6px 0 0">${w.pending?'Verifying with server…':`Next round in <b style="color:#fff;font-size:17px">${S.t}s</b>`}</p><div class="wcn">Winner Cartela: ${w.co.slice(0,6).map(x=>'#'+x.id).join(', ')}${w.co.length>6?' …':''}</div></div></div>`}
+function modal(){const w=S.win;return `<div class="ov"><div class="modal"><h1>BINGO!</h1><p style="font-size:16px;margin:6px 0 10px"><span style="color:var(--gr)">${w.name}</span> has won the game</p><div style="color:var(--ye);font-size:13px;margin:-4px 0 8px">${PNAME[w.pt]||'BINGO!'}</div><div class="card"><div class="t"><span>Board № ${w.id}</span><span>Prize ${fmt(w.prize)}</span></div>${cardHtml(w.id,null,'win',w.ln)}</div>${w.wc>1?`<div class="split">እኩል ተካፍለዋል · Split equally<br>${fmt(w.pool)} ÷ ${w.wc} = <b>${fmt(w.prize)}</b> each<small>${w.co.slice(0,6).map(x=>x.name+' (№'+x.id+')').join(', ')}${w.co.length>6?' …':''}</small></div>`:`<div class="split">${w.pending?'Prize (up to) ':'Prize '}<b>${fmt(w.prize)}</b></div>`}<p style="color:var(--mu);font-size:13px;margin:6px 0 0">${w.pending?'Verifying with server…':`Next round in <b style="color:#fff;font-size:17px">${S.t}s</b>`}</p><div class="wcn">Winner Cartela: ${w.co.slice(0,6).map(x=>'#'+x.id).join(', ')}${w.co.length>6?' …':''}</div></div></div>`}
 function panel(){const t=S.tab;let b='';
  if(t==='history')b=S.hist.length?S.hist.map(h=>`<div class="row"><span>#${h.gid} · ${h.name} (№${h.id})</span><span style="color:var(--gr)">${h.prize}</span></div>`).join(''):'<p style="color:var(--mu)">No rounds finished yet.</p>';
  if(t==='wallet')b=`<div class="pill" style="margin:8px 0"><small>Balance</small><b style="font-size:28px">${S.wallet}</b></div><div class="bar"><button class="btn grn" data-a="topup">Add 500 (test)</button></div>`;
@@ -216,7 +216,9 @@ function livePick(i){const rk=roomKey();
   else if(!S.booked[i]&&S.mine.length<2){S.mine.push(i);S.booked[i]=ME.name;S.paid[i]=1;S.lowNeed=0;emit(EV.pick,{room:rk,board:i})}}
 function toCols(rows){const c=[0,1,2,3,4].map(k=>[0,1,2,3,4].map(r=>{const v=rows[r][k];return(v==null||v===0||v==='*'||String(v).toUpperCase()==='FREE')?0:+v}));c[2][2]=0;return c}
 function setCards(m){if(!m)return;for(const k in m){try{S.cards[k]=toCols(m[k])}catch(e){}}}
-function liveBingo(id){if(S.phase!=='play'||S.claimed[id]||!S.marks[id])return;const cs=new Set(S.called);if(!winLine(card(id),S.marks[id],cs))return;S.claimed[id]=1;emit(EV.claim,{room:roomKey(),board:id})}
+function liveBingo(id){if(S.phase!=='play'||S.claimed[id]||!S.marks[id])return;const cs=new Set(S.called),p=winLine(card(id),S.marks[id],cs);if(!p)return;S.claimed[id]=1;emit(EV.claim,{room:roomKey(),board:id});
+  showWin({winners:[{board:id,name:ME.name,userId:ME.id,pattern:p.t,line:p.c}],pool:S.pool,prize:S.pool,called:[...S.called]},true)}
+function playersCount(){const boards=Object.keys(S.booked||{}).length,srv=+S.players;return Math.max(boards,Number.isInteger(srv)&&srv>0?srv:0,S.mine.length)}
 function applyWallet(w){if(w.main!=null)S.wallet=+w.main;if(w.bonus!=null)S.bonus=+w.bonus;if(w.dep!=null)S.dep=+w.dep}
 function liveTopup(v){if(!socket)return;socket.timeout(2500).emit(EV.topup,{amount:v,user:ME},(err,res)=>{
   if(err){S.wallet+=v;S.dep+=v;addTx('Deposit (local, no server reply)',v)}else if(res&&res.wallet)applyWallet(res.wallet);
@@ -232,6 +234,27 @@ function applyState(d){const prev=S.phase;d=Object.assign({},d);if(d.phase==='wi
   if(d.pool!=null)S.pool=d.pool;if(d.players!=null)S.players=d.players;if(d.wallet)applyWallet(d.wallet);if(d.cards)setCards(d.cards);
   S.mine.forEach(id=>{if(S.paid[id]==null)S.paid[id]=1});
   if(S.phase==='lobby'){S.marks={};S.win=null;S.left=false;S.called=[];S.claimed={};if(prev!=='lobby'){S.played=null;S.holdUntil=0;if(d.mine===undefined){S.mine=[];S.paid={}}}}else if(S.phase==='play')initMarks()}
+function showWin(d,local){
+  if(!d||!Array.isArray(d.winners)||!d.winners.length)return;
+  const holding=S.holdUntil&&Date.now()<S.holdUntil&&S.phase==='win';
+  if(holding&&!(S.win&&S.win.local&&!local))return;                 // already celebrating; only the server result may upgrade a local one
+  setCards(d.cards);d.winners.forEach(x=>{if(x&&(x.rows||x.card))setCards({[x.board]:x.rows||x.card})});
+  const called=Array.isArray(d.called)&&d.called.length?d.called:[...S.called],cs=new Set(called);
+  const okCell=c=>Array.isArray(c)&&c.length===2&&c.every(v=>Number.isInteger(v)&&v>=0&&v<=4),okLine=l=>Array.isArray(l)&&(l.length===4||l.length===5)&&l.every(okCell);
+  const w=[];d.winners.forEach(x=>{const b=x?+x.board:NaN;if(!Number.isInteger(b)||b<1||b>600)return;
+    let ln=okLine(x.line)?x.line:null,pt=PNAME[x.pattern]?x.pattern:null;
+    if(!ln||!pt){const p=winLine(card(b),cs,cs);if(p){ln=ln||p.c;pt=pt||p.t}}
+    w.push({...x,board:b,line:ln||[],pattern:pt})});
+  if(!w.length)return;                                                // no valid winning board -> ignore
+  const mh=w.filter(isMine),h=mh[0]||w[0],pool=d.pool!=null?d.pool:S.pool,prize=(d.prize!=null&&isFinite(+d.prize))?+d.prize:Math.floor(pool/w.length);
+  const win={id:h.board,name:mh.length?ME.name+' (You)':h.name,ln:h.line,pt:h.pattern,mine:mh.length>0,called,wc:w.length,pool,prize,local:!!local,counted:holding?S.win.counted:0,co:w.map(x=>({id:x.board,name:isMine(x)?'You':x.name}))};
+  const ent=S.hist.find(x=>x.gid===S.gcode);
+  if(holding){S.win=win;if(ent){ent.prize=prize;ent.win=mh.length>0;ent.wb=w.map(x=>x.board);ent.wc=w.length}}
+  else{S.phase='win';S.t=7;S.holdUntil=Date.now()+7000;S.queued=null;S.called=called;S.win=win;
+    const my=S.played!=null?S.played:S.mine;if(my.length&&!ent)S.hist.unshift({gid:S.gcode,ts:Date.now(),stake:S.stake,prize,win:mh.length>0,my:[...my],wb:w.map(x=>x.board),wc:w.length})}
+  if(mh.length&&!win.counted){S.won++;win.counted=1}
+  if(d.wallet)applyWallet(d.wallet);
+  render(1)}
 function liveInit(){
   if(!window.io||SERVER_URL.includes('PASTE'))return;
   socket=io(SERVER_URL,{transports:['websocket','polling'],auth:{userId:ME.id,name:ME.name,initData:ME.initData}});
@@ -249,24 +272,7 @@ function liveInit(){
   socket.on(EV.card,d=>{if(d&&d.rows)setCards({[d.board]:d.rows});render()});
   socket.on(EV.start,d=>{const hold=S.holdUntil&&Date.now()<S.holdUntil;if(S.phase==='play'&&d.gcode&&d.gcode===S.gcode)return;if(!hold){S.claimed={};S.marks={};if(S.phase==='play')S.phase='lobby'}applyState({...d,phase:'play',called:[]});if(!hold){S.played=[...S.mine];S.left=false}render(1)});
   socket.on(EV.call,d=>{if(S.holdUntil&&Date.now()<S.holdUntil)return;S.called=d.called||[...S.called,d.n];if(S.auto)S.mine.forEach(id=>S.marks[id]&&S.marks[id].add(d.n));beep();S.mine.forEach(liveBingo);render(1)});
-  socket.on(EV.win,d=>{
-    if(S.holdUntil&&Date.now()<S.holdUntil&&S.phase==='win')return;                    // already celebrating
-    if(!d||!Array.isArray(d.winners)||!d.winners.length)return;                          // no winner -> ignore
-    setCards(d.cards);d.winners.forEach(x=>{if(x&&(x.rows||x.card))setCards({[x.board]:x.rows||x.card})});
-    const called=Array.isArray(d.called)&&d.called.length?d.called:[...S.called],cs=new Set(called);
-    const okCell=c=>Array.isArray(c)&&c.length===2&&c.every(v=>Number.isInteger(v)&&v>=0&&v<=4),okLine=l=>Array.isArray(l)&&(l.length===4||l.length===5)&&l.every(okCell);
-    const w=[];d.winners.forEach(x=>{const b=x?+x.board:NaN;if(!Number.isInteger(b)||b<1||b>600)return;
-      let ln=okLine(x.line)?x.line:null,pt=x.pattern;
-      if(!ln||!pt){const p=winLine(card(b),cs,cs);if(p){ln=ln||p.c;pt=pt||p.t}}
-      if(!ln||!pt||!PNAME[pt])return;w.push({...x,board:b,line:ln,pattern:pt})});
-    if(!w.length){console.warn('game:win ignored: no valid winning board/line');return}
-    const mh=w.filter(isMine),h=mh[0]||w[0],pool=d.pool!=null?d.pool:S.pool,prize=(d.prize!=null&&isFinite(+d.prize))?+d.prize:Math.floor(pool/w.length);
-    S.phase='win';S.t=7;S.holdUntil=Date.now()+7000;S.queued=null;S.called=called;
-    S.win={id:h.board,name:mh.length?ME.name+' (You)':h.name,ln:h.line,pt:h.pattern,mine:mh.length>0,called,wc:w.length,pool,prize,co:w.map(x=>({id:x.board,name:isMine(x)?'You':x.name}))};
-    const my=S.played!=null?S.played:S.mine;if(my.length&&!S.hist.some(x=>x.gid===S.gcode))S.hist.unshift({gid:S.gcode,ts:Date.now(),stake:S.stake,prize,win:mh.length>0,my:[...my],wb:w.map(x=>x.board),wc:w.length});
-    if(mh.length)S.won++;
-    if(d.wallet)applyWallet(d.wallet);
-    render(1)});
+  socket.on(EV.win,d=>showWin(d,false));
 }
 liveInit();
 /* ================= END LIVE LAYER ================= */
