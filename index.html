@@ -115,13 +115,13 @@ function call(){const rest=[...Array(75)].map((_,i)=>i+1).filter(n=>!S.called.in
 evalWin()}
 function evalWin(){if(S.phase!=='play')return;const cs=new Set(S.called),hits=[];
  for(const k in S.booked){const id=+k,mine=S.mine.includes(id);if(!mine&&S.called.length<MINCALLS)continue;const set=mine?S.marks[id]:cs,c=card(id),p=winLine(c,set,cs);if(p&&p.c.every(([x,y])=>c[x][y]===0||(S.called.includes(c[x][y])&&set.has(c[x][y]))))hits.push({id,ln:p.c,pt:p.t,mine})}
- if(hits.length){const h=hits.find(x=>x.mine)||hits[Math.floor(Math.random()*hits.length)],name=h.mine?ME.name+' (You)':S.booked[h.id],prize=Math.floor(S.pool/hits.length),mh=hits.filter(x=>x.mine);S.phase='win';S.t=10;S.win={...h,name,prize,called:[...S.called],wc:hits.length,pool:S.pool,co:hits.map(x=>({id:x.id,name:x.mine?'You':S.booked[x.id]}))};if(mh.length){S.wallet+=prize*mh.length;S.won++;addTx('Game prize',prize*mh.length)}if(S.mine.length)S.hist.unshift({gid:S.gcode,ts:Date.now(),stake:S.stake,prize,win:mh.length>0,my:[...S.mine],wb:hits.map(x=>x.id),wc:hits.length});
+ if(hits.length){const h=hits.find(x=>x.mine)||hits[Math.floor(Math.random()*hits.length)],name=h.mine?ME.name+' (You)':S.booked[h.id],prize=Math.floor(S.pool/hits.length),mh=hits.filter(x=>x.mine);S.phase='win';S.t=7;S.holdUntil=Date.now()+7000;S.win={...h,name,prize,called:[...S.called],wc:hits.length,pool:S.pool,co:hits.map(x=>({id:x.id,name:x.mine?'You':S.booked[x.id]}))};if(mh.length){S.wallet+=prize*mh.length;S.won++;addTx('Game prize',prize*mh.length)}if(S.mine.length)S.hist.unshift({gid:S.gcode,ts:Date.now(),stake:S.stake,prize,win:mh.length>0,my:[...S.mine],wb:hits.map(x=>x.id),wc:hits.length});
   }}
 function newRound(){S.round++;S.phase='lobby';S.t=30;S.booked={};S.paid={};S.mine=[];S.marks={};S.called=[];S.win=null;S.left=false}
-function tick(){if(LIVE){if(S.holdUntil){const r=Math.max(0,Math.ceil((S.holdUntil-Date.now())/1000));if(r!==S.t){S.t=r;render()}if(Date.now()>=S.holdUntil)endHold()}return}S.h=(S.h||0)+1;const sec=S.h%2===0;
+function tick(){if(LIVE){if(S.holdUntil){const r=Math.max(0,Math.ceil((S.holdUntil-Date.now())/1000));if(r!==S.t){S.t=r;render(1)}if(Date.now()>=S.holdUntil)endHold()}return}S.h=(S.h||0)+1;const sec=S.h%2===0;
  if(S.phase==='lobby'){if(!sec)return;S.t--;botBook(1+Math.floor(Math.random()*4));if(S.t<=0)start()}
  else if(S.phase==='play'){S.tick++;if(!(S.tick>=6&&(S.tick-6)%5===0))return;call()}
- else{if(!sec)return;if(--S.t<=0)newRound()}
+ else{const now=Date.now();if(!S.holdUntil)S.holdUntil=now+S.t*1000;if(now>=S.holdUntil){S.holdUntil=0;newRound()}else{const r=Math.ceil((S.holdUntil-now)/1000);if(r===S.t)return;S.t=r}}
  render()}
 const ball=(n,s)=>`<div class="ball" style="--c:${CL[ltr(n)]};--s:${s}px"><i>${ltr(n)}</i><b>${n}</b></div>`;
 const hdr=()=>[...L].map(x=>`<div class="h" style="background:${CL[x]}">${x}</div>`).join('');
@@ -224,7 +224,7 @@ function liveTopup(v){if(!socket)return;socket.timeout(2500).emit(EV.topup,{amou
   if(err){S.wallet+=v;S.dep+=v;addTx('Deposit (local, no server reply)',v)}else if(res&&res.wallet)applyWallet(res.wallet);
   S.lowNeed=0;render(1)})}
 function initMarks(){S.mine.forEach(id=>{if(!S.marks[id])S.marks[id]=new Set([0]);if(S.auto)S.called.forEach(n=>S.marks[id].add(n))})}
-function endHold(){S.holdUntil=0;const q=S.queued;S.queued=null;if(q)applyState(q);else{S.phase='lobby';S.win=null;S.marks={};S.called=[];S.claimed={};S.played=null;S.mine=[];S.paid={};S.left=false}render(1)}
+function endHold(){S.holdUntil=0;const q=S.queued;S.queued=null;if(q){applyState(q);if(S.phase==='play'){S.claimed={};S.played=[...S.mine]}}else{S.phase='lobby';S.win=null;S.marks={};S.called=[];S.claimed={};S.played=null;S.mine=[];S.paid={};S.left=false}render(1)}
 function applyState(d){const prev=S.phase;if(S.holdUntil&&Date.now()<S.holdUntil){if(d.wallet)applyWallet(d.wallet);if(d.cards)setCards(d.cards);if(d.phase!=='win')S.queued=Object.assign(S.queued||{},d);return}
   if(d.phase)S.phase=d.phase;if(d.t!=null)S.t=d.t;if(d.stake)S.stake=d.stake;
   if(d.booked)S.booked=d.booked;if(d.mine)S.mine=d.mine.map(Number);if(d.paid)S.paid=d.paid;
@@ -244,13 +244,13 @@ function liveInit(){
   socket.on(EV.rejected,d=>{const b=+d.board;S.mine=S.mine.filter(x=>x!==b);delete S.paid[b];delete S.booked[b];if(d.reason==='insufficient')S.lowNeed=S.stake;render(1)});
   socket.on(EV.wallet,w=>{applyWallet(w);render(1)});
   socket.on(EV.card,d=>{if(d&&d.rows)setCards({[d.board]:d.rows});render()});
-  socket.on(EV.start,d=>{S.claimed={};applyState({...d,phase:'play',called:[]});S.played=[...S.mine];S.left=false;render(1)});
-  socket.on(EV.call,d=>{S.called=d.called||[...S.called,d.n];if(S.auto)S.mine.forEach(id=>S.marks[id]&&S.marks[id].add(d.n));beep();S.mine.forEach(liveBingo);render(1)});
-  socket.on(EV.win,d=>{
+  socket.on(EV.start,d=>{const hold=S.holdUntil&&Date.now()<S.holdUntil;if(!hold)S.claimed={};applyState({...d,phase:'play',called:[]});if(!hold){S.played=[...S.mine];S.left=false}render(1)});
+  socket.on(EV.call,d=>{if(S.holdUntil&&Date.now()<S.holdUntil)return;S.called=d.called||[...S.called,d.n];if(S.auto)S.mine.forEach(id=>S.marks[id]&&S.marks[id].add(d.n));beep();S.mine.forEach(liveBingo);render(1)});
+  socket.on(EV.win,d=>{if(S.holdUntil&&Date.now()<S.holdUntil&&S.win&&!S.win.pending)return;
     const w=d.winners||[];if(!w.length)return;setCards(d.cards);w.forEach(x=>{if(x.rows||x.card)setCards({[x.board]:x.rows||x.card})});const mh=w.filter(isMine),h=mh[0]||w[0],called=d.called||[...S.called];
     let ln=h.line,pt=h.pattern;if(!ln||!pt){const cs=new Set(called),p=winLine(card(+h.board),cs,cs);if(p){ln=p.c;pt=p.t}}
     const pool=d.pool!=null?d.pool:S.pool;
-    S.phase='win';S.t=10;S.holdUntil=Date.now()+10000;S.queued=null;S.called=called;
+    S.phase='win';S.t=7;S.holdUntil=Date.now()+7000;S.queued=null;S.called=called;
     S.win={id:+h.board,name:mh.length?ME.name+' (You)':h.name,ln,pt,mine:mh.length>0,called,wc:w.length,pool,prize:d.prize,co:w.map(x=>({id:+x.board,name:isMine(x)?'You':x.name}))};
     const my=S.played!=null?S.played:S.mine;if(my.length&&!S.hist.some(x=>x.gid===S.gcode))S.hist.unshift({gid:S.gcode,ts:Date.now(),stake:S.stake,prize:d.prize,win:mh.length>0,my:[...my],wb:w.map(x=>+x.board),wc:w.length});
     if(mh.length)S.won++;
