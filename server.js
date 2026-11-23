@@ -1274,23 +1274,88 @@ io.on('connection', (socket) => {
   });
 
   socket.on('board:pick', ({ board } = {}) => {
-    const boardId = Number(board);
-    const username = socket.data.username || 'Player';
-    const userId = socket.data.userId || socket.id;
+  const boardId = Number(board);
+  const username = socket.data.username || 'Player';
+  const userId = socket.data.userId || socket.id;
 
-    if (gameState.phase !== 'LOBBY') {
-      socket.emit('board:rejected', { board: boardId, reason: 'in_progress' });
-      return;
+  if (gameState.phase !== 'LOBBY') {
+    socket.emit('board:rejected', { board: boardId, reason: 'in_progress' });
+    return;
+  }
+
+  const myBoardsCount = [...gameState.takenBoards.values()].filter(
+    (b) => b.socketId === socket.id
+  ).length;
+
+  if (myBoardsCount >= 2) {
+    socket.emit('board:rejected', { board: boardId, reason: 'max_boards' });
+    return;
+  }
+
+  if (!boardTemplates.has(boardId) || gameState.takenBoards.has(boardId)) {
+    socket.emit('board:rejected', { board: boardId, reason: 'taken' });
+    return;
+  }
+
+  gameState.takenBoards.set(boardId, {
+    boardId,
+    socketId: socket.id,
+    userId,
+    username
+  });
+
+  io.emit('board:taken', {
+    board: boardId,
+    userId,
+    username,
+    booked: getBookedMap()
+  });
+
+  socket.emit('board:picked', {
+    board: boardId,
+    grid: boardTemplates.get(boardId)
+  });
+});
+
+socket.on('board:unpick', ({ board } = {}) => {
+  const boardId = Number(board);
+  if (gameState.phase !== 'LOBBY') return;
+
+  const entry = gameState.takenBoards.get(boardId);
+  if (entry && entry.socketId === socket.id) {
+    gameState.takenBoards.delete(boardId);
+    io.emit('board:released', {
+      board: boardId,
+      booked: getBookedMap()
+    });
+  }
+});
+
+socket.on('disconnect', () => {
+  let changed = false;
+  for (const [boardId, entry] of gameState.takenBoards.entries()) {
+    if (entry.socketId === socket.id) {
+      gameState.takenBoards.delete(boardId);
+      changed = true;
     }
+  }
+  if (changed && gameState.phase === 'LOBBY') {
+    io.emit('state:sync', {
+      phase: gameState.phase,
+      countdown: gameState.countdown,
+      round: gameState.roundNumber,
+      booked: getBookedMap(),
+      called: gameState.calledNumbers,
+      gid: gameState.gameId,
+      gcode: gameState.gameCode,
+      pool: calculatePrizePool(),
+      players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size
+    });
+  }
+});
 
-    const myBoardsCount = [...gameState.takenBoards.values()].filter(
-      (b) => b.socketId === socket.id
-    ).length;
-
-    if (myBoardsCount >= 2) {
-      socket.emit('board:rejected', { board: boardId, reason: 'max_boards' });
-      return;
-    }
-
-    if (!boardTemplates.has(boardId) || gameState.takenBoards.has(boardId)) {
-      socket.emit
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Bingo server running on port ${PORT}`);
+  startLobby();
+  startBotPolling();
+});
