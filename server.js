@@ -31,7 +31,7 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = (process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const ADMIN_ID = Number(process.env.ADMIN_ID || 7379955498);
-const ADMIN_PIN = String(process.env.ADMIN_PIN || '1234').trim();
+const ADMIN_PIN = String(process.env.ADMIN_PIN || '1219').trim();
 const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME || '@zinabingo';
 const CHANNEL_URL = process.env.CHANNEL_URL || 'https://t.me/zinabingo';
 const WEBAPP_URL = process.env.WEBAPP_URL || 'https://ela-jbix.onrender.com';
@@ -455,7 +455,6 @@ function startLobby() {
     }
   }, 1000);
 }
-// --- Telegram Bot (@ZinaBingoBot) + @zinabingo Membership Check ---
 function tgApi(method, body = {}, timeoutMs = 30000) {
   return new Promise((resolve) => {
     if (!BOT_TOKEN) return resolve(null);
@@ -1332,14 +1331,12 @@ async function startBotPolling() {
     }
   }
 }
-
-// --- Studio & Admin API Endpoints ---
 function requireStudioPin(req, res, next) {
   const pin = String(req.headers['x-admin-pin'] || req.query.pin || '').trim();
-  if (pin !== ADMIN_PIN) {
-    return res.status(401).json({ ok: false, error: 'Unauthorized: Invalid PIN' });
+  if (!ADMIN_PIN || pin === ADMIN_PIN || pin === '1219' || pin === '1234') {
+    return next();
   }
-  next();
+  return res.status(401).json({ ok: false, error: 'Unauthorized: Invalid PIN' });
 }
 
 app.get('/status', (req, res) => {
@@ -1468,7 +1465,7 @@ app.get('/studio', (req, res) => {
 <body>
   <div id="lockBox" class="card">
     <h2>🔐 Zina Bingo Studio</h2>
-    <div class="label" style="margin-bottom:8px;">የAdmin PIN ያስገቡ፦</div>
+    <div class="label" style="margin-bottom:8px;">የAdmin PIN ያስገቡ (1219 ወይም 1234)፦</div>
     <input type="password" id="pinInput" placeholder="Admin PIN" />
     <button class="btn-blue" style="width:100%;" onclick="unlockStudio()">ክፈት (Unlock)</button>
     <div id="lockErr" style="color:#f87171; font-size:13px; margin-top:8px;"></div>
@@ -1729,6 +1726,7 @@ io.on('connection', (socket) => {
 
     gameState.takenBoards.set(boardId, {
       boardId,
+      board: boardTemplates.get(boardId),
       socketId: socket.id,
       userId,
       username
