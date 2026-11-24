@@ -1968,41 +1968,45 @@ app.get('/studio', (req, res) => {
     }
 
     async function adjustBalance() {
-      const userId = document.getElementById('balUserId').value.trim();
-      const delta = Number(document.getElementById('balDelta').value);
-      const r = await fetch('/api/studio/balance', {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ userId, delta })
-      });
-      const d = await r.json();
-      if (r.ok) {
-        alert('✅ ሂሳብ ተዘምኗል! አዲስ Main Balance: ' + d.user.main + ' ብር');
-        document.getElementById('balUserId').value = '';
-        document.getElementById('balDelta').value = '';
-      } else {
-        alert('❌ ' + (d.error || 'ስህተት'));
-      }
-    }
+  const userId = document.getElementById('balUserId').value.trim();
+  const delta = Number(document.getElementById('balDelta').value);
+  const r = await fetch('/api/studio/balance', {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ userId, delta })
+  });
+  const d = await r.json();
+  if (r.ok) {
+    alert('✅ ሂሳብ ተዘምኗል! አዲስ Main Balance: ' + d.user.main + ' ብር');
+    document.getElementById('balUserId').value = '';
+    document.getElementById('balDelta').value = '';
+  } else {
+    alert('❌ ' + (d.error || 'ስህተት'));
+  }
+}
 
-        async function decideReq(id, action) {
-      const r = await fetch('/api/studio/requests/' + encodeURIComponent(id) + '/' + action, {
-        method: 'POST',
-        headers: headers()
-      });
-      const d = await r.json();
-      if (r.ok) {
-        loadAll();
-      } else {
-        alert('❌ ' + (d.error || 'ስህተት'));
-      }
-    }
-
+async function decideReq(id, action) {
+  const r = await fetch('/api/studio/requests/' + encodeURIComponent(id) + '/' + action, {
+    method: 'POST',
+    headers: headers()
+  });
+  const d = await r.json();
+  if (r.ok) {
     loadAll();
-    setInterval(loadAll, 4000);
-  </script>
+  } else {
+    alert('❌ ' + (d.error || 'ስህተት'));
+  }
+}
+
+loadAll();
+setInterval(loadAll, 4000);
+</script>
 </body>
 </html>`);
+});
+
+app.get('/studio', (req, res) => {
+  res.sendFile(path.join(__dirname, 'studio.html'));
 });
 
 server.listen(PORT, '0.0.0.0', () => {
