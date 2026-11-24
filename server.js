@@ -1523,7 +1523,6 @@ app.get('/studio', (req, res) => {
       <div id="requestsList">በመጫን ላይ...</div>
     </div>
   </div>
-
   <script>
     let currentPin = '';
 
@@ -1536,14 +1535,21 @@ app.get('/studio', (req, res) => {
 
     async function unlockStudio() {
       currentPin = document.getElementById('pinInput').value.trim();
-      const r = await fetch('/api/studio/data', { headers: { 'x-admin-pin': currentPin } });
-      if (r.ok) {
-        document.getElementById('lockBox').style.display = 'none';
-        document.getElementById('appBox').style.display = 'block';
-        loadAll();
-        setInterval(loadAll, 4000);
-      } else {
-        document.getElementById('lockErr').textContent = '❌ የተሳሳተ PIN ነው።';
+      const errBox = document.getElementById('lockErr');
+      errBox.textContent = 'በመፈተሽ ላይ...';
+      try {
+        const r = await fetch('/api/studio/data', { headers: { 'x-admin-pin': currentPin } });
+        if (r.ok) {
+          errBox.textContent = '';
+          document.getElementById('lockBox').style.display = 'none';
+          document.getElementById('appBox').style.display = 'block';
+          loadAll();
+          setInterval(loadAll, 4000);
+        } else {
+          errBox.textContent = '❌ የተሳሳተ PIN ነው (' + r.status + ')።';
+        }
+      } catch (e) {
+        errBox.textContent = '❌ የኔትወርክ ወይም የሰርቨር ስህተት: ' + e.message;
       }
     }
 
