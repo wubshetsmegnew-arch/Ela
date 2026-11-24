@@ -1985,7 +1985,7 @@ app.get('/studio', (req, res) => {
       }
     }
 
-    async function decideReq(id, action) {
+        async function decideReq(id, action) {
       const r = await fetch('/api/studio/requests/' + encodeURIComponent(id) + '/' + action, {
         method: 'POST',
         headers: headers()
