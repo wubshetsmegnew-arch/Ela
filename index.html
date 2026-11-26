@@ -153,8 +153,136 @@ function panel(){const t=S.tab;let b='';
 function welcome(){return `<div class="main"><div class="hero"><small>Welcome to</small><h1>${APP}</h1><p>75-ball multiplayer bingo</p></div>
 <div class="bar" style="justify-content:space-between;margin:12px 0"><div class="pill" style="flex-direction:row;align-items:center;gap:8px"><span style="font-size:18px">👛</span><b>${S.hide?'••••••':fmt(tot())}</b></div><div class="bar" style="gap:6px"><button class="btn" data-a="eye">${S.hide?'👁 Show':'🙈 Hide'}</button><button class="btn" data-a="help">? መመሪያ</button></div></div>
 ${tot()<Math.min(...S.rooms.map(r=>r.s))?low(Math.min(...S.rooms.map(r=>r.s))):''}<h3 class="sec">Choose Your Stake</h3><div style="color:var(--mu);font-size:12px;margin:-4px 0 8px">${S.phase==='lobby'?'Next round starts in '+S.t+'s':'Round in progress · join the next one'}</div>
-<div class="stk">${S.rooms.map((r,i)=>`<button data-a="room" data-i="${i}">Play ${r.s} №${r.n}</button>`).join('')}</div><button class="btn" data-a="addroom" style="width:100%">＋ Add stake</button></div>`}
+<div class="stk">${S.rooms.map((r,i)=>`<button data-a="room" data-i="${i}">Play ${r.s} № ${r.n}</button>`).join('')}</div><button class="btn" data-a="addroom" style="width:100%">＋ Add stake</button></div>`}
 function panel2(){const t=S.tab;let b='';
  if(t==='wallet'){b=`<div class="ph"><div><h2>WALLET</h2><b class="gr">${fmt(tot())}</b></div><button class="btn" data-a="reload">⟳ Reload</button></div><div class="tg"><button data-a="wtab" data-t="bal" class="${S.wtab==='bal'?'on':''}">BALANCES</button><button data-a="wtab" data-t="his" class="${S.wtab==='his'?'on':''}">HISTORY</button></div>`;
   b+=S.wtab==='bal'?`<div class="gcard"><small>TOTAL BALANCE</small><b>${fmt(tot())}</b></div><div class="tri">${mini('MAIN',S.wallet)}${mini('BONUS',S.bonus)}${mini('DEPOSITED',S.dep)}</div><h3 class="sec">Test controls</h3><div class="tg"><button data-a="dep" data-v="100">Deposit 100</button><button data-a="dep" data-v="500">Deposit 500</button><button data-a="dep" data-v="1000">Deposit 1000</button></div><div class="tg"><button data-a="bonus">Add 50 bonus</button><button data-a="reset">Reset wallet</button></div>`:(S.tx.length?S.tx.map(x=>`<div class="row"><span>${x.l}<small style="display:block;color:var(--mu);font-size:10px">${dt(x.ts)}</small></span><span style="color:${x.a>=0?'var(--gr)':'#F87171'}">${x.a>=0?'+':'−'}${fmt(Math.abs(x.a))}</span></div>`).join(''):'<p style="color:var(--mu)">No transactions yet.</p>')}
- if(t==='history'){b=`<div class="ph"><h2>GAME HISTORY</h2><button class="btn" data-a="reload">⟳ Reload</button></div><div style="margin-top:10px">${S.hist.length?'':'<p style="color:var(--mu)">No games played yet.</p>'}${S.hist.map(h=>`<div class="hc"><div class="hh"><div><b>Game #${h.gid}</b><small>${dt(h.ts)}</small></div><span class="badge ${h.win?'win':'loss'}">${h.win?'WIN':'LOSS'}</span></div><div class="g2"><div><small>Stake</small><b>${fmt(h.stake)}</b></div><div><small>Prize</small><b style="color:var(--gr)">${fmt(h.prize)}</b></div><div><small>My Boards</small><b>${h.my.map(x=>'#'
+ if(t==='history'){b=`<div class="ph"><h2>GAME HISTORY</h2><button class="btn" data-a="reload">⟳ Reload</button></div><div style="margin-top:10px">${S.hist.length?'':'<p style="color:var(--mu)">No games played yet.</p>'}${S.hist.map(h=>`<div class="hc"><div class="hh"><div><b>Game #${h.gid}</b><small>${dt(h.ts)}</small></div><span class="badge ${h.win?'win':'loss'}">${h.win?'WIN':'LOSS'}</span></div><div class="g2"><div><small>Stake</small><b>${fmt(h.stake)}</b></div><div><small>Prize</small><b style="color:var(--gr)">${fmt(h.prize)}</b></div><div><small>My Boards</small><b>${h.my.map(x=>'#'+x).join(', ')}</b></div><div><small>Winners' Boards</small><b>${h.wb.slice(0,4).map(x=>'#'+x).join(', ')}</b></div><div><small>Winners</small><b>${h.wc}</b></div></div></div>`).join('')}</div>`}
+ if(t==='profile'){b=`<h2 style="margin:6px 0">PROFILE</h2><div class="hc"><small style="color:var(--mu)">ACCOUNT</small><div class="bar" style="margin-top:8px;gap:12px"><div class="av">${ME.name[0]||'P'}</div><div><b style="font-size:18px">${ME.name}</b><div style="color:var(--mu);font-size:12px">ID: ${ME.id}</div></div></div></div><div class="gcard"><small>TOTAL BALANCE</small><b>${fmt(tot())}</b></div><div class="tri">${mini('MAIN',S.wallet)}${mini('BONUS',S.bonus)}${mini('DEPOSITED',S.dep)}</div><div class="hc" style="margin-top:8px"><small style="color:var(--mu)">STATS</small><div class="row"><span>Total Withdrawal</span><span>${fmt(0)}</span></div><div class="row"><span>Games Won</span><span>${S.won}</span></div><div class="row" style="border:0"><span>Total Invites</span><span>0</span></div></div><div class="hc"><small style="color:var(--mu)">SETTINGS</small><div class="row" style="border:0;align-items:center"><span>Sound</span><button class="btn ${S.sound?'on':''}" data-a="sound">${S.sound?'ON':'OFF'}</button></div><div class="row" style="border:0;align-items:center;border-top:1px solid var(--sl2)"><span>መመሪያ / How to Play</span><button class="btn" data-a="help">Open</button></div><div class="row" style="border:0;border-top:1px solid var(--sl2)"><span>Server</span><span style="color:${socket&&socket.connected?'var(--gr)':'var(--mu)'}">${socket&&socket.connected?'● Live':LIVE?'○ Reconnecting…':'○ Offline (simulation)'}</span></div></div>`}
+ return `<div class="main">${b}</div>`}
+function helpModal(){return `<div class="ov" data-a="closehelp"><div class="modal hp" data-a="noop"><h2 style="margin:0 0 8px;font-size:20px">መመሪያ / How to Play</h2>
+<h3>🃏 መጫወቻ ካርድ</h3><ol><li>ከ1-600 እስከ 2 ካርቴላ መምረጥ ይቻላል</li><li>በቀይ ቀለም የተመረጡ ቁጥሮች በሌላ ተጫዋች መያዛቸውን ያሳያሉ</li><li>ካርቴላውን ሲመርጡ ከታች ቁጥሮቹን ያሳያል</li><li>ሰኮንዱ ዜሮ ሲሆን ቀጥታ ወደ ጨዋታ ያስገባል።</li></ol>
+<h3>🎮 ጨዋታ እንዴት ይካሄዳል</h3><ol><li>ካርቴላዎን ከታች በቀኝ በኩል ያገኙታል</li><li>ከ1-75 ቁጥሮች Randomly ይጠራሉ</li><li>ካርቴላዎ ላይ ያሉትን ቁጥሮች ይንኩ ወይም Automatic ያብሩ።</li></ol>
+<h3>🏆 አሸናፊ የሚሆኑባቸው መንገዶች</h3><ol><li>ወደጎን ወይም ወደታች መስመር፣ ሁለቱም አግዳሚ (ሰያፍ) መስመር፣ ወይም አራቱ ማእዘናት (ኮርነር) ሲሞሉ</li><li>ሁለት ወይም ከዚያ በላይ ተጫዋቾች እኩል ቢያሸንፉ ደራሹ ለአሸናፊዎች እኩል ይካፈላል።</li></ol>
+<button class="btn grn" data-a="closehelp" style="width:100%;margin-top:6px">ዝጋ / Close</button></div></div>`}
+function canSeeAdmin(){
+  const q=new URLSearchParams(location.search);
+  return ADMIN_IDS.includes(String(ME.id))||q.get('admin')==='1'||sessionStorage.getItem('zina_adm_ok')==='1';
+}
+function render(f){if(down&&!f)return;const m=document.querySelector('.main'),sc=m?m.scrollTop:0;
+ const body=S.tab!=='game'?panel2():!S.room?welcome():(S.phase!=='lobby'&&!S.left)?arena():lobby();
+ const admBtn=canSeeAdmin()?`<button data-a="admin" class="adm-btn">Admin</button>`:'';
+ $('#app').innerHTML=body+`<div class="nav">${['game','history','wallet','profile'].map(t=>`<button data-a="tab" data-t="${t}" class="${S.tab===t?'act':''}">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}${admBtn}</div>`+(S.phase==='win'&&S.room&&S.win?modal():'')+(S.help?helpModal():'');
+ const n=document.querySelector('.main');if(n)n.scrollTop=sc}
+document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el)return;const a=el.dataset.a,i=+el.dataset.i;
+ if(a==='admin'){location.href='/studio';return}
+ if(a==='pick'&&S.phase==='lobby'&&LIVE)livePick(i);
+ else if(a==='pick'&&S.phase==='lobby'){if(S.mine.includes(i)){S.mine=S.mine.filter(x=>x!==i);refund(i);delete S.booked[i]}else if(!S.booked[i]&&S.mine.length<2){S.mine.push(i);S.booked[i]='You';pay(i)}}
+ else if(a==='leave'&&LIVE){liveLeave()}
+ else if(a==='leave'){if(S.phase==='lobby'){S.mine.forEach(id=>{refund(id);delete S.booked[id]});S.mine=[];S.room=null}else if(S.left)S.room=null;else S.left=true}
+ else if(a==='watch')S.left=false;
+ else if(a==='auto'){S.auto=!S.auto;if(LIVE)emit(EV.auto,{room:roomKey(),auto:S.auto});if(S.auto&&S.phase==='play')S.mine.forEach(id=>S.called.forEach(n=>S.marks[id].add(n)));if(S.auto&&S.phase==='play'){if(LIVE)S.mine.forEach(liveBingo);else evalWin()}}
+ else if(a==='sound')S.sound=!S.sound;
+ else if(a==='cell'&&!S.auto&&S.phase==='play'&&S.called.includes(+el.dataset.n)&&S.marks[i]){S.marks[i].add(+el.dataset.n);if(LIVE){emit(EV.mark,{room:roomKey(),board:i,n:+el.dataset.n});liveBingo(i)}else evalWin()}
+ else if(a==='tab')S.tab=el.dataset.t;
+ else if(a==='dep'){const v=+el.dataset.v;if(LIVE)liveTopup(v);else{S.wallet+=v;S.dep+=v;addTx('Deposit',v);settle()}}
+ else if(a==='bonus'){S.bonus+=50;addTx('Bonus',50);settle()}
+ else if(a==='reset'){S.wallet=0;S.bonus=0;S.dep=0;S.tx=[]}
+ else if(a==='eye')S.hide=!S.hide;
+ else if(a==='help')S.help=true;
+ else if(a==='closehelp')S.help=false;
+ else if(a==='wtab')S.wtab=el.dataset.t;
+ else if(a==='room'){const r=S.rooms[i];if(S.phase==='lobby'){S.stake=r.s;S.rn=r.n}S.room=r;S.left=S.phase!=='lobby';if(LIVE)liveJoin(r)}
+ else if(a==='addroom'){const o=[20,50,100,200,500].find(v=>!S.rooms.some(r=>r.s===v&&r.n===2));if(o)S.rooms.push({s:o,n:2});else S.rooms.push({s:10*(S.rooms.length+1),n:1})}
+ render(1);if(a==='refresh'){const b=document.querySelector('.rf .ic');if(b)b.classList.add('spin')}});
+
+/* ================= LIVE LAYER: Socket.io + Telegram Mini App ================= */
+// 1) Paste your Render URL here (or open the page with ?server=https://your-app.onrender.com)
+const SERVER_URL=new URLSearchParams(location.search).get('server')||'https://ela-jbix.onrender.com';
+// 2) Every Socket.io event name used by this client. Rename here to match your server.js.
+const EV={
+  // client -> server
+  join:'room:join', leave:'room:leave', pick:'board:pick', release:'board:release',
+  mark:'game:mark', auto:'game:auto', claim:'game:claim', card:'board:card', topup:'wallet:topup_test',
+  // server -> client
+  state:'room:state', taken:'board:taken', freed:'board:released', rejected:'board:rejected',
+  start:'game:start', call:'game:call', win:'game:win', wallet:'wallet:update'
+};
+let LIVE=false,socket=null;
+const TG=window.Telegram&&window.Telegram.WebApp;
+try{if(TG){TG.ready();TG.expand();TG.setHeaderColor&&TG.setHeaderColor('#090D16');TG.setBackgroundColor&&TG.setBackgroundColor('#090D16')}}catch(e){}
+function guestId(){try{let g=localStorage.getItem('bingo_guest');if(!g){g='guest-'+Math.random().toString(36).slice(2,8);localStorage.setItem('bingo_guest',g)}return g}catch(e){return 'guest-'+Math.random().toString(36).slice(2,8)}}
+const tu=TG&&TG.initDataUnsafe&&TG.initDataUnsafe.user;
+const ME={id:tu?String(tu.id):guestId(),name:tu?[tu.first_name,tu.last_name].filter(Boolean).join(' '):'Guest',initData:TG?TG.initData:''};
+const roomKey=()=>S.room?S.room.s+'-'+S.room.n:null;
+const emit=(ev,d)=>{try{if(socket&&socket.connected)socket.emit(ev,d)}catch(e){}};
+const isMine=x=>S.mine.includes(+x.board)||(x.userId!=null&&String(x.userId)===ME.id);
+function liveJoin(r){emit(EV.join,{room:r.s+'-'+r.n,stake:r.s,user:ME})}
+function liveLeave(){if(S.phase==='lobby'||S.left){emit(EV.leave,{room:roomKey()});S.mine=[];S.paid={};S.room=null}else S.left=true}
+function livePick(i){const rk=roomKey();
+  if(S.mine.includes(i)){S.mine=S.mine.filter(x=>x!==i);delete S.booked[i];delete S.paid[i];emit(EV.release,{room:rk,board:i})}
+  else if(!S.booked[i]&&S.mine.length<2){S.mine.push(i);S.booked[i]=ME.name;S.paid[i]=1;S.lowNeed=0;emit(EV.pick,{room:rk,board:i})}}
+function toCols(rows){const c=[0,1,2,3,4].map(k=>[0,1,2,3,4].map(r=>{const v=rows[r][k];return(v==null||v===0||v==='*'||String(v).toUpperCase()==='FREE')?0:+v}));c[2][2]=0;return c}
+function setCards(m){if(!m)return;for(const k in m){try{S.cards[k]=toCols(m[k])}catch(e){}}}
+function liveBingo(id){if(S.phase!=='play'||S.claimed[id]||!S.marks[id])return;const cs=new Set(S.called),p=winLine(card(id),S.marks[id],cs);if(!p)return;S.claimed[id]=1;emit(EV.claim,{room:roomKey(),board:id});
+  showWin({winners:[{board:id,name:ME.name,userId:ME.id,pattern:p.t,line:p.c}],pool:S.pool,prize:S.pool,called:[...S.called]},true)}
+function playersCount(){const boards=Object.keys(S.booked||{}).length,srv=+S.players;return Math.max(boards,Number.isInteger(srv)&&srv>0?srv:0,S.mine.length)}
+function applyWallet(w){if(w.main!=null)S.wallet=+w.main;if(w.bonus!=null)S.bonus=+w.bonus;if(w.dep!=null)S.dep=+w.dep}
+function liveTopup(v){if(!socket)return;socket.timeout(2500).emit(EV.topup,{amount:v,user:ME},(err,res)=>{
+  if(err){S.wallet+=v;S.dep+=v;addTx('Deposit (local, no server reply)',v)}else if(res&&res.wallet)applyWallet(res.wallet);
+  S.lowNeed=0;render(1)})}
+function initMarks(){S.mine.forEach(id=>{if(!S.marks[id])S.marks[id]=new Set([0]);if(S.auto)S.called.forEach(n=>S.marks[id].add(n))})}
+function endHold(){S.holdUntil=0;const q=S.queued;S.queued=null;if(q){applyState(q);if(S.phase==='play'){S.claimed={};S.played=[...S.mine]}}else{S.phase='lobby';S.win=null;S.marks={};S.called=[];S.claimed={};S.played=null;S.mine=[];S.paid={};S.left=false}render(1)}
+function applyState(d){const prev=S.phase;d=Object.assign({},d);if(d.phase==='win')delete d.phase;if(S.holdUntil&&Date.now()<S.holdUntil){if(d.wallet)applyWallet(d.wallet);if(d.cards)setCards(d.cards);if(d.phase!=='win')S.queued=Object.assign(S.queued||{},d);return}
+  if(prev==='play'&&d.phase&&d.phase!=='play'&&S.called.length<75){if(d.wallet)applyWallet(d.wallet);if(d.cards)setCards(d.cards);return}
+  if(prev==='play')delete d.t;
+  if(d.phase)S.phase=d.phase;if(d.t!=null)S.t=d.t;if(d.stake)S.stake=d.stake;
+  if(d.booked)S.booked=d.booked;if(d.mine)S.mine=d.mine.map(Number);if(d.paid)S.paid=d.paid;
+  if(d.called&&!(prev==='play'&&d.called.length<S.called.length))S.called=d.called;if(d.gid!=null)S.gid=d.gid;if(d.gcode!==undefined||d.gid!=null)S.gcode=d.gcode||'';
+  if(d.pool!=null)S.pool=d.pool;if(d.players!=null)S.players=d.players;if(d.wallet)applyWallet(d.wallet);if(d.cards)setCards(d.cards);
+  S.mine.forEach(id=>{if(S.paid[id]==null)S.paid[id]=1});
+  if(S.phase==='lobby'){S.marks={};S.win=null;S.left=false;S.called=[];S.claimed={};if(prev!=='lobby'){S.played=null;S.holdUntil=0;if(d.mine===undefined){S.mine=[];S.paid={}}}}else if(S.phase==='play')initMarks()}
+function showWin(d,local){
+  if(!d||!Array.isArray(d.winners)||!d.winners.length)return;
+  const holding=S.holdUntil&&Date.now()<S.holdUntil&&S.phase==='win';
+  if(holding&&!(S.win&&S.win.local&&!local))return;
+  setCards(d.cards);d.winners.forEach(x=>{if(x&&(x.rows||x.card))setCards({[x.board]:x.rows||x.card})});
+  const called=Array.isArray(d.called)&&d.called.length?d.called:[...S.called],cs=new Set(called);
+  const okCell=c=>Array.isArray(c)&&c.length===2&&c.every(v=>Number.isInteger(v)&&v>=0&&v<=4),okLine=l=>Array.isArray(l)&&(l.length===4||l.length===5)&&l.every(okCell);
+  const w=[];d.winners.forEach(x=>{const b=x?+x.board:NaN;if(!Number.isInteger(b)||b<1||b>600)return;
+    let ln=okLine(x.line)?x.line:null,pt=PNAME[x.pattern]?x.pattern:null;
+    if(!ln||!pt){const p=winLine(card(b),cs,cs);if(p){ln=ln||p.c;pt=pt||p.t}}
+    w.push({...x,board:b,line:ln||[],pattern:pt})});
+  if(!w.length)return;
+  const mh=w.filter(isMine),h=mh[0]||w[0],pool=d.pool!=null?d.pool:S.pool,prize=(d.prize!=null&&isFinite(+d.prize))?+d.prize:Math.floor(pool/w.length);
+  const win={id:h.board,name:mh.length?ME.name+' (You)':h.name,ln:h.line,pt:h.pattern,mine:mh.length>0,called,wc:w.length,pool,prize,local:!!local,counted:holding?S.win.counted:0,co:w.map(x=>({id:x.board,name:isMine(x)?'You':x.name}))};
+  const ent=S.hist.find(x=>x.gid===S.gcode);
+  if(holding){S.win=win;if(ent){ent.prize=prize;ent.win=mh.length>0;ent.wb=w.map(x=>x.board);ent.wc=w.length}}
+  else{S.phase='win';S.t=7;S.holdUntil=Date.now()+7000;S.queued=null;S.called=called;S.win=win;
+    const my=S.played!=null?S.played:S.mine;if(my.length&&!ent)S.hist.unshift({gid:S.gcode,ts:Date.now(),stake:S.stake,prize,win:mh.length>0,my:[...my],wb:w.map(x=>x.board),wc:w.length})}
+  if(mh.length&&!win.counted){S.won++;win.counted=1}
+  if(d.wallet)applyWallet(d.wallet);
+  render(1)}
+function liveInit(){
+  if(!window.io||SERVER_URL.includes('PASTE'))return;
+  socket=io(SERVER_URL,{transports:['websocket','polling'],auth:{userId:ME.id,name:ME.name,initData:ME.initData}});
+  socket.on('connect',()=>{LIVE=true;const keep=S.wasConnected&&(S.phase==='play'||(S.holdUntil&&Date.now()<S.holdUntil));
+    if(!keep){S.holdUntil=0;S.queued=null;S.played=null;S.mine=[];S.booked={};S.paid={};S.marks={};S.called=[];S.phase='lobby';S.win=null;S.claimed={}}
+    if(!S.wasConnected){S.wallet=0;S.bonus=0;S.dep=0;S.wasConnected=1}
+    if(S.room)liveJoin(S.room);render(1)});
+  socket.on('disconnect',()=>{render(1)});
+  socket.on('connect_error',()=>{});
+  socket.on(EV.state,d=>{applyState(d);render()});
+  socket.on(EV.taken,d=>{S.booked[d.board]=d.name||'Player';render()});
+  socket.on(EV.freed,d=>{if(!S.mine.includes(+d.board))delete S.booked[d.board];render()});
+  socket.on(EV.rejected,d=>{const b=+d.board;S.mine=S.mine.filter(x=>x!==b);delete S.paid[b];delete S.booked[b];if(d.reason==='insufficient')S.lowNeed=S.stake;render(1)});
+  socket.on(EV.wallet,w=>{applyWallet(w);render(1)});
+  socket.on(EV.card,d=>{if(d&&d.rows)setCards({[d.board]:d.rows});render()});
+  socket.on(EV.start,d=>{const hold=S.holdUntil&&Date.now()<S.holdUntil;if(S.phase==='play'&&d.gcode&&d.gcode===S.gcode)return;if(!hold){S.claimed={};S.marks={};if(S.phase==='play')S.phase='lobby'}applyState({...d,phase:'play',called:[]});if(!hold){S.played=[...S.mine];S.left=false}render(1)});
+  socket.on(EV.call,d=>{if(S.holdUntil&&Date.now()<S.holdUntil)return;S.called=d.called||[...S.called,d.n];if(S.auto)S.mine.forEach(id=>S.marks[id]&&S.marks[id].add(d.n));beep();S.mine.forEach(liveBingo);render(1)});
+  socket.on(EV.win,d=>showWin(d,false));
+}
+liveInit();
+/* ================= END LIVE LAYER ================= */
+render();setInterval(tick,500);
+</script></body></html>
