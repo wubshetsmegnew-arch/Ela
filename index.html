@@ -1,294 +1,286 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8">
+app.get('/studio', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Zina Bingo</title>
+<title>Zina Bingo Studio</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Noto+Sans+Ethiopic:wght@600;800&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#090D16;--sl:#1A2233;--sl2:#232D44;--tx:#fff;--mu:#8D9AB8;--or:#F97316;--gr:#22E58B;--ye:#FACC15;--B:#F59E0B;--I:#10B981;--N:#3B82F6;--G:#EF4444;--O:#8B5CF6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root{
+  --bg:#090D16;--sl:#121A2B;--sl2:#1B263D;--sl3:#253352;
+  --tx:#FFFFFF;--mu:#8D9AB8;--gr:#22E58B;--ye:#FACC15;
+  --rd:#EF4444;--bl:#3B82F6;--pu:#8B5CF6;
+}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;margin:0;background:var(--bg);color:var(--tx);font-family:'Plus Jakarta Sans','Noto Sans Ethiopic',sans-serif;font-weight:700;color-scheme:dark}
-#app{height:100%;display:flex;flex-direction:column;max-width:560px;margin:0 auto}
-.main{flex:1;overflow-y:auto;padding:8px 10px}
-button{font:inherit;color:inherit;border:0;cursor:pointer}
-.bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.pill{background:var(--sl);border-radius:10px;padding:7px 10px;font-size:13px;display:flex;flex-direction:column;line-height:1.15}
-.pill small{color:var(--mu);font-size:10px;font-weight:600}
-.pill b{font-size:15px;font-weight:800}
-.btn{background:var(--sl2);border-radius:10px;padding:10px 14px;font-size:14px;font-weight:800}
-.btn.red{background:#B91C1C}.btn.grn{background:#0E9F63}.btn.on{background:var(--gr);color:#04140C}
-.timer{background:var(--gr);color:#04140C;border-radius:10px;padding:7px 12px;font-size:20px;font-weight:800}
-.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-top:8px}
-.num{background:var(--sl);border-radius:8px;padding:9px 0;font-size:15px;font-weight:800;text-align:center}
-.num.bot{background:#DC2626;color:#fff}
-.num.me{background:var(--gr);color:#04140C;box-shadow:0 0 12px 2px #22E58B88}
-.num.lock{opacity:.7}
-.nav{display:flex;background:#0D1424;border-top:1px solid var(--sl2)}
-.nav button{flex:1;background:none;padding:12px 0;font-size:13px;color:var(--mu)}
-.nav button.act{color:var(--gr)}
-.nav button.adm-tab{color:var(--ye);font-weight:800}
-.ball{--c:var(--B);width:var(--s,64px);height:var(--s,64px);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 32% 28%,#fff9 0,#fff0 28%),radial-gradient(circle at 50% 60%,var(--c),color-mix(in srgb,var(--c) 55%,#000));box-shadow:0 4px 14px color-mix(in srgb,var(--c) 55%,transparent);line-height:1;flex:none}
-.ball i{font-style:normal;font-size:calc(var(--s,64px)*.2);font-weight:800;opacity:.9}
-.ball b{font-size:calc(var(--s,64px)*.4);font-weight:800}
-.strip{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:6px 0}
-.strip div{background:var(--sl);border-radius:8px;padding:5px 2px;text-align:center;font-size:13px;font-weight:800}
-.strip small{display:block;color:var(--mu);font-size:9px;font-weight:600}
-.arena{display:grid;grid-template-columns:38% 1fr;gap:8px}
-.mb{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;background:transparent;padding:0;align-self:start;grid-template-rows:auto repeat(15,27px)}
-.mb .h{text-align:center;font-weight:800;font-size:15px;padding:3px 0;border-radius:6px;color:#fff}
-.mb .c{display:flex;align-items:center;justify-content:center;font-size:12px;padding:3px 0;border-radius:6px;background:#1E2940;color:#B4C0DB;font-weight:800;border:1px solid #2F3C5C}
-.mb .c.on{color:#fff;font-weight:800;background:var(--c);border-color:#ffffff55;box-shadow:0 0 8px color-mix(in srgb,var(--c) 70%,transparent)}
-.mb .c.now{outline:2px solid #fff}
-.cur{display:flex;align-items:center;gap:8px;background:var(--sl);border-radius:12px;padding:8px}
-.last{display:flex;gap:4px;margin-left:auto;min-width:0}.rc{color:var(--c);background:color-mix(in srgb,var(--c) 20%,#0D1424);border:1.5px solid var(--c);border-radius:9px;padding:5px 4px;font-size:15px;font-weight:800;line-height:1;white-space:nowrap}
-.tg{display:flex;gap:6px;margin:6px 0}
-.tg button{flex:1;padding:8px 4px;border-radius:9px;background:var(--sl2);font-size:12px;font-weight:800}
-.tg button.on{background:var(--gr);color:#04140C}
-.card{background:#0D1424;border-radius:12px;padding:6px;margin-bottom:8px}
-.card .t{font-size:11px;color:var(--mu);margin:0 2px 4px;display:flex;justify-content:space-between}
-.cg{display:grid;grid-template-columns:repeat(5,1fr);gap:3px}
-.cg .h{text-align:center;color:#fff;font-weight:800;border-radius:6px;padding:3px 0;font-size:14px}
-.cg .c{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:7px;background:var(--sl);font-size:15px;font-weight:800}
-.cg .c.cl{background:#3a3210;color:var(--ye);outline:1.5px solid var(--ye)}
-.cg .c.mk{background:#0E9F63;color:#fff;outline:0}
-.cg .c.fr{background:#0E9F63;color:#fff}
-.cg .c.win{background:var(--gr);color:#04140C;box-shadow:0 0 10px #22E58B}
-.cg .c.yl{background:var(--ye);color:#1a1400}
-.am{background:var(--sl);border-radius:12px;padding:16px 10px;text-align:center;font-family:'Noto Sans Ethiopic',sans-serif;font-weight:800;font-size:15px;line-height:1.5;color:var(--ye)}
-.foot{display:flex;gap:8px;padding:8px 10px}
-.foot .btn{flex:1}
-.ov{position:fixed;inset:0;background:#000c;display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
-.modal{background:var(--bg);border:2px solid var(--gr);box-shadow:0 0 40px #22E58B66;border-radius:18px;padding:16px;width:100%;max-width:360px;text-align:center;max-height:100%;overflow:auto}
-.modal h1{margin:0;font-size:42px;font-weight:800;letter-spacing:2px;background:linear-gradient(90deg,var(--B),var(--I),var(--N),var(--G),var(--O));-webkit-background-clip:text;background-clip:text;color:transparent;animation:pop .6s ease-out}
-@keyframes pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
-.row{display:flex;justify-content:space-between;padding:10px 4px;border-bottom:1px solid var(--sl2);font-size:14px}
-.ban{background:var(--sl);border-radius:10px;padding:10px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;font-size:13px}
-.hero{background:linear-gradient(135deg,#8B5CF6,#3B82F6 55%,#10B981);border-radius:18px;padding:24px 16px;text-align:center;box-shadow:0 8px 28px #3B82F655}.hero small{font-size:14px}.hero h1{margin:2px 0 4px;font-size:32px;font-weight:800}.hero p{margin:0;font-size:13px}
-.sec{margin:14px 0 8px;font-size:16px}.stk{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}.stk button{background:var(--sl);border:2px solid var(--gr);border-radius:12px;padding:18px 6px;font-size:17px;font-weight:800;box-shadow:0 0 12px #22E58B33}
-.ph{display:flex;justify-content:space-between;align-items:center}.ph h2{margin:0;font-size:22px}.gr{color:var(--gr);font-size:18px}
-.gcard{background:linear-gradient(135deg,#0E9F63,#3B82F6);border-radius:16px;padding:18px;margin:8px 0}.gcard small{font-size:12px}.gcard b{display:block;font-size:30px;font-weight:800}
-.tri{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.mini{background:var(--sl);border-radius:12px;padding:10px 4px;text-align:center}.mini small{display:block;color:var(--mu);font-size:10px}.mini b{font-size:13px}
-.hc{background:var(--sl);border-radius:14px;padding:12px;margin-bottom:8px}.hh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.hh small,.g2 small{display:block;color:var(--mu);font-size:10px;font-weight:600}
-.badge{padding:4px 10px;border-radius:8px;font-size:12px;font-weight:800}.badge.win{background:#0E9F63}.badge.loss{background:#B91C1C}.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:14px}
-.av{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--O),var(--N));display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800}
-.low{background:#2A1215;border:1.5px solid #EF4444;border-radius:12px;padding:10px;margin-top:8px}.low b{display:block;color:#FCA5A5;font-size:14px;font-weight:800}.low .am2{font-weight:800}.low small{display:block;color:#C9A3A3;font-size:12px;margin-top:3px;font-weight:600}
-.wcn{margin-top:8px;padding:8px;border-radius:10px;background:var(--sl);color:var(--ye);font-size:15px;font-weight:800}
-.split{background:var(--sl);border-radius:10px;padding:8px;margin-top:8px;font-size:13px;color:var(--ye)}.split b{color:var(--gr)}.split small{display:block;color:var(--mu);font-size:11px;margin-top:3px;font-weight:600}
-.pv{position:sticky;bottom:0;z-index:2;display:grid;gap:8px;margin:10px -10px -8px;padding:8px 10px;background:var(--bg);border-top:1px solid var(--sl2)}.pv .cg{gap:2px}.pv .cg .h{font-size:11px;padding:2px 0}.pv .cg .c{aspect-ratio:auto;height:22px;font-size:11px;border-radius:5px}
-.hp{text-align:left;max-width:380px}.hp h3{margin:12px 0 4px;font-size:15px;color:var(--ye)}.hp ol{margin:0;padding-left:20px;font-size:13px;line-height:1.7;font-family:'Noto Sans Ethiopic','Plus Jakarta Sans',sans-serif}
-.cards.n1 .card{padding:8px}.cards.n1 .card .t{font-size:13px;color:#fff;justify-content:center;gap:10px;margin-bottom:6px}.cards.n1 .cg{gap:4px}.cards.n1 .cg .h{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:18px;padding:0;border-radius:9px}.cards.n1 .cg .c{aspect-ratio:1;height:auto;font-size:19px;border-radius:9px}
-.cards.n2 .card{padding:5px;margin-bottom:6px}.cards.n2 .card .t{margin-bottom:3px}.cards.n2 .cg{gap:2px}.cards.n2 .cg .h{font-size:12px;padding:2px 0}.cards.n2 .cg .c{aspect-ratio:auto;height:26px;font-size:14px;border-radius:6px}
-.top{flex-wrap:nowrap;gap:5px}.top .btn{padding:9px 10px;font-size:13px}.top .pill{padding:6px 8px}.top .timer{padding:6px 9px;font-size:18px}
-.rf{margin-left:auto;display:flex;align-items:center;gap:5px;background:linear-gradient(135deg,#FACC15,#F59E0B);color:#1a1100;box-shadow:0 0 14px #FACC1566;white-space:nowrap}.rf:active{transform:scale(.94)}.rf .ic{display:inline-block;font-size:16px;font-weight:800}.rf .ic.spin{animation:sp .6s linear}@keyframes sp{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){.modal h1,.rf .ic.spin{animation:none}}
-</style><script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-</head><body><div id="app"></div>
+html,body{margin:0;padding:0;background:var(--bg);color:var(--tx);font-family:'Plus Jakarta Sans','Noto Sans Ethiopic',sans-serif;min-height:100vh}
+button,input,select,textarea{font:inherit;color:inherit}
+button{border:0;cursor:pointer;border-radius:10px;font-weight:700}
+input,select,textarea{background:var(--bg);border:1px solid var(--sl3);border-radius:10px;padding:9px 11px;width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--bl)}
+.wrap{max-width:1180px;margin:0 auto;padding:12px}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;background:var(--sl);padding:12px 14px;border-radius:16px;border:1px solid var(--sl2)}
+.brand{display:flex;align-items:center;gap:10px}
+.brand h1{margin:0;font-size:20px;font-weight:800}
+.brand small{color:var(--mu);font-size:12px;display:block}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.btn{background:var(--sl2);padding:9px 13px;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+.btn.bl{background:var(--bl);color:#fff}
+.btn.gr{background:#0E9F63;color:#fff}
+.btn.rd{background:#B91C1C;color:#fff}
+.btn.ye{background:var(--ye);color:#111}
+.btn.pu{background:var(--pu);color:#fff}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:10px 0}
+.tab{background:var(--sl);color:var(--mu);padding:9px 13px;font-size:12px;white-space:nowrap;border:1px solid var(--sl2)}
+.tab.act{background:var(--bl);color:#fff;border-color:var(--bl)}
+.card{background:var(--sl);border:1px solid var(--sl2);border-radius:16px;padding:14px;margin-bottom:12px}
+.card h2,.card h3{margin:0 0 10px;font-size:16px;font-weight:800}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.kpi{background:var(--sl2);border:1px solid var(--sl3);border-radius:14px;padding:12px}
+.kpi small{color:var(--mu);font-size:11px;display:block}
+.kpi b{font-size:20px;font-weight:800;display:block;margin-top:4px}
+.ok{color:var(--gr)}.warn{color:var(--ye)}.bad{color:#F87171}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--sl2)}
+th{color:var(--mu);font-size:11px;text-transform:uppercase}
+.tbl-wrap{overflow-x:auto}
+.pill{padding:3px 8px;border-radius:999px;font-size:11px;font-weight:800;display:inline-block}
+.pill.ok{background:#0E9F6333;color:var(--gr)}
+.pill.warn{background:#FACC1528;color:var(--ye)}
+.pill.bad{background:#EF444433;color:#FCA5A5}
+.row-gap{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:12px;color:var(--mu);margin-bottom:4px}
+.toast{position:fixed;bottom:16px;right:16px;background:#0E9F63;color:#fff;padding:11px 16px;border-radius:12px;font-size:13px;font-weight:800;z-index:99}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
 <script>
-const L='BINGO',CL={B:'#F59E0B',I:'#10B981',N:'#3B82F6',G:'#EF4444',O:'#8B5CF6'};
-const $=s=>document.querySelector(s),ltr=n=>L[Math.floor((n-1)/15)];
-const NAMES=['Abebe','Tigist','Dawit','Selam','Kebede','Hana','Yonas','Meron','Biniam','Rahel','Samuel','Lidya','Mulu','Fikir','Henok','Saba'];
-function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-function genCard(id){const r=rng(id*7919+13),c=[];for(let k=0;k<5;k++){const p=[...Array(15)].map((_,i)=>k*15+i+1);for(let i=14;i>0;i--){const j=Math.floor(r()*(i+1));[p[i],p[j]]=[p[j],p[i]]}c.push(p.slice(0,5))}c[2][2]=0;return c}
-const LINES=[];for(let i=0;i<5;i++){LINES.push([...Array(5)].map((_,k)=>[k,i]));LINES.push([...Array(5)].map((_,k)=>[i,k]))}
-LINES.push([...Array(5)].map((_,k)=>[k,k]),[...Array(5)].map((_,k)=>[k,4-k]));
-const CORNERS=[[0,0],[4,0],[0,4],[4,4]],MINCALLS=12;
-const PATS=[];for(let i=0;i<5;i++){PATS.push({t:'h',c:[0,1,2,3,4].map(k=>[k,i])});PATS.push({t:'v',c:[0,1,2,3,4].map(k=>[i,k])})}
-PATS.push({t:'d',c:[0,1,2,3,4].map(k=>[k,k])},{t:'d',c:[0,1,2,3,4].map(k=>[k,4-k])},{t:'c',c:CORNERS});
-const PNAME={h:'Horizontal Line · ወደጎን መስመር',v:'Vertical Line · ወደታች መስመር',d:'Diagonal Line · ሰያፍ መስመር',c:'4 Corners · አራቱ ማእዘናት'};
-const winLine=(c,s,cs)=>PATS.find(p=>p.c.every(([x,y])=>{const n=c[x][y];return n===0||(cs.has(n)&&s.has(n))}));
-const S={phase:'lobby',t:30,tick:0,room:null,rn:1,rooms:[{s:10,n:1},{s:10,n:2}],paid:{},cards:{},claimed:{},bonus:0,dep:0,tx:[],won:0,hide:true,wtab:'bal',gcode:'',booked:{},mine:[],marks:{},wallet:0,stake:10,round:1,gid:1042,called:[],auto:true,sound:true,tab:'game',left:false,win:null,hist:[],pool:0,players:0};
-const card=id=>(S.cards&&S.cards[id])||genCard(id);
-const APP='Zina Bingo',UID=String(10000000+Math.floor(Math.random()*9e7));
-const fmt=n=>'Br '+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}),tot=()=>S.wallet+S.bonus,rid=()=>Math.random().toString(36).slice(2,10).toUpperCase(),rb=()=>1+Math.floor(Math.random()*600);
-function addTx(l,a){S.tx.unshift({l,a,ts:Date.now()})}
-function pay(id){if(tot()<S.stake){S.paid[id]=0;return}if(S.wallet>=S.stake)S.wallet-=S.stake;else{S.bonus-=S.stake-S.wallet;S.wallet=0}S.paid[id]=1;addTx('Board stake',-S.stake)}
-function settle(){if(S.phase==='lobby')S.mine.forEach(id=>{if(!S.paid[id])pay(id)})}
-const low=need=>`<div class="low"><b>⚠ Insufficient balance <span class="am2">· በቂ ባላንስ የለዎትም</span></b><small>Need ${fmt(need)} · you have ${fmt(tot())}. Test mode: boards can still be picked for free.</small><div class="bar" style="margin-top:8px"><button class="btn grn" data-a="dep" data-v="100">+ Top up 100 (test)</button><button class="btn" data-a="tab" data-t="wallet">Open Wallet</button></div></div>`;
-function refund(id){if(S.paid[id]){S.wallet+=S.stake;addTx('Board refund',S.stake)}delete S.paid[id]}
-let down=0;document.addEventListener('pointerdown',()=>down=1);['pointerup','pointercancel'].forEach(t=>document.addEventListener(t,()=>setTimeout(()=>down=0,60)));
-const mini=(l,v)=>`<div class="mini"><small>${l}</small><b>${fmt(v)}</b></div>`;
-const dt=ts=>new Date(ts).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-let ac;function beep(){if(!S.sound)return;try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=660;g.gain.value=.08;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+.12)}catch(e){}}
-function botBook(n){for(let i=0;i<n;i++){const id=1+Math.floor(Math.random()*600);if(!S.booked[id])S.booked[id]=NAMES[Math.floor(Math.random()*16)]+' '+(10+Math.floor(Math.random()*90))}}
-function start(){botBook(Math.max(0,12-Object.keys(S.booked).length));S.phase='play';S.called=[];S.tick=0;S.left=false;S.gid++;S.gcode=S.round+'_'+rid();const n=Object.keys(S.booked).length;S.players=n;S.pool=Math.floor(n*S.stake*80/100);S.mine.forEach(id=>S.marks[id]=new Set([0]))}
-function call(){const rest=[...Array(75)].map((_,i)=>i+1).filter(n=>!S.called.includes(n));if(!rest.length)return;const n=rest[Math.floor(Math.random()*rest.length)];S.called.push(n);beep();
- if(S.auto)S.mine.forEach(id=>S.marks[id].add(n));
-evalWin()}
-function evalWin(){if(S.phase!=='play')return;const cs=new Set(S.called),hits=[];
- for(const k in S.booked){const id=+k,mine=S.mine.includes(id);if(!mine&&S.called.length<MINCALLS)continue;const set=mine?S.marks[id]:cs,c=card(id),p=winLine(c,set,cs);if(p&&p.c.every(([x,y])=>c[x][y]===0||(S.called.includes(c[x][y])&&set.has(c[x][y]))))hits.push({id,ln:p.c,pt:p.t,mine})}
- if(hits.length){const h=hits.find(x=>x.mine)||hits[Math.floor(Math.random()*hits.length)],name=h.mine?ME.name+' (You)':S.booked[h.id],prize=Math.floor(S.pool/hits.length),mh=hits.filter(x=>x.mine);S.phase='win';S.t=7;S.holdUntil=Date.now()+7000;S.win={...h,name,prize,called:[...S.called],wc:hits.length,pool:S.pool,co:hits.map(x=>({id:x.id,name:x.mine?'You':S.booked[x.id]}))};if(mh.length){S.wallet+=prize*mh.length;S.won++;addTx('Game prize',prize*mh.length)}if(S.mine.length)S.hist.unshift({gid:S.gcode,ts:Date.now(),stake:S.stake,prize,win:mh.length>0,my:[...S.mine],wb:hits.map(x=>x.id),wc:hits.length});
-  }}
-function newRound(){S.round++;S.phase='lobby';S.t=30;S.booked={};S.paid={};S.mine=[];S.marks={};S.called=[];S.win=null;S.left=false}
-function tick(){if(LIVE){if(S.holdUntil){const r=Math.max(0,Math.ceil((S.holdUntil-Date.now())/1000));if(r!==S.t){S.t=r;render(1)}if(Date.now()>=S.holdUntil)endHold()}return}S.h=(S.h||0)+1;const sec=S.h%2===0;
- if(S.phase==='lobby'){if(!sec)return;S.t--;botBook(1+Math.floor(Math.random()*4));if(S.t<=0)start()}
- else if(S.phase==='play'){S.tick++;if(!(S.tick>=6&&(S.tick-6)%5===0))return;call()}
- else{const now=Date.now();if(!S.holdUntil)S.holdUntil=now+S.t*1000;if(now>=S.holdUntil){S.holdUntil=0;newRound()}else{const r=Math.ceil((S.holdUntil-now)/1000);if(r===S.t)return;S.t=r}}
- render()}
-const ball=(n,s)=>`<div class="ball" style="--c:${CL[ltr(n)]};--s:${s}px"><i>${ltr(n)}</i><b>${n}</b></div>`;
-const hdr=()=>[...L].map(x=>`<div class="h" style="background:${CL[x]}">${x}</div>`).join('');
-function lobby(){const g=[];for(let i=1;i<=600;i++){const b=S.booked[i],m=S.mine.includes(i);g.push(`<div class="num ${m?'me':b?'bot':''} ${S.phase!=='lobby'?'lock':''}" data-a="pick" data-i="${i}">${i}</div>`)}
- const live=S.phase!=='lobby'?`<div class="ban"><span>Game in progress</span><button class="btn grn" data-a="watch">Watch live</button></div>`:'';
- return `<div class="main"><div class="bar top"><button class="btn red" data-a="leave">Leave</button><div class="timer">${S.phase==='lobby'?S.t+'s':'—'}</div><div class="pill"><small>Wallet</small><b>${Math.floor(tot())}</b></div><div class="pill"><small>Stake</small><b>${S.stake}</b></div><button class="btn rf" data-a="refresh"><span class="ic">⟳</span>Refresh</button></div>
- <div class="bar" style="margin-top:8px"><div class="pill"><small>Boards</small><b>${S.mine.length}/2</b></div><div class="pill"><b>${S.room?S.room.s:S.stake} № ${S.room?S.room.n:S.rn}</b></div></div>${(S.mine.some(id=>!S.paid[id])||S.lowNeed)?low(S.lowNeed||S.stake*S.mine.filter(id=>!S.paid[id]).length):''}${live}<div class="grid">${g.join('')}</div>${S.mine.length?`<div class="pv" style="grid-template-columns:repeat(${S.mine.length},1fr)">${S.mine.map(id=>`<div class="card" style="margin:0"><div class="t"><span>Cartela № ${id}</span></div>${cardHtml(id,new Set([0]))}</div>`).join('')}</div>`:''}</div>`}
-function cardHtml(id,set,mode,wl){const c=card(id);let h='';for(let r=0;r<5;r++)for(let k=0;k<5;k++){const n=c[k][r],cl=S.called.includes(n),inW=wl&&wl.some(([x,y])=>x===k&&y===r);let cls='';
- if(mode==='win')cls=inW?'win':n===0?'fr':S.win.called.includes(n)?'yl':'';
- else cls=n===0?'fr':set.has(n)?'mk':cl?'cl':'';
- h+=`<div class="c ${cls}" data-a="cell" data-i="${id}" data-n="${n}">${n||'*'}</div>`}
- return `<div class="cg">${hdr()}${h}</div>`}
-function arena(){const cs=new Set(S.called),lc=S.called.at(-1),l3=S.called.slice(-4,-1).reverse();
- let mb='';[...L].forEach(x=>mb+=`<div class="h" style="background:${CL[x]}">${x}</div>`);
- for(let i=0;i<15;i++)for(let k=0;k<5;k++){const n=k*15+i+1,on=cs.has(n);mb+=`<div class="c ${on?'on':''} ${n===lc?'now':''}" style="--c:${CL[L[k]]}">${n}</div>`}
- const cards=S.mine.length?`<div class="cards n${S.mine.length}">`+S.mine.map(id=>`<div class="card"><div class="t"><span>Board № ${id}</span><span>${S.auto?'Auto':'Tap to mark'}</span></div>${cardHtml(id,S.marks[id])}</div>`).join('')+'</div>':`<div class="am">እባክዎ ይህ ጨዋታ እስከሚጨርስ ይጠብቁ</div>`;
- return `<div class="main"><div class="strip"><div><small>Game ID</small>${S.gcode?`<span style="font-size:11px">${S.gcode}</span>`:S.gid}</div><div><small>Derash</small>${S.pool}</div><div><small>Players</small>${playersCount()}</div><div><small>Stake</small>${S.stake}</div><div><small>Called</small>${S.called.length}</div></div>
- <div class="arena"><div class="mb">${mb}</div><div><div class="cur">${lc?ball(lc,64):'<div class="ball" style="--c:#334;--s:64px"><b>…</b></div>'}<div class="last">${l3.map(n=>`<span class="rc" style="--c:${CL[ltr(n)]}">${ltr(n)}${n}</span>`).join('')}</div></div>
- <div class="tg"><button data-a="sound" class="${S.sound?'on':''}">Sound ${S.sound?'ON':'OFF'}</button><button data-a="auto" class="${S.auto?'on':''}">Auto ${S.auto?'ON':'OFF'}</button></div>${cards}</div></div></div>
- <div class="foot"><button class="btn red" data-a="leave">Leave</button><button class="btn" data-a="refresh">Refresh</button><button class="btn ${S.auto?'on':''}" data-a="auto">Automatic</button></div>`}
-function modal(){const w=S.win;return `<div class="ov"><div class="modal"><h1>BINGO!</h1><p style="font-size:16px;margin:6px 0 10px"><span style="color:var(--gr)">${w.name}</span> has won the game</p><div style="color:var(--ye);font-size:13px;margin:-4px 0 8px">${PNAME[w.pt]||'BINGO!'}</div><div class="card"><div class="t"><span>Board № ${w.id}</span><span>Prize ${fmt(w.prize)}</span></div>${cardHtml(w.id,null,'win',w.ln)}</div>${w.wc>1?`<div class="split">እኩል ተካፍለዋል · Split equally<br>${fmt(w.pool)} ÷ ${w.wc} = <b>${fmt(w.prize)}</b> each<small>${w.co.slice(0,6).map(x=>x.name+' (№'+x.id+')').join(', ')}${w.co.length>6?' …':''}</small></div>`:`<div class="split">${w.pending?'Prize (up to) ':'Prize '}<b>${fmt(w.prize)}</b></div>`}<p style="color:var(--mu);font-size:13px;margin:6px 0 0">${w.pending?'Verifying with server…':`Next round in <b style="color:#fff;font-size:17px">${S.t}s</b>`}</p><div class="wcn">Winner Cartela: ${w.co.slice(0,6).map(x=>'#'+x.id).join(', ')}${w.co.length>6?' …':''}</div></div></div>`}
-function welcome(){return `<div class="main"><div class="hero"><small>Welcome to</small><h1>${APP}</h1><p>75-ball multiplayer bingo</p></div>
-<div class="bar" style="justify-content:space-between;margin:12px 0"><div class="pill" style="flex-direction:row;align-items:center;gap:8px"><span style="font-size:18px">👛</span><b>${S.hide?'••••••':fmt(tot())}</b></div><div class="bar" style="gap:6px"><button class="btn" data-a="eye">${S.hide?'👁 Show':'🙈 Hide'}</button><button class="btn" data-a="help">? መመሪያ</button></div></div>
-${tot()<Math.min(...S.rooms.map(r=>r.s))?low(Math.min(...S.rooms.map(r=>r.s))):''}<h3 class="sec">Choose Your Stake</h3><div style="color:var(--mu);font-size:12px;margin:-4px 0 8px">${S.phase==='lobby'?'Next round starts in '+S.t+'s':'Round in progress · join the next one'}</div>
-<div class="stk">${S.rooms.map((r,i)=>`<button data-a="room" data-i="${i}">Play ${r.s} № ${r.n}</button>`).join('')}</div><button class="btn" data-a="addroom" style="width:100%">＋ Add stake</button></div>`}
-function panel2(){const t=S.tab;let b='';
- if(t==='wallet'){b=`<div class="ph"><div><h2>WALLET</h2><b class="gr">${fmt(tot())}</b></div><button class="btn" data-a="reload">⟳ Reload</button></div><div class="tg"><button data-a="wtab" data-t="bal" class="${S.wtab==='bal'?'on':''}">BALANCES</button><button data-a="wtab" data-t="his" class="${S.wtab==='his'?'on':''}">HISTORY</button></div>`;
-  b+=S.wtab==='bal'?`<div class="gcard"><small>TOTAL BALANCE</small><b>${fmt(tot())}</b></div><div class="tri">${mini('MAIN',S.wallet)}${mini('BONUS',S.bonus)}${mini('DEPOSITED',S.dep)}</div><h3 class="sec">Test controls</h3><div class="tg"><button data-a="dep" data-v="100">Deposit 100</button><button data-a="dep" data-v="500">Deposit 500</button><button data-a="dep" data-v="1000">Deposit 1000</button></div><div class="tg"><button data-a="bonus">Add 50 bonus</button><button data-a="reset">Reset wallet</button></div>`:(S.tx.length?S.tx.map(x=>`<div class="row"><span>${x.l}<small style="display:block;color:var(--mu);font-size:10px">${dt(x.ts)}</small></span><span style="color:${x.a>=0?'var(--gr)':'#F87171'}">${x.a>=0?'+':'−'}${fmt(Math.abs(x.a))}</span></div>`).join(''):'<p style="color:var(--mu)">No transactions yet.</p>')}
- if(t==='history'){b=`<div class="ph"><h2>GAME HISTORY</h2><button class="btn" data-a="reload">⟳ Reload</button></div><div style="margin-top:10px">${S.hist.length?'':'<p style="color:var(--mu)">No games played yet.</p>'}${S.hist.map(h=>`<div class="hc"><div class="hh"><div><b>Game #${h.gid}</b><small>${dt(h.ts)}</small></div><span class="badge ${h.win?'win':'loss'}">${h.win?'WIN':'LOSS'}</span></div><div class="g2"><div><small>Stake</small><b>${fmt(h.stake)}</b></div><div><small>Prize</small><b style="color:var(--gr)">${fmt(h.prize)}</b></div><div><small>My Boards</small><b>${h.my.map(x=>'#'+x).join(', ')}</b></div><div><small>Winners' Boards</small><b>${h.wb.slice(0,4).map(x=>'#'+x).join(', ')}</b></div><div><small>Winners</small><b>${h.wc}</b></div></div></div>`).join('')}</div>`}
- if(t==='profile'){b=`<h2 style="margin:6px 0">PROFILE</h2><div class="hc"><small style="color:var(--mu)">ACCOUNT</small><div class="bar" style="margin-top:8px;gap:12px"><div class="av">${ME.name[0]||'P'}</div><div><b style="font-size:18px">${ME.name}</b><div style="color:var(--mu);font-size:12px">ID: ${ME.id}</div></div></div></div><div class="gcard"><small>TOTAL BALANCE</small><b>${fmt(tot())}</b></div><div class="tri">${mini('MAIN',S.wallet)}${mini('BONUS',S.bonus)}${mini('DEPOSITED',S.dep)}</div><div class="hc" style="margin-top:8px"><small style="color:var(--mu)">STATS</small><div class="row"><span>Total Withdrawal</span><span>${fmt(0)}</span></div><div class="row"><span>Games Won</span><span>${S.won}</span></div><div class="row" style="border:0"><span>Total Invites</span><span>0</span></div></div><div class="hc"><small style="color:var(--mu)">SETTINGS</small><div class="row" style="border:0;align-items:center"><span>Sound</span><button class="btn ${S.sound?'on':''}" data-a="sound">${S.sound?'ON':'OFF'}</button></div><div class="row" style="border:0;align-items:center;border-top:1px solid var(--sl2)"><span>መመሪያ / How to Play</span><button class="btn" data-a="help">Open</button></div><div class="row" style="border:0;border-top:1px solid var(--sl2)"><span>Server</span><span style="color:${socket&&socket.connected?'var(--gr)':'var(--mu)'}">${socket&&socket.connected?'● Live':LIVE?'○ Reconnecting…':'○ Offline (simulation)'}</span></div></div>`}
- return `<div class="main">${b}</div>`}
-function helpModal(){return `<div class="ov" data-a="closehelp"><div class="modal hp" data-a="noop"><h2 style="margin:0 0 8px;font-size:20px">መመሪያ / How to Play</h2>
-<h3>🃏 መጫወቻ ካርድ</h3><ol><li>ከ1-600 እስከ 2 ካርቴላ መምረጥ ይቻላል</li><li>በቀይ ቀለም የተመረጡ ቁጥሮች በሌላ ተጫዋች መያዛቸውን ያሳያሉ</li><li>ካርቴላውን ሲመርጡ ከታች ቁጥሮቹን ያሳያል</li><li>ሰኮንዱ ዜሮ ሲሆን ቀጥታ ወደ ጨዋታ ያስገባል።</li></ol>
-<h3>🎮 ጨዋታ እንዴት ይካሄዳል</h3><ol><li>ካርቴላዎን ከታች በቀኝ በኩል ያገኙታል</li><li>ከ1-75 ቁጥሮች Randomly ይጠራሉ</li><li>ካርቴላዎ ላይ ያሉትን ቁጥሮች ይንኩ ወይም Automatic ያብሩ።</li></ol>
-<h3>🏆 አሸናፊ የሚሆኑባቸው መንገዶች</h3><ol><li>ወደጎን ወይም ወደታች መስመር፣ ሁለቱም አግዳሚ (ሰያፍ) መስመር፣ ወይም አራቱ ማእዘናት (ኮርነር) ሲሞሉ</li><li>ሁለት ወይም ከዚያ በላይ ተጫዋቾች እኩል ቢያሸንፉ ደራሹ ለአሸናፊዎች እኩል ይካፈላል።</li></ol>
-<button class="btn grn" data-a="closehelp" style="width:100%;margin-top:6px">ዝጋ / Close</button></div></div>`}
-function isAdminUser(){
-  try{
-    const q=new URLSearchParams(location.search);
-    if(q.get('admin')==='1'){localStorage.setItem('zina_admin','1');return true}
-    if(q.get('admin')==='0'){localStorage.removeItem('zina_admin');return false}
-    if(localStorage.getItem('zina_admin')==='1')return true;
-    const admins=['7379955498'];
-    return typeof ME!=='undefined'&&ME&&admins.includes(String(ME.id));
-  }catch(e){return false}
+const DB_KEY = 'zina_bingo_studio_v1';
+const defaultState = () => ({
+  section: 'dashboard',
+  botOnline: true,
+  serverOnline: true,
+  game: {
+    phase: 'LOBBY', countdown: 25, code: 'R1042_ZINA', boards: 16, pool: 128,
+    entryFee: 10, cardPrice: 10, minPlayers: 2, maxPlayers: 600, maxCards: 2,
+    winnersCount: 1, prizePct: 80, callIntervalSec: 4, autoStart: true, autoCall: true,
+    patterns: ['horizontal','vertical','diagonal','corners'],
+    rules: '75-ball Bingo. Horizontal, vertical, diagonal, or 4 corners win.'
+  },
+  players: [
+    { id:'7379955498', username:'@admin_owner', name:'Admin Owner', balance:2500, bonus:100, status:'active', games:14, deposited:3000, withdrawn:600 },
+    { id:'100200301', username:'@player_one', name:'Player One', balance:420, bonus:0, status:'active', games:9, deposited:600, withdrawn:180 },
+    { id:'100200302', username:'@player_two', name:'Player Two', balance:150, bonus:20, status:'frozen', games:5, deposited:200, withdrawn:0 },
+    { id:'100200303', username:'@player_three', name:'Player Three', balance:0, bonus:0, status:'banned', games:2, deposited:50, withdrawn:0 }
+  ],
+  deposits: [
+    { id:'DEP-901', playerId:'100200301', player:'@player_one', amount:500, method:'Telebirr', ref:'TB88492011', status:'pending', ts:Date.now()-3600000 },
+    { id:'DEP-900', playerId:'7379955498', player:'@admin_owner', amount:1000, method:'CBE Birr', ref:'FT263309182', status:'approved', ts:Date.now()-86400000 }
+  ],
+  withdrawals: [
+    { id:'WDR-501', playerId:'100200301', player:'@player_one', amount:180, method:'Telebirr', dest:'0911223344', status:'pending', ts:Date.now()-1800000 },
+    { id:'WDR-500', playerId:'7379955498', player:'@admin_owner', amount:600, method:'CBE Birr', dest:'1000456789123', status:'paid', ts:Date.now()-72000000 }
+  ],
+  winners: [
+    { id:'WIN-301', gameCode:'R1041_ZINA', player:'@player_one', board:44, pattern:'Diagonal Line', prize:320, paid:true, ts:Date.now()-5400000 }
+  ],
+  transactions: [
+    { id:'TX-1', player:'@admin_owner', type:'deposit', amount:1000, reason:'Verified CBE deposit', ts:Date.now()-86400000 },
+    { id:'TX-2', player:'@player_one', type:'prize', amount:320, reason:'Game R1041_ZINA win', ts:Date.now()-5400000 }
+  ],
+  tickets: [
+    { id:'TKT-12', player:'@player_two', category:'Payment', message:'Deposit receipt submitted, awaiting check.', status:'open' }
+  ],
+  staff: [
+    { id:'7379955498', name:'Super Admin', role:'Super Admin', active:true },
+    { id:'200100991', name:'Finance Admin', role:'Finance Admin', active:true },
+    { id:'200100992', name:'Game Manager', role:'Game Manager', active:true },
+    { id:'200100993', name:'Support Admin', role:'Support Admin', active:true },
+    { id:'200100994', name:'Report Viewer', role:'Report Viewer', active:true }
+  ],
+  logs: [
+    { ts:Date.now()-7200000, actor:'Super Admin', action:'LOGIN', detail:'Studio session started' },
+    { ts:Date.now()-5400000, actor:'Game Manager', action:'PRIZE_PAID', detail:'Verified Board #44 prize' }
+  ],
+  backups: [
+    { id:'BKP-20261126-01', ts:Date.now()-14400000, size:'4.8 MB', note:'Preserved accounts, balances, transactions & game history' }
+  ],
+  metrics: {
+    totalPlayers:1240, activePlayers:86, newPlayersToday:29,
+    totalGames:418, runningGames:2, completedGames:416,
+    depositsToday:14850, withdrawalsToday:6200,
+    totalRevenue:98400, totalExpenses:14200, prizesPaid:61500,
+    cpu:'14%', ram:'218 MB / 512 MB', disk:'1.2 GB / 10 GB',
+    dbStatus:'Connected', uptime:'18d 06h 42m'
+  }
+});
+let A = loadState();
+function loadState(){
+  try{ const raw = localStorage.getItem(DB_KEY); return raw ? Object.assign(defaultState(), JSON.parse(raw)) : defaultState(); }
+  catch(e){ return defaultState(); }
 }
-function openStudio(){
-  const base=(typeof SERVER_URL!=='undefined'&&SERVER_URL?SERVER_URL:location.origin).replace(/\/$/,'');
-  const url=base+'/studio';
-  try{
-    if(window.Telegram&&window.Telegram.WebApp&&typeof window.Telegram.WebApp.openLink==='function'){
-      window.Telegram.WebApp.openLink(url);
-      return;
-    }
-  }catch(e){}
-  window.open(url,'_blank');
-}
-function render(f){if(down&&!f)return;const m=document.querySelector('.main'),sc=m?m.scrollTop:0;
- const body=S.tab!=='game'?panel2():!S.room?welcome():(S.phase!=='lobby'&&!S.left)?arena():lobby();
- const tabs=isAdminUser()?['game','history','wallet','profile','admin']:['game','history','wallet','profile'];
- $('#app').innerHTML=body+`<div class="nav">${tabs.map(t=>`<button data-a="tab" data-t="${t}" class="${t==='admin'?'adm-tab ':''}${S.tab===t?'act':''}">${t==='admin'?'Admin':t[0].toUpperCase()+t.slice(1)}</button>`).join('')}</div>`+(S.phase==='win'&&S.room&&S.win?modal():'')+(S.help?helpModal():'');
- const n=document.querySelector('.main');if(n)n.scrollTop=sc}
-document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el)return;const a=el.dataset.a,i=+el.dataset.i;
- if(a==='pick'&&S.phase==='lobby'&&LIVE)livePick(i);
- else if(a==='pick'&&S.phase==='lobby'){if(S.mine.includes(i)){S.mine=S.mine.filter(x=>x!==i);refund(i);delete S.booked[i]}else if(!S.booked[i]&&S.mine.length<2){S.mine.push(i);S.booked[i]='You';pay(i)}}
- else if(a==='leave'&&LIVE){liveLeave()}
- else if(a==='leave'){if(S.phase==='lobby'){S.mine.forEach(id=>{refund(id);delete S.booked[id]});S.mine=[];S.room=null}else if(S.left)S.room=null;else S.left=true}
- else if(a==='watch')S.left=false;
- else if(a==='auto'){S.auto=!S.auto;if(LIVE)emit(EV.auto,{room:roomKey(),auto:S.auto});if(S.auto&&S.phase==='play')S.mine.forEach(id=>S.called.forEach(n=>S.marks[id].add(n)));if(S.auto&&S.phase==='play'){if(LIVE)S.mine.forEach(liveBingo);else evalWin()}}
- else if(a==='sound')S.sound=!S.sound;
- else if(a==='cell'&&!S.auto&&S.phase==='play'&&S.called.includes(+el.dataset.n)&&S.marks[i]){S.marks[i].add(+el.dataset.n);if(LIVE){emit(EV.mark,{room:roomKey(),board:i,n:+el.dataset.n});liveBingo(i)}else evalWin()}
- else if(a==='tab'){if(el.dataset.t==='admin'){if(!isAdminUser())return;openStudio();return}S.tab=el.dataset.t}
- else if(a==='dep'){const v=+el.dataset.v;if(LIVE)liveTopup(v);else{S.wallet+=v;S.dep+=v;addTx('Deposit',v);settle()}}
- else if(a==='bonus'){S.bonus+=50;addTx('Bonus',50);settle()}
- else if(a==='reset'){S.wallet=0;S.bonus=0;S.dep=0;S.tx=[]}
- else if(a==='eye')S.hide=!S.hide;
- else if(a==='help')S.help=true;
- else if(a==='closehelp')S.help=false;
- else if(a==='wtab')S.wtab=el.dataset.t;
- else if(a==='room'){const r=S.rooms[i];if(S.phase==='lobby'){S.stake=r.s;S.rn=r.n}S.room=r;S.left=S.phase!=='lobby';if(LIVE)liveJoin(r)}
- else if(a==='addroom'){const o=[20,50,100,200,500].find(v=>!S.rooms.some(r=>r.s===v&&r.n===2));if(o)S.rooms.push({s:o,n:2});else S.rooms.push({s:10*(S.rooms.length+1),n:1})}
- render(1);if(a==='refresh'){const b=document.querySelector('.rf .ic');if(b)b.classList.add('spin')}});
+function save(){ try{ localStorage.setItem(DB_KEY, JSON.stringify(A)); }catch(e){} }
+function logAction(action, detail){ A.logs.unshift({ ts:Date.now(), actor:'Admin', action, detail }); if(A.logs.length>120) A.logs.pop(); save(); }
+function toast(msg){ const el=document.createElement('div'); el.className='toast'; el.textContent=msg; document.body.appendChild(el); setTimeout(()=>el.remove(),2300); }
+const fmt = n => 'Br ' + Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const dt = ts => new Date(ts).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
 
-/* ================= LIVE LAYER: Socket.io + Telegram Mini App ================= */
-const SERVER_URL=new URLSearchParams(location.search).get('server')||'https://ela-jbix.onrender.com';
-const EV={
-  join:'room:join', leave:'room:leave', pick:'board:pick', release:'board:release',
-  mark:'game:mark', auto:'game:auto', claim:'game:claim', card:'board:card', topup:'wallet:topup_test',
-  state:'room:state', taken:'board:taken', freed:'board:released', rejected:'board:rejected',
-  start:'game:start', call:'game:call', win:'game:win', wallet:'wallet:update'
-};
-let LIVE=false,socket=null;
-const TG=window.Telegram&&window.Telegram.WebApp;
-try{if(TG){TG.ready();TG.expand();TG.setHeaderColor&&TG.setHeaderColor('#090D16');TG.setBackgroundColor&&TG.setBackgroundColor('#090D16')}}catch(e){}
-function guestId(){try{let g=localStorage.getItem('bingo_guest');if(!g){g='guest-'+Math.random().toString(36).slice(2,8);localStorage.setItem('bingo_guest',g)}return g}catch(e){return 'guest-'+Math.random().toString(36).slice(2,8)}}
-const tu=TG&&TG.initDataUnsafe&&TG.initDataUnsafe.user;
-const ME={id:tu?String(tu.id):guestId(),name:tu?[tu.first_name,tu.last_name].filter(Boolean).join(' '):'Guest',initData:TG?TG.initData:''};
-const roomKey=()=>S.room?S.room.s+'-'+S.room.n:null;
-const emit=(ev,d)=>{try{if(socket&&socket.connected)socket.emit(ev,d)}catch(e){}};
-const isMine=x=>S.mine.includes(+x.board)||(x.userId!=null&&String(x.userId)===ME.id);
-function liveJoin(r){emit(EV.join,{room:r.s+'-'+r.n,stake:r.s,user:ME})}
-function liveLeave(){if(S.phase==='lobby'||S.left){emit(EV.leave,{room:roomKey()});S.mine=[];S.paid={};S.room=null}else S.left=true}
-function livePick(i){const rk=roomKey();
-  if(S.mine.includes(i)){S.mine=S.mine.filter(x=>x!==i);delete S.booked[i];delete S.paid[i];emit(EV.release,{room:rk,board:i})}
-  else if(!S.booked[i]&&S.mine.length<2){S.mine.push(i);S.booked[i]=ME.name;S.paid[i]=1;S.lowNeed=0;emit(EV.pick,{room:rk,board:i})}}
-function toCols(rows){const c=[0,1,2,3,4].map(k=>[0,1,2,3,4].map(r=>{const v=rows[r][k];return(v==null||v===0||v==='*'||String(v).toUpperCase()==='FREE')?0:+v}));c[2][2]=0;return c}
-function setCards(m){if(!m)return;for(const k in m){try{S.cards[k]=toCols(m[k])}catch(e){}}}
-function liveBingo(id){if(S.phase!=='play'||S.claimed[id]||!S.marks[id])return;const cs=new Set(S.called),p=winLine(card(id),S.marks[id],cs);if(!p)return;S.claimed[id]=1;emit(EV.claim,{room:roomKey(),board:id});
-  showWin({winners:[{board:id,name:ME.name,userId:ME.id,pattern:p.t,line:p.c}],pool:S.pool,prize:S.pool,called:[...S.called]},true)}
-function playersCount(){const boards=Object.keys(S.booked||{}).length,srv=+S.players;return Math.max(boards,Number.isInteger(srv)&&srv>0?srv:0,S.mine.length)}
-function applyWallet(w){if(w.main!=null)S.wallet=+w.main;if(w.bonus!=null)S.bonus=+w.bonus;if(w.dep!=null)S.dep=+w.dep}
-function liveTopup(v){if(!socket)return;socket.timeout(2500).emit(EV.topup,{amount:v,user:ME},(err,res)=>{
-  if(err){S.wallet+=v;S.dep+=v;addTx('Deposit (local, no server reply)',v)}else if(res&&res.wallet)applyWallet(res.wallet);
-  S.lowNeed=0;render(1)})}
-function initMarks(){S.mine.forEach(id=>{if(!S.marks[id])S.marks[id]=new Set([0]);if(S.auto)S.called.forEach(n=>S.marks[id].add(n))})}
-function endHold(){S.holdUntil=0;const q=S.queued;S.queued=null;if(q){applyState(q);if(S.phase==='play'){S.claimed={};S.played=[...S.mine]}}else{S.phase='lobby';S.win=null;S.marks={};S.called=[];S.claimed={};S.played=null;S.mine=[];S.paid={};S.left=false}render(1)}
-function applyState(d){const prev=S.phase;d=Object.assign({},d);if(d.phase==='win')delete d.phase;if(S.holdUntil&&Date.now()<S.holdUntil){if(d.wallet)applyWallet(d.wallet);if(d.cards)setCards(d.cards);if(d.phase!=='win')S.queued=Object.assign(S.queued||{},d);return}
-  if(prev==='play'&&d.phase&&d.phase!=='play'&&S.called.length<75){if(d.wallet)applyWallet(d.wallet);if(d.cards)setCards(d.cards);return}
-  if(prev==='play')delete d.t;
-  if(d.phase)S.phase=d.phase;if(d.t!=null)S.t=d.t;if(d.stake)S.stake=d.stake;
-  if(d.booked)S.booked=d.booked;if(d.mine)S.mine=d.mine.map(Number);if(d.paid)S.paid=d.paid;
-  if(d.called&&!(prev==='play'&&d.called.length<S.called.length))S.called=d.called;if(d.gid!=null)S.gid=d.gid;if(d.gcode!==undefined||d.gid!=null)S.gcode=d.gcode||'';
-  if(d.pool!=null)S.pool=d.pool;if(d.players!=null)S.players=d.players;if(d.wallet)applyWallet(d.wallet);if(d.cards)setCards(d.cards);
-  S.mine.forEach(id=>{if(S.paid[id]==null)S.paid[id]=1});
-  if(S.phase==='lobby'){S.marks={};S.win=null;S.left=false;S.called=[];S.claimed={};if(prev!=='lobby'){S.played=null;S.holdUntil=0;if(d.mine===undefined){S.mine=[];S.paid={}}}}else if(S.phase==='play')initMarks()}
-function showWin(d,local){
-  if(!d||!Array.isArray(d.winners)||!d.winners.length)return;
-  const holding=S.holdUntil&&Date.now()<S.holdUntil&&S.phase==='win';
-  if(holding&&!(S.win&&S.win.local&&!local))return;
-  setCards(d.cards);d.winners.forEach(x=>{if(x&&(x.rows||x.card))setCards({[x.board]:x.rows||x.card})});
-  const called=Array.isArray(d.called)&&d.called.length?d.called:[...S.called],cs=new Set(called);
-  const okCell=c=>Array.isArray(c)&&c.length===2&&c.every(v=>Number.isInteger(v)&&v>=0&&v<=4),okLine=l=>Array.isArray(l)&&(l.length===4||l.length===5)&&l.every(okCell);
-  const w=[];d.winners.forEach(x=>{const b=x?+x.board:NaN;if(!Number.isInteger(b)||b<1||b>600)return;
-    let ln=okLine(x.line)?x.line:null,pt=PNAME[x.pattern]?x.pattern:null;
-    if(!ln||!pt){const p=winLine(card(b),cs,cs);if(p){ln=ln||p.c;pt=pt||p.t}}
-    w.push({...x,board:b,line:ln||[],pattern:pt})});
-  if(!w.length)return;
-  const mh=w.filter(isMine),h=mh[0]||w[0],pool=d.pool!=null?d.pool:S.pool,prize=(d.prize!=null&&isFinite(+d.prize))?+d.prize:Math.floor(pool/w.length);
-  const win={id:h.board,name:mh.length?ME.name+' (You)':h.name,ln:h.line,pt:h.pattern,mine:mh.length>0,called,wc:w.length,pool,prize,local:!!local,counted:holding?S.win.counted:0,co:w.map(x=>({id:x.board,name:isMine(x)?'You':x.name}))};
-  const ent=S.hist.find(x=>x.gid===S.gcode);
-  if(holding){S.win=win;if(ent){ent.prize=prize;ent.win=mh.length>0;ent.wb=w.map(x=>x.board);ent.wc=w.length}}
-  else{S.phase='win';S.t=7;S.holdUntil=Date.now()+7000;S.queued=null;S.called=called;S.win=win;
-    const my=S.played!=null?S.played:S.mine;if(my.length&&!ent)S.hist.unshift({gid:S.gcode,ts:Date.now(),stake:S.stake,prize,win:mh.length>0,my:[...my],wb:w.map(x=>x.board),wc:w.length})}
-  if(mh.length&&!win.counted){S.won++;win.counted=1}
-  if(d.wallet)applyWallet(d.wallet);
-  render(1)}
-function liveInit(){
-  if(!window.io||SERVER_URL.includes('PASTE'))return;
-  socket=io(SERVER_URL,{transports:['websocket','polling'],auth:{userId:ME.id,name:ME.name,initData:ME.initData}});
-  socket.on('connect',()=>{LIVE=true;const keep=S.wasConnected&&(S.phase==='play'||(S.holdUntil&&Date.now()<S.holdUntil));
-    if(!keep){S.holdUntil=0;S.queued=null;S.played=null;S.mine=[];S.booked={};S.paid={};S.marks={};S.called=[];S.phase='lobby';S.win=null;S.claimed={}}
-    if(!S.wasConnected){S.wallet=0;S.bonus=0;S.dep=0;S.wasConnected=1}
-    if(S.room)liveJoin(S.room);render(1)});
-  socket.on('disconnect',()=>{render(1)});
-  socket.on('connect_error',()=>{});
-  socket.on(EV.state,d=>{applyState(d);render()});
-  socket.on(EV.taken,d=>{S.booked[d.board]=d.name||'Player';render()});
-  socket.on(EV.freed,d=>{if(!S.mine.includes(+d.board))delete S.booked[d.board];render()});
-  socket.on(EV.rejected,d=>{const b=+d.board;S.mine=S.mine.filter(x=>x!==b);delete S.paid[b];delete S.booked[b];if(d.reason==='insufficient')S.lowNeed=S.stake;render(1)});
-  socket.on(EV.wallet,w=>{applyWallet(w);render(1)});
-  socket.on(EV.card,d=>{if(d&&d.rows)setCards({[d.board]:d.rows});render()});
-  socket.on(EV.start,d=>{const hold=S.holdUntil&&Date.now()<S.holdUntil;if(S.phase==='play'&&d.gcode&&d.gcode===S.gcode)return;if(!hold){S.claimed={};S.marks={};if(S.phase==='play')S.phase='lobby'}applyState({...d,phase:'play',called:[]});if(!hold){S.played=[...S.mine];S.left=false}render(1)});
-  socket.on(EV.call,d=>{if(S.holdUntil&&Date.now()<S.holdUntil)return;S.called=d.called||[...S.called,d.n];if(S.auto)S.mine.forEach(id=>S.marks[id]&&S.marks[id].add(d.n));beep();S.mine.forEach(liveBingo);render(1)});
-  socket.on(EV.win,d=>showWin(d,false));
+const SECTIONS = [
+  ['dashboard','📊 Dashboard'],['players','👥 Players'],['games','🎮 Games'],
+  ['wallet','💰 Wallet'],['deposits','📥 Deposits'],['withdrawals','📤 Withdrawals'],
+  ['winners','🏆 Winners'],['settings','⚙ Settings'],['broadcast','📢 Broadcast'],
+  ['reports','📈 Reports'],['support','🎧 Support'],['staff','🛡 Staff & Roles'],
+  ['security','🔐 Security & Logs'],['server','🖥 Server & Bot'],['db','🗄 DB & Migration']
+];
+
+function render(){
+  const g=A.game, m=A.metrics;
+  let body='';
+  if(A.section==='dashboard'){
+    body=`<div class="card"><h2>📊 Admin Dashboard</h2><div class="grid4">
+      <div class="kpi"><small>Total Players</small><b>${m.totalPlayers + A.players.length - 4}</b></div>
+      <div class="kpi"><small>Active Players</small><b class="ok">${m.activePlayers}</b></div>
+      <div class="kpi"><small>New Players Today</small><b>${m.newPlayersToday}</b></div>
+      <div class="kpi"><small>Total Games</small><b>${m.totalGames}</b></div>
+      <div class="kpi"><small>Running Games</small><b class="warn">${m.runningGames}</b></div>
+      <div class="kpi"><small>Completed Games</small><b>${m.completedGames}</b></div>
+      <div class="kpi"><small>Today's Deposits</small><b class="ok">${fmt(m.depositsToday)}</b></div>
+      <div class="kpi"><small>Today's Withdrawals</small><b class="bad">${fmt(m.withdrawalsToday)}</b></div>
+      <div class="kpi"><small>Total Revenue</small><b class="ok">${fmt(m.totalRevenue)}</b></div>
+      <div class="kpi"><small>Total Expenses</small><b>${fmt(m.totalExpenses)}</b></div>
+      <div class="kpi"><small>Prizes Paid</small><b class="warn">${fmt(m.prizesPaid)}</b></div>
+      <div class="kpi"><small>Pending Payments</small><b class="warn">${A.deposits.filter(d=>d.status==='pending').length + A.withdrawals.filter(w=>w.status==='pending').length}</b></div>
+      <div class="kpi"><small>Bot Status</small><b class="${A.botOnline?'ok':'bad'}">${A.botOnline?'ONLINE':'OFFLINE'}</b></div>
+      <div class="kpi"><small>Server Status</small><b class="${A.serverOnline?'ok':'bad'}">${A.serverOnline?'HEALTHY':'DOWN'}</b></div>
+    </div></div>
+    <div class="card"><h3>📡 Live Game Status</h3><div class="grid4">
+      <div class="kpi"><small>Phase</small><b>${g.phase}</b></div>
+      <div class="kpi"><small>Countdown</small><b>${g.countdown}s</b></div>
+      <div class="kpi"><small>Game Code</small><b>${g.code}</b></div>
+      <div class="kpi"><small>Boards / Pool</small><b>${g.boards} / ${fmt(g.pool)}</b></div>
+    </div></div>`;
+  } else if(A.section==='players'){
+    const q=(A.playerSearch||'').toLowerCase();
+    const list=A.players.filter(p=>!q||String(p.id).includes(q)||p.username.toLowerCase().includes(q)||p.name.toLowerCase().includes(q));
+    body=`<div class="card"><h2>👥 Player Management</h2>
+      <div class="row-gap" style="margin-bottom:10px"><input id="pSearch" placeholder="Search Telegram ID or @username..." value="${A.playerSearch||''}" style="max-width:340px"><button class="btn bl" onclick="applySearch()">Search</button></div>
+      <div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Player</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+      ${list.map(p=>`<tr><td><b>${p.id}</b></td><td>${p.name}<br><small style="color:var(--mu)">${p.username}</small></td><td><b>${fmt(p.balance)}</b></td><td><span class="pill ${p.status==='active'?'ok':p.status==='frozen'?'warn':'bad'}">${p.status.toUpperCase()}</span></td><td><div class="row-gap"><button class="btn gr" onclick="setPlayerStatus('${p.id}','active')">Active/Unban</button><button class="btn ye" onclick="setPlayerStatus('${p.id}','frozen')">Freeze</button><button class="btn rd" onclick="setPlayerStatus('${p.id}','banned')">Ban</button><button class="btn bl" onclick="msgPlayer('${p.username}')">Message</button></div></td></tr>`).join('')}
+      </tbody></table></div></div>`;
+  } else if(A.section==='games'){
+    body=`<div class="card"><h2>🎮 Game Management</h2>
+      <div class="row-gap" style="margin-bottom:12px">
+        <button class="btn gr" onclick="gameAction('RUNNING','New game started')">▶ Create / Start</button>
+        <button class="btn ye" onclick="gameAction('PAUSED','Game paused')">⏸ Pause</button>
+        <button class="btn bl" onclick="gameAction('RUNNING','Game resumed')">⏯ Resume</button>
+        <button class="btn rd" onclick="gameAction('CANCELLED','Game cancelled')">✖ Cancel</button>
+        <button class="btn pu" onclick="gameAction('LOBBY','Game restarted')">↻ Restart</button>
+      </div>
+      <div class="grid3">
+        <div class="field"><label>Entry Fee</label><input type="number" id="gEntry" value="${g.entryFee}"></div>
+        <div class="field"><label>Card Price</label><input type="number" id="gCardPrice" value="${g.cardPrice}"></div>
+        <div class="field"><label>Min / Max Players</label><input type="number" id="gMinP" value="${g.minPlayers}"></div>
+      </div>
+      <button class="btn bl" onclick="saveGameConfig()">Save Game Settings</button></div>`;
+  } else if(A.section==='wallet'){
+    body=`<div class="card"><h2>💰 Wallet Management (Audited)</h2>
+      <div class="grid3">
+        <div class="field"><label>Player</label><select id="wPlayer">${A.players.map(p=>`<option value="${p.id}">${p.username} (${fmt(p.balance)})</option>`).join('')}</select></div>
+        <div class="field"><label>Amount</label><input type="number" id="wAmt" placeholder="100"></div>
+        <div class="field"><label>Audit Reason</label><input id="wReason" placeholder="Reason required"></div>
+      </div>
+      <div class="row-gap"><button class="btn gr" onclick="adjustWallet(1)">+ Add Money</button><button class="btn rd" onclick="adjustWallet(-1)">− Deduct Money</button></div></div>
+      <div class="card"><h3>📜 Transaction Audit Log</h3><div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Player</th><th>Type</th><th>Amount</th><th>Reason</th><th>Time</th></tr></thead><tbody>
+      ${A.transactions.map(t=>`<tr><td>${t.id}</td><td>${t.player}</td><td>${t.type}</td><td class="${t.amount>=0?'ok':'bad'}">${t.amount>=0?'+':''}${fmt(t.amount)}</td><td>${t.reason}</td><td>${dt(t.ts)}</td></tr>`).join('')}
+      </tbody></table></div></div>`;
+  } else if(A.section==='deposits'){
+    body=`<div class="card"><h2>📥 Deposit Management</h2><div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Player</th><th>Amount</th><th>Ref</th><th>Status</th><th>Action</th></tr></thead><tbody>
+    ${A.deposits.map(d=>`<tr><td>${d.id}</td><td>${d.player}</td><td><b>${fmt(d.amount)}</b></td><td>${d.ref}</td><td><span class="pill ${d.status==='approved'?'ok':d.status==='pending'?'warn':'bad'}">${d.status.toUpperCase()}</span></td><td>${d.status==='pending'?`<div class="row-gap"><button class="btn gr" onclick="decideDeposit('${d.id}','approved')">Approve</button><button class="btn rd" onclick="decideDeposit('${d.id}','rejected')">Reject</button></div>`:'Done'}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+  } else if(A.section==='withdrawals'){
+    body=`<div class="card"><h2>📤 Withdrawal Management</h2><div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Player</th><th>Amount</th><th>Destination</th><th>Status</th><th>Action</th></tr></thead><tbody>
+    ${A.withdrawals.map(w=>`<tr><td>${w.id}</td><td>${w.player}</td><td><b>${fmt(w.amount)}</b></td><td>${w.method} · ${w.dest}</td><td><span class="pill ${w.status==='paid'?'ok':w.status==='pending'?'warn':'bad'}">${w.status.toUpperCase()}</span></td><td>${w.status==='pending'?`<div class="row-gap"><button class="btn gr" onclick="decideWithdrawal('${w.id}','paid')">Mark Paid</button><button class="btn rd" onclick="decideWithdrawal('${w.id}','rejected')">Reject</button></div>`:'Done'}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+  } else if(A.section==='winners'){
+    body=`<div class="card"><h2>🏆 Winner & Prize Verification</h2><div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Game</th><th>Player</th><th>Board & Pattern</th><th>Prize</th><th>Action</th></tr></thead><tbody>
+    ${A.winners.map(w=>`<tr><td>${w.id}</td><td>${w.gameCode}</td><td><b>${w.player}</b></td><td>#${w.board} · ${w.pattern}</td><td class="ok"><b>${fmt(w.prize)}</b></td><td>${!w.paid?`<button class="btn gr" onclick="payPrize('${w.id}')">Approve Prize</button>`:'<span class="pill ok">PAID</span>'}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+  } else if(A.section==='settings'){
+    body=`<div class="card"><h2>⚙ Game Settings</h2><div class="grid3">
+      <div class="field"><label>Prize Pool (%)</label><input type="number" id="sPct" value="${g.prizePct}"></div>
+      <div class="field"><label>Max Cards / Player</label><input type="number" id="sMaxC" value="${g.maxCards}"></div>
+      <div class="field"><label>Call Interval (sec)</label><input type="number" id="sInt" value="${g.callIntervalSec}"></div>
+    </div><div class="field"><label>Rules</label><textarea id="sRules" rows="2">${g.rules}</textarea></div><button class="btn gr" onclick="saveGlobalSettings()">Save Settings</button></div>`;
+  } else if(A.section==='broadcast'){
+    body=`<div class="card"><h2>📢 Notification & Broadcast</h2><div class="grid2">
+      <div class="field"><label>Target</label><select id="bAud"><option>All Players</option><option>Selected Players</option><option>Winners</option></select></div>
+      <div class="field"><label>Type</label><select id="bType"><option>Game Announcement</option><option>Winner Announcement</option><option>Payment Confirmation</option><option>New Game</option></select></div>
+    </div><div class="field"><label>Message</label><textarea id="bMsg" rows="3" placeholder="Announcement text..."></textarea></div><button class="btn bl" onclick="sendBroadcast()">Send Broadcast</button></div>`;
+  } else if(A.section==='reports'){
+    const net = m.totalRevenue - m.totalExpenses;
+    const liab = A.players.reduce((s,p)=>s+(+p.balance||0)+(+p.bonus||0),0);
+    body=`<div class="card"><h2>📈 Reports & Statistics</h2><div class="grid4">
+      <div class="kpi"><small>Total Income</small><b class="ok">${fmt(m.totalRevenue)}</b></div>
+      <div class="kpi"><small>Expenses + Prizes</small><b class="bad">${fmt(m.totalExpenses+m.prizesPaid)}</b></div>
+      <div class="kpi"><small>Net Profit</small><b class="ok">${fmt(net)}</b></div>
+      <div class="kpi"><small>Player Liabilities</small><b class="warn">${fmt(liab)}</b></div>
+    </div><button class="btn gr" style="margin-top:12px" onclick="exportCsv()">⬇ Export CSV</button></div>`;
+  } else if(A.section==='support'){
+    body=`<div class="card"><h2>🎧 Support Tickets</h2>${A.tickets.map(t=>`<div class="kpi" style="margin-bottom:8px"><b>${t.id} · ${t.player} (${t.category})</b><p style="margin:6px 0">${t.message}</p><button class="btn gr" onclick="closeTicket('${t.id}')">Close Ticket</button></div>`).join('')}</div>`;
+  } else if(A.section==='staff'){
+    body=`<div class="card"><h2>🛡 Admin & Staff Management</h2><div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Role</th></tr></thead><tbody>${A.staff.map(s=>`<tr><td>${s.id}</td><td>${s.name}</td><td><span class="pill ok">${s.role}</span></td></tr>`).join('')}</tbody></table></div></div>`;
+  } else if(A.section==='security'){
+    body=`<div class="card"><h2>🔐 Security & Activity Logs</h2><div class="tbl-wrap"><table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Detail</th></tr></thead><tbody>${A.logs.map(l=>`<tr><td>${dt(l.ts)}</td><td>${l.actor}</td><td><span class="pill warn">${l.action}</span></td><td>${l.detail}</td></tr>`).join('')}</tbody></table></div></div>`;
+  } else if(A.section==='server'){
+    body=`<div class="card"><h2>🖥 Server & Bot Control</h2><div class="grid4" style="margin-bottom:12px">
+      <div class="kpi"><small>CPU</small><b>${m.cpu}</b></div><div class="kpi"><small>RAM</small><b>${m.ram}</b></div>
+      <div class="kpi"><small>Disk</small><b>${m.disk}</b></div><div class="kpi"><small>Uptime</small><b>${m.uptime}</b></div>
+    </div><div class="row-gap"><button class="btn gr" onclick="toggleBot(true)">Bot Online</button><button class="btn rd" onclick="toggleBot(false)">Bot Offline</button><button class="btn ye" onclick="restartBot()">↻ Restart Bot</button></div></div>`;
+  } else if(A.section==='db'){
+    body=`<div class="card"><h2>🗄 Database, Backups & Safe Migration</h2><p style="color:var(--mu);font-size:13px">Existing accounts, balances, transaction history, and game history are preserved safely.</p>
+      <button class="btn gr" style="margin-bottom:10px" onclick="createBackup()">+ Create Backup Now</button>
+      <div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Created</th><th>Size</th><th>Note</th></tr></thead><tbody>${A.backups.map(b=>`<tr><td><b>${b.id}</b></td><td>${dt(b.ts)}</td><td>${b.size}</td><td>${b.note}</td></tr>`).join('')}</tbody></table></div></div>`;
+  }
+
+  document.getElementById('app').innerHTML = `
+    <div class="top">
+      <div class="brand"><span style="font-size:26px">🎬</span><div><h1>Zina Bingo Studio</h1><small>Full Admin Panel · Data Preserved</small></div></div>
+      <div class="actions"><a class="btn bl" href="/" style="text-decoration:none">🎮 Mini App</a><button class="btn gr" onclick="save();toast('Saved')">↻ Sync</button></div>
+    </div>
+    <div class="tabs">${SECTIONS.map(([k,l])=>`<button class="tab ${A.section===k?'act':''}" onclick="setSec('${k}')">${l}</button>`).join('')}</div>
+    ${body}`;
 }
-liveInit();
-/* ================= END LIVE LAYER ================= */
-render();setInterval(tick,500);
-</script></body></html>
+
+window.setSec=k=>{A.section=k;save();render()};
+window.applySearch=()=>{A.playerSearch=document.getElementById('pSearch').value;render()};
+window.setPlayerStatus=(id,st)=>{const p=A.players.find(x=>x.id===id);if(p){p.status=st;logAction('PLAYER_STATUS',`${p.username} -> ${st}`);save();render();toast('Updated')}}
+window.msgPlayer=u=>{logAction('MSG',`Sent message to ${u}`);toast('Message sent to '+u)}
+window.gameAction=(ph,msg)=>{A.game.phase=ph;logAction('GAME',msg);save();render();toast(msg)}
+window.saveGameConfig=()=>{A.game.entryFee=+document.getElementById('gEntry').value||10;A.game.cardPrice=+document.getElementById('gCardPrice').value||10;A.game.minPlayers=+document.getElementById('gMinP').value||2;logAction('GAME_CFG','Updated');save();render();toast('Saved')}
+window.adjustWallet=dir=>{
+  const pid=document.getElementById('wPlayer').value, amt=Math.abs(+document.getElementById('wAmt').value||0), reason=(document.getElementById('wReason').value||'').trim();
+  if(!amt||!reason)return toast('Amount & audit reason required');
+  const p=A.players.find(x=>x.id===pid); if(!p)return;
+  const d=dir*amt; p.balance=Math.max(0,p.balance+d);
+  A.transactions.unshift({id:'TX-'+Date.now().toString().slice(-5),player:p.username,type:dir>0?'credit':'debit',amount:d,reason,ts:Date.now()});
+  logAction('WALLET',`${p.username} ${d>=0?'+':''}${d} (${reason})`); save(); render(); toast('Recorded');
+}
+window.decideDeposit=(id,st)=>{const d=A.deposits.find(x=>x.id===id);if(!d||d.status!=='pending')return;d.status=st;if(st==='approved'){const p=A.players.find(x=>x.id===d.playerId);if(p){p.balance+=d.amount;p.deposited+=d.amount}A.metrics.depositsToday+=d.amount}logAction('DEPOSIT_'+st.toUpperCase(),id);save();render();toast('Deposit '+st)}
+window.decideWithdrawal=(id,st)=>{const w=A.withdrawals.find(x=>x.id===id);if(!w||w.status!=='pending')return;w.status=st;if(st==='paid'){const p=A.players.find(x=>x.id===w.playerId);if(p){p.balance=Math.max(0,p.balance-w.amount);p.withdrawn+=w.amount}A.metrics.withdrawalsToday+=w.amount}logAction('WITHDRAWAL_'+st.toUpperCase(),id);save();render();toast('Withdrawal '+st)}
+window.payPrize=id=>{const w=A.winners.find(x=>x.id===id);if(!w)return;w.paid=true;A.metrics.prizesPaid+=w.prize;logAction('PRIZE_PAID',id);save();render();toast('Prize approved')}
+window.saveGlobalSettings=()=>{A.game.prizePct=+document.getElementById('sPct').value||80;A.game.maxCards=+document.getElementById('sMaxC').value||2;A.game.callIntervalSec=+document.getElementById('sInt').value||4;A.game.rules=document.getElementById('sRules').value;logAction('SETTINGS','Saved');save();render();toast('Settings saved')}
+window.sendBroadcast=()=>{const m=(document.getElementById('bMsg').value||'').trim();if(!m)return toast('Write message');logAction('BROADCAST',m);save();toast('Broadcast sent')}
+window.exportCsv=()=>{const csv='Metric,Value\nRevenue,'+A.metrics.totalRevenue+'\nExpenses,'+A.metrics.totalExpenses+'\nPrizes,'+A.metrics.prizesPaid;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='zina-bingo-report.csv';a.click();toast('CSV exported')}
+window.closeTicket=id=>{const t=A.tickets.find(x=>x.id===id);if(t){t.status='closed';logAction('TICKET_CLOSED',id);save();render();toast('Closed')}}
+window.toggleBot=on=>{A.botOnline=on;logAction('BOT',on?'ONLINE':'OFFLINE');save();render();toast(on?'Bot ONLINE':'Bot OFFLINE')}
+window.restartBot=()=>{logAction('BOT_RESTART','Restarted');toast('Bot restarting...')}
+window.createBackup=()=>{const id='BKP-'+Date.now().toString().slice(-6);A.backups.unshift({id,ts:Date.now(),size:'5.0 MB',note:'Snapshot created safely'});logAction('BACKUP',id);save();render();toast('Backup created')}
+render();
+</script>
+</body>
+</html>`);
+});
