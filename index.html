@@ -23,9 +23,9 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 .num.me{background:var(--gr);color:#04140C;box-shadow:0 0 12px 2px #22E58B88}
 .num.lock{opacity:.7}
 .nav{display:flex;background:#0D1424;border-top:1px solid var(--sl2)}
-.nav button{flex:1;background:none;padding:12px 0;font-size:12px;color:var(--mu);font-weight:800}
+.nav button{flex:1;background:none;padding:12px 0;font-size:13px;color:var(--mu)}
 .nav button.act{color:var(--gr)}
-.nav button.adm-tab{color:var(--ye)}
+.nav button.adm-tab{color:var(--ye);font-weight:800}
 .ball{--c:var(--B);width:var(--s,64px);height:var(--s,64px);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 32% 28%,#fff9 0,#fff0 28%),radial-gradient(circle at 50% 60%,var(--c),color-mix(in srgb,var(--c) 55%,#000));box-shadow:0 4px 14px color-mix(in srgb,var(--c) 55%,transparent);line-height:1;flex:none}
 .ball i{font-style:normal;font-size:calc(var(--s,64px)*.2);font-weight:800;opacity:.9}
 .ball b{font-size:calc(var(--s,64px)*.4);font-weight:800}
@@ -144,6 +144,11 @@ function arena(){const cs=new Set(S.called),lc=S.called.at(-1),l3=S.called.slice
  <div class="tg"><button data-a="sound" class="${S.sound?'on':''}">Sound ${S.sound?'ON':'OFF'}</button><button data-a="auto" class="${S.auto?'on':''}">Auto ${S.auto?'ON':'OFF'}</button></div>${cards}</div></div></div>
  <div class="foot"><button class="btn red" data-a="leave">Leave</button><button class="btn" data-a="refresh">Refresh</button><button class="btn ${S.auto?'on':''}" data-a="auto">Automatic</button></div>`}
 function modal(){const w=S.win;return `<div class="ov"><div class="modal"><h1>BINGO!</h1><p style="font-size:16px;margin:6px 0 10px"><span style="color:var(--gr)">${w.name}</span> has won the game</p><div style="color:var(--ye);font-size:13px;margin:-4px 0 8px">${PNAME[w.pt]||'BINGO!'}</div><div class="card"><div class="t"><span>Board № ${w.id}</span><span>Prize ${fmt(w.prize)}</span></div>${cardHtml(w.id,null,'win',w.ln)}</div>${w.wc>1?`<div class="split">እኩል ተካፍለዋል · Split equally<br>${fmt(w.pool)} ÷ ${w.wc} = <b>${fmt(w.prize)}</b> each<small>${w.co.slice(0,6).map(x=>x.name+' (№'+x.id+')').join(', ')}${w.co.length>6?' …':''}</small></div>`:`<div class="split">${w.pending?'Prize (up to) ':'Prize '}<b>${fmt(w.prize)}</b></div>`}<p style="color:var(--mu);font-size:13px;margin:6px 0 0">${w.pending?'Verifying with server…':`Next round in <b style="color:#fff;font-size:17px">${S.t}s</b>`}</p><div class="wcn">Winner Cartela: ${w.co.slice(0,6).map(x=>'#'+x.id).join(', ')}${w.co.length>6?' …':''}</div></div></div>`}
+function panel(){const t=S.tab;let b='';
+ if(t==='history')b=S.hist.length?S.hist.map(h=>`<div class="row"><span>#${h.gid} · ${h.name} (№${h.id})</span><span style="color:var(--gr)">${h.prize}</span></div>`).join(''):'<p style="color:var(--mu)">No rounds finished yet.</p>';
+ if(t==='wallet')b=`<div class="pill" style="margin:8px 0"><small>Balance</small><b style="font-size:28px">${S.wallet}</b></div><div class="bar"><button class="btn grn" data-a="topup">Add 500 (test)</button></div>`;
+ if(t==='profile')b=`<div class="row"><span>Name</span><span>You</span></div><div class="row"><span>Rounds played</span><span>${S.hist.length}</span></div><div class="row"><span>Language</span><span>EN / አማርኛ</span></div>`;
+ return `<div class="main"><h2 style="margin:6px 0">${t[0].toUpperCase()+t.slice(1)}</h2>${b}</div>`}
 function welcome(){return `<div class="main"><div class="hero"><small>Welcome to</small><h1>${APP}</h1><p>75-ball multiplayer bingo</p></div>
 <div class="bar" style="justify-content:space-between;margin:12px 0"><div class="pill" style="flex-direction:row;align-items:center;gap:8px"><span style="font-size:18px">👛</span><b>${S.hide?'••••••':fmt(tot())}</b></div><div class="bar" style="gap:6px"><button class="btn" data-a="eye">${S.hide?'👁 Show':'🙈 Hide'}</button><button class="btn" data-a="help">? መመሪያ</button></div></div>
 ${tot()<Math.min(...S.rooms.map(r=>r.s))?low(Math.min(...S.rooms.map(r=>r.s))):''}<h3 class="sec">Choose Your Stake</h3><div style="color:var(--mu);font-size:12px;margin:-4px 0 8px">${S.phase==='lobby'?'Next round starts in '+S.t+'s':'Round in progress · join the next one'}</div>
@@ -152,17 +157,27 @@ function panel2(){const t=S.tab;let b='';
  if(t==='wallet'){b=`<div class="ph"><div><h2>WALLET</h2><b class="gr">${fmt(tot())}</b></div><button class="btn" data-a="reload">⟳ Reload</button></div><div class="tg"><button data-a="wtab" data-t="bal" class="${S.wtab==='bal'?'on':''}">BALANCES</button><button data-a="wtab" data-t="his" class="${S.wtab==='his'?'on':''}">HISTORY</button></div>`;
   b+=S.wtab==='bal'?`<div class="gcard"><small>TOTAL BALANCE</small><b>${fmt(tot())}</b></div><div class="tri">${mini('MAIN',S.wallet)}${mini('BONUS',S.bonus)}${mini('DEPOSITED',S.dep)}</div><h3 class="sec">Test controls</h3><div class="tg"><button data-a="dep" data-v="100">Deposit 100</button><button data-a="dep" data-v="500">Deposit 500</button><button data-a="dep" data-v="1000">Deposit 1000</button></div><div class="tg"><button data-a="bonus">Add 50 bonus</button><button data-a="reset">Reset wallet</button></div>`:(S.tx.length?S.tx.map(x=>`<div class="row"><span>${x.l}<small style="display:block;color:var(--mu);font-size:10px">${dt(x.ts)}</small></span><span style="color:${x.a>=0?'var(--gr)':'#F87171'}">${x.a>=0?'+':'−'}${fmt(Math.abs(x.a))}</span></div>`).join(''):'<p style="color:var(--mu)">No transactions yet.</p>')}
  if(t==='history'){b=`<div class="ph"><h2>GAME HISTORY</h2><button class="btn" data-a="reload">⟳ Reload</button></div><div style="margin-top:10px">${S.hist.length?'':'<p style="color:var(--mu)">No games played yet.</p>'}${S.hist.map(h=>`<div class="hc"><div class="hh"><div><b>Game #${h.gid}</b><small>${dt(h.ts)}</small></div><span class="badge ${h.win?'win':'loss'}">${h.win?'WIN':'LOSS'}</span></div><div class="g2"><div><small>Stake</small><b>${fmt(h.stake)}</b></div><div><small>Prize</small><b style="color:var(--gr)">${fmt(h.prize)}</b></div><div><small>My Boards</small><b>${h.my.map(x=>'#'+x).join(', ')}</b></div><div><small>Winners' Boards</small><b>${h.wb.slice(0,4).map(x=>'#'+x).join(', ')}</b></div><div><small>Winners</small><b>${h.wc}</b></div></div></div>`).join('')}</div>`}
- if(t==='profile'){b=`<h2 style="margin:6px 0">PROFILE</h2><div class="hc"><small style="color:var(--mu)">ACCOUNT</small><div class="bar" style="margin-top:8px;gap:12px"><div class="av">${ME.name[0]||'P'}</div><div><b style="font-size:18px">${ME.name}</b><div style="color:var(--mu);font-size:12px">ID: ${ME.id}</div></div></div></div><div class="gcard"><small>TOTAL BALANCE</small><b>${fmt(tot())}</b></div><div class="tri">${mini('MAIN',S.wallet)}${mini('BONUS',S.bonus)}${mini('DEPOSITED',S.dep)}</div><div class="hc" style="margin-top:8px"><small style="color:var(--mu)">STATS</small><div class="row"><span>Total Withdrawal</span><span>${fmt(0)}</span></div><div class="row"><span>Games Won</span><span>${S.won}</span></div><div class="row" style="border:0"><span>Total Invites</span><span>0</span></div></div><div class="hc"><small style="color:var(--mu)">SETTINGS</small><div class="row" style="border:0;align-items:center"><span>Sound</span><button class="btn ${S.sound?'on':''}" data-a="sound">${S.sound?'ON':'OFF'}</button></div><div class="row" style="border:0;align-items:center;border-top:1px solid var(--sl2)"><span>መመሪያ / How to Play</span><button class="btn" data-a="help">Open</button></div><div class="row" style="border:0;align-items:center;border-top:1px solid var(--sl2)"><span>Admin Studio</span><button class="btn grn" data-a="open_studio">Open Studio</button></div><div class="row" style="border:0;border-top:1px solid var(--sl2)"><span>Server</span><span style="color:${socket&&socket.connected?'var(--gr)':'var(--mu)'}">${socket&&socket.connected?'● Live':LIVE?'○ Reconnecting…':'○ Offline (simulation)'}</span></div></div>`}
+ if(t==='profile'){b=`<h2 style="margin:6px 0">PROFILE</h2><div class="hc"><small style="color:var(--mu)">ACCOUNT</small><div class="bar" style="margin-top:8px;gap:12px"><div class="av">${ME.name[0]||'P'}</div><div><b style="font-size:18px">${ME.name}</b><div style="color:var(--mu);font-size:12px">ID: ${ME.id}</div></div></div></div><div class="gcard"><small>TOTAL BALANCE</small><b>${fmt(tot())}</b></div><div class="tri">${mini('MAIN',S.wallet)}${mini('BONUS',S.bonus)}${mini('DEPOSITED',S.dep)}</div><div class="hc" style="margin-top:8px"><small style="color:var(--mu)">STATS</small><div class="row"><span>Total Withdrawal</span><span>${fmt(0)}</span></div><div class="row"><span>Games Won</span><span>${S.won}</span></div><div class="row" style="border:0"><span>Total Invites</span><span>0</span></div></div><div class="hc"><small style="color:var(--mu)">SETTINGS</small><div class="row" style="border:0;align-items:center"><span>Sound</span><button class="btn ${S.sound?'on':''}" data-a="sound">${S.sound?'ON':'OFF'}</button></div><div class="row" style="border:0;align-items:center;border-top:1px solid var(--sl2)"><span>መመሪያ / How to Play</span><button class="btn" data-a="help">Open</button></div><div class="row" style="border:0;border-top:1px solid var(--sl2)"><span>Server</span><span style="color:${socket&&socket.connected?'var(--gr)':'var(--mu)'}">${socket&&socket.connected?'● Live':LIVE?'○ Reconnecting…':'○ Offline (simulation)'}</span></div></div>`}
  return `<div class="main">${b}</div>`}
 function helpModal(){return `<div class="ov" data-a="closehelp"><div class="modal hp" data-a="noop"><h2 style="margin:0 0 8px;font-size:20px">መመሪያ / How to Play</h2>
 <h3>🃏 መጫወቻ ካርድ</h3><ol><li>ከ1-600 እስከ 2 ካርቴላ መምረጥ ይቻላል</li><li>በቀይ ቀለም የተመረጡ ቁጥሮች በሌላ ተጫዋች መያዛቸውን ያሳያሉ</li><li>ካርቴላውን ሲመርጡ ከታች ቁጥሮቹን ያሳያል</li><li>ሰኮንዱ ዜሮ ሲሆን ቀጥታ ወደ ጨዋታ ያስገባል።</li></ol>
 <h3>🎮 ጨዋታ እንዴት ይካሄዳል</h3><ol><li>ካርቴላዎን ከታች በቀኝ በኩል ያገኙታል</li><li>ከ1-75 ቁጥሮች Randomly ይጠራሉ</li><li>ካርቴላዎ ላይ ያሉትን ቁጥሮች ይንኩ ወይም Automatic ያብሩ።</li></ol>
 <h3>🏆 አሸናፊ የሚሆኑባቸው መንገዶች</h3><ol><li>ወደጎን ወይም ወደታች መስመር፣ ሁለቱም አግዳሚ (ሰያፍ) መስመር፣ ወይም አራቱ ማእዘናት (ኮርነር) ሲሞሉ</li><li>ሁለት ወይም ከዚያ በላይ ተጫዋቾች እኩል ቢያሸንፉ ደራሹ ለአሸናፊዎች እኩል ይካፈላል።</li></ol>
 <button class="btn grn" data-a="closehelp" style="width:100%;margin-top:6px">ዝጋ / Close</button></div></div>`}
+function isAdminUser(){
+  try{
+    const q=new URLSearchParams(location.search);
+    if(q.get('admin')==='1'){localStorage.setItem('zina_admin','1');return true}
+    if(q.get('admin')==='0'){localStorage.removeItem('zina_admin');return false}
+    if(localStorage.getItem('zina_admin')==='1')return true;
+    const admins=['7379955498'];
+    return typeof ME!=='undefined'&&ME&&admins.includes(String(ME.id));
+  }catch(e){return false}
+}
 function render(f){if(down&&!f)return;const m=document.querySelector('.main'),sc=m?m.scrollTop:0;
  const body=S.tab!=='game'?panel2():!S.room?welcome():(S.phase!=='lobby'&&!S.left)?arena():lobby();
- const navItems=['game','history','wallet','profile','admin'].map(t=>`<button data-a="tab" data-t="${t}" class="${t==='admin'?'adm-tab ':''}${S.tab===t?'act':''}">${t==='admin'?'Admin':t[0].toUpperCase()+t.slice(1)}</button>`).join('');
- $('#app').innerHTML=body+`<div class="nav">${navItems}</div>`+(S.phase==='win'&&S.room&&S.win?modal():'')+(S.help?helpModal():'');
+ const tabs=isAdminUser()?['game','history','wallet','profile','admin']:['game','history','wallet','profile'];
+ $('#app').innerHTML=body+`<div class="nav">${tabs.map(t=>`<button data-a="tab" data-t="${t}" class="${t==='admin'?'adm-tab ':''}${S.tab===t?'act':''}">${t==='admin'?'Admin':t[0].toUpperCase()+t.slice(1)}</button>`).join('')}</div>`+(S.phase==='win'&&S.room&&S.win?modal():'')+(S.help?helpModal():'');
  const n=document.querySelector('.main');if(n)n.scrollTop=sc}
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el)return;const a=el.dataset.a,i=+el.dataset.i;
  if(a==='pick'&&S.phase==='lobby'&&LIVE)livePick(i);
@@ -173,8 +188,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!
  else if(a==='auto'){S.auto=!S.auto;if(LIVE)emit(EV.auto,{room:roomKey(),auto:S.auto});if(S.auto&&S.phase==='play')S.mine.forEach(id=>S.called.forEach(n=>S.marks[id].add(n)));if(S.auto&&S.phase==='play'){if(LIVE)S.mine.forEach(liveBingo);else evalWin()}}
  else if(a==='sound')S.sound=!S.sound;
  else if(a==='cell'&&!S.auto&&S.phase==='play'&&S.called.includes(+el.dataset.n)&&S.marks[i]){S.marks[i].add(+el.dataset.n);if(LIVE){emit(EV.mark,{room:roomKey(),board:i,n:+el.dataset.n});liveBingo(i)}else evalWin()}
- else if(a==='tab'){const nextTab=el.dataset.t;if(nextTab==='admin'){window.open((typeof SERVER_URL!=='undefined'&&SERVER_URL?SERVER_URL:location.origin)+'/studio','_blank');return}S.tab=nextTab}
- else if(a==='open_studio'){window.open((typeof SERVER_URL!=='undefined'&&SERVER_URL?SERVER_URL:location.origin)+'/studio','_blank')}
+ else if(a==='tab'){if(el.dataset.t==='admin'){if(!isAdminUser())return;window.open((typeof SERVER_URL!=='undefined'&&SERVER_URL?SERVER_URL:location.origin)+'/studio','_blank');return}S.tab=el.dataset.t}
  else if(a==='dep'){const v=+el.dataset.v;if(LIVE)liveTopup(v);else{S.wallet+=v;S.dep+=v;addTx('Deposit',v);settle()}}
  else if(a==='bonus'){S.bonus+=50;addTx('Bonus',50);settle()}
  else if(a==='reset'){S.wallet=0;S.bonus=0;S.dep=0;S.tx=[]}
@@ -235,7 +249,7 @@ function applyState(d){const prev=S.phase;d=Object.assign({},d);if(d.phase==='wi
 function showWin(d,local){
   if(!d||!Array.isArray(d.winners)||!d.winners.length)return;
   const holding=S.holdUntil&&Date.now()<S.holdUntil&&S.phase==='win';
-  if(holding&&!(S.win&&S.win.local&&!local))return;
+  if(holding&&!(S.win&&S.win.local&&!local))return;                 // already celebrating; only the server result may upgrade a local one
   setCards(d.cards);d.winners.forEach(x=>{if(x&&(x.rows||x.card))setCards({[x.board]:x.rows||x.card})});
   const called=Array.isArray(d.called)&&d.called.length?d.called:[...S.called],cs=new Set(called);
   const okCell=c=>Array.isArray(c)&&c.length===2&&c.every(v=>Number.isInteger(v)&&v>=0&&v<=4),okLine=l=>Array.isArray(l)&&(l.length===4||l.length===5)&&l.every(okCell);
@@ -243,7 +257,7 @@ function showWin(d,local){
     let ln=okLine(x.line)?x.line:null,pt=PNAME[x.pattern]?x.pattern:null;
     if(!ln||!pt){const p=winLine(card(b),cs,cs);if(p){ln=ln||p.c;pt=pt||p.t}}
     w.push({...x,board:b,line:ln||[],pattern:pt})});
-  if(!w.length)return;
+  if(!w.length)return;                                                // no valid winning board -> ignore
   const mh=w.filter(isMine),h=mh[0]||w[0],pool=d.pool!=null?d.pool:S.pool,prize=(d.prize!=null&&isFinite(+d.prize))?+d.prize:Math.floor(pool/w.length);
   const win={id:h.board,name:mh.length?ME.name+' (You)':h.name,ln:h.line,pt:h.pattern,mine:mh.length>0,called,wc:w.length,pool,prize,local:!!local,counted:holding?S.win.counted:0,co:w.map(x=>({id:x.board,name:isMine(x)?'You':x.name}))};
   const ent=S.hist.find(x=>x.gid===S.gcode);
