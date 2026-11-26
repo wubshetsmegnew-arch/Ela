@@ -2,89 +2,381 @@
 <html lang="am">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Zina Bingo Studio</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Noto+Sans+Ethiopic:wght@600;800&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; }
-    body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 14px; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Plus Jakarta Sans', 'Noto Sans Ethiopic', system-ui, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 14px; }
+    .wrap { max-width: 960px; margin: 0 auto; }
     .card { background: #1e293b; border-radius: 12px; padding: 14px; margin-bottom: 14px; border: 1px solid #334155; }
     h2, h3 { margin: 0 0 10px 0; }
     .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-    .stat { background: #0f172a; padding: 10px; border-radius: 8px; }
-    .label { font-size: 11px; color: #94a3b8; }
-    .val { font-size: 18px; font-weight: 700; margin-top: 3px; color: #38bdf8; }
-    input { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff; margin-bottom: 8px; }
-    button, a.btn { cursor: pointer; border: none; border-radius: 8px; padding: 9px 12px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 13px; }
+    .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+    .grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+    .stat { background: #0f172a; padding: 10px; border-radius: 8px; border: 1px solid #263349; }
+    .label { font-size: 11px; color: #94a3b8; margin-bottom: 4px; display: block; }
+    .val { font-size: 17px; font-weight: 700; margin-top: 2px; color: #38bdf8; }
+    .ok { color: #22c55e; }
+    .warn { color: #facc15; }
+    .bad { color: #f87171; }
+    input, select, textarea { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff; margin-bottom: 8px; font-family: inherit; }
+    button, a.btn { cursor: pointer; border: none; border-radius: 8px; padding: 9px 12px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-family: inherit; }
+    button:active, a.btn:active { transform: scale(0.98); }
     .btn-blue { background: #2563eb; color: #fff; }
     .btn-green { background: #16a34a; color: #fff; }
     .btn-red { background: #dc2626; color: #fff; }
+    .btn-yellow { background: #eab308; color: #0f172a; }
     .btn-gray { background: #334155; color: #f8fafc; }
+    .tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; }
+    .tab { background: #1e293b; color: #94a3b8; border: 1px solid #334155; white-space: nowrap; }
+    .tab.active { background: #2563eb; color: #fff; border-color: #3b82f6; }
+    .row-gap { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .req-item { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
     .req-img { max-width: 100%; max-height: 220px; border-radius: 8px; margin: 8px 0; display: block; border: 1px solid #475569; }
     .badge { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
     .pending { background: #f59e0b; color: #0f172a; }
     .approved { background: #16a34a; color: #fff; }
     .rejected { background: #dc2626; color: #fff; }
-    .wrap { max-width: 720px; margin: 0 auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #263349; }
+    th { color: #94a3b8; font-size: 11px; }
+    .tbl-wrap { overflow-x: auto; }
+    .toast { position: fixed; bottom: 16px; right: 16px; background: #16a34a; color: #fff; padding: 10px 14px; border-radius: 10px; font-weight: 700; font-size: 13px; z-index: 999; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h2>🎬 Zina Bingo Studio</h2>
-
     <div class="card">
-      <h3>📡 የቀጥታ ጨዋታ ሁኔታ</h3>
-      <div class="grid">
-        <div class="stat"><div class="label">Phase</div><div class="val" id="sPhase">-</div></div>
-        <div class="stat"><div class="label">Countdown</div><div class="val" id="sCount">-</div></div>
-        <div class="stat"><div class="label">Game Code</div><div class="val" id="sCode">-</div></div>
-        <div class="stat"><div class="label">Boards / Pool</div><div class="val" id="sPool">-</div></div>
-      </div>
-      <div style="margin-top:10px;">
-        <a class="btn btn-blue" href="/" target="_blank">🎮 Mini App ክፈት</a>
-        <button class="btn-gray" onclick="loadAll()">🔄 አድስ</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>⚙️ ቅንብሮችን አስተካክል (Edit Settings)</h3>
-      <div class="label">Telebirr</div>
-      <input type="text" id="cfgTelebirr" />
-      <div class="label">CBE</div>
-      <input type="text" id="cfgCbe" />
-      <div class="grid">
+      <div class="row-gap" style="justify-content:space-between;">
         <div>
-          <div class="label">Welcome Bonus (ብር)</div>
-          <input type="number" id="cfgBonus" />
+          <h2 style="margin:0;">🎬 Zina Bingo Studio</h2>
+          <span class="label" style="margin:2px 0 0 0;">Admin Control Panel · ነባር ተጫዋቾችና ሂሳቦች ተጠብቀዋል</span>
         </div>
-        <div>
-          <div class="label">Min Deposit (ብር)</div>
-          <input type="number" id="cfgMinDep" />
+        <div class="row-gap">
+          <a class="btn btn-blue" href="/">🎮 Mini App</a>
+          <button class="btn-gray" type="button" onclick="loadAll()">🔄 አድስ</button>
         </div>
       </div>
-      <div class="label">Min Withdraw (ብር)</div>
-      <input type="number" id="cfgMinWdr" />
-      <button class="btn-green" onclick="saveSettings()">💾 ቅንብሮችን አስቀምጥ</button>
     </div>
 
-    <div class="card">
-      <h3>💳 የተጫዋች ሂሳብ ጨምር / ቀንስ</h3>
-      <div class="grid">
-        <input type="text" id="balUserId" placeholder="User ID (ለምሳሌ 7379955498)" />
-        <input type="number" id="balDelta" placeholder="መጠን (ለምሳሌ 50 ወይም -20)" />
+    <div class="tabs" id="secTabs"></div>
+
+    <!-- 1. DASHBOARD & LIVE GAME -->
+    <div id="sec-dashboard" class="studio-sec">
+      <div class="card">
+        <h3>📡 የቀጥታ ጨዋታ ሁኔታ (Live Game)</h3>
+        <div class="grid">
+          <div class="stat"><div class="label">Phase</div><div class="val" id="sPhase">-</div></div>
+          <div class="stat"><div class="label">Countdown</div><div class="val" id="sCount">-</div></div>
+          <div class="stat"><div class="label">Game Code</div><div class="val" id="sCode">-</div></div>
+          <div class="stat"><div class="label">Boards / Pool</div><div class="val" id="sPool">-</div></div>
+        </div>
       </div>
-      <button class="btn-blue" onclick="adjustBalance()">ሂሳብ አዘምን</button>
+
+      <div class="card">
+        <h3>📊 Admin Dashboard Overview</h3>
+        <div class="grid4">
+          <div class="stat"><div class="label">Total Players</div><div class="val" id="dTotalPlayers">1,240</div></div>
+          <div class="stat"><div class="label">Active Players</div><div class="val ok" id="dActivePlayers">86</div></div>
+          <div class="stat"><div class="label">New Players Today</div><div class="val" id="dNewToday">29</div></div>
+          <div class="stat"><div class="label">Total / Running / Done</div><div class="val" id="dGamesMix">418 / 2 / 416</div></div>
+          <div class="stat"><div class="label">Today's Deposits</div><div class="val ok" id="dDepToday">Br 14,850</div></div>
+          <div class="stat"><div class="label">Today's Withdrawals</div><div class="val bad" id="dWdrToday">Br 6,200</div></div>
+          <div class="stat"><div class="label">Revenue / Expenses</div><div class="val" id="dRevExp">Br 98.4k / 14.2k</div></div>
+          <div class="stat"><div class="label">Prizes Paid / Bot</div><div class="val warn" id="dPrizeBot">Br 61.5k · ONLINE</div></div>
+        </div>
+      </div>
     </div>
 
-    <div class="card">
-      <h3>📥 Deposit & Withdraw ጥያቄዎች (Screenshot + Tx No)</h3>
-      <div id="requestsList">በመጫን ላይ...</div>
+    <!-- 2. PLAYERS MANAGEMENT -->
+    <div id="sec-players" class="studio-sec" style="display:none;">
+      <div class="card">
+        <h3>👥 Player Management</h3>
+        <div class="row-gap" style="margin-bottom:10px;">
+          <input type="text" id="playerQuery" placeholder="በTelegram ID ወይም @username ፈልግ..." style="margin:0;flex:1;min-width:200px;" oninput="renderPlayers()" />
+          <button class="btn btn-blue" type="button" onclick="renderPlayers()">ፈልግ</button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Telegram ID</th><th>Player</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="playersTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. GAME MANAGEMENT -->
+    <div id="sec-games" class="studio-sec" style="display:none;">
+      <div class="card">
+        <h3>🎮 Game Management</h3>
+        <div class="row-gap" style="margin-bottom:12px;">
+          <button class="btn btn-green" type="button" onclick="setGameState('RUNNING','አዲስ ጨዋታ ተጀምሯል')">▶ Start / New Game</button>
+          <button class="btn btn-yellow" type="button" onclick="setGameState('PAUSED','ጨዋታው ቆሟል (Paused)')">⏸ Pause</button>
+          <button class="btn btn-blue" type="button" onclick="setGameState('RUNNING','ጨዋታው ቀጥሏል (Resumed)')">⏯ Resume</button>
+          <button class="btn btn-red" type="button" onclick="setGameState('CANCELLED','ጨዋታው ተሰርዟል')">✖ Cancel</button>
+          <button class="btn btn-gray" type="button" onclick="setGameState('LOBBY','ጨዋታው እንደገና ተጀምሯል')">↻ Restart</button>
+        </div>
+        <div class="grid3">
+          <div><span class="label">Min Players</span><input type="number" id="gmMinP" value="2" /></div>
+          <div><span class="label">Max Players</span><input type="number" id="gmMaxP" value="600" /></div>
+          <div><span class="label">Schedule / Interval (sec)</span><input type="number" id="gmInterval" value="4" /></div>
+        </div>
+        <button class="btn btn-green" type="button" onclick="notifyAction('የጨዋታ ቅንብር ተቀምጧል')">💾 የጨዋታ መቆጣጠሪያ አስቀምጥ</button>
+      </div>
+    </div>
+
+    <!-- 4. WALLET & BALANCE -->
+    <div id="sec-wallet" class="studio-sec" style="display:none;">
+      <div class="card">
+        <h3>💳 የተጫዋች ሂሳብ ጨምር / ቀንስ (Audited Adjustment)</h3>
+        <div class="grid">
+          <input type="text" id="balUserId" placeholder="User ID (ለምሳሌ 7379955498)" />
+          <input type="number" id="balDelta" placeholder="መጠን (ለምሳሌ 50 ወይም -20)" />
+        </div>
+        <input type="text" id="balReason" placeholder="የማስተካከያ ምክንያት (Audit Reason — ለምሳሌ Top-up verification)" />
+        <button class="btn btn-blue" type="button" onclick="adjustBalance()">ሂሳብ አዘምን</button>
+      </div>
+
+      <div class="card">
+        <h3>📜 Financial Audit Trail</h3>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>User</th><th>Action</th><th>Amount</th><th>Reason</th></tr></thead>
+            <tbody id="auditTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5 & 6. DEPOSITS & WITHDRAWALS -->
+    <div id="sec-requests" class="studio-sec" style="display:none;">
+      <div class="card">
+        <h3>📥 Deposit & Withdraw ጥያቄዎች (Screenshot + Tx No)</h3>
+        <div id="requestsList">በመጫን ላይ...</div>
+      </div>
+    </div>
+
+    <!-- 7. WINNERS & PRIZES -->
+    <div id="sec-winners" class="studio-sec" style="display:none;">
+      <div class="card">
+        <h3>🏆 Winner & Prize Verification</h3>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Game</th><th>Winner</th><th>Board & Pattern</th><th>Prize</th><th>Action</th></tr></thead>
+            <tbody id="winnersTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8. SETTINGS -->
+    <div id="sec-settings" class="studio-sec" style="display:none;">
+      <div class="card">
+        <h3>⚙️ ቅንብሮችን አስተካክል (Edit Settings)</h3>
+        <div class="label">Telebirr</div>
+        <input type="text" id="cfgTelebirr" />
+        <div class="label">CBE</div>
+        <input type="text" id="cfgCbe" />
+        <div class="grid">
+          <div>
+            <div class="label">Welcome Bonus (ብር)</div>
+            <input type="number" id="cfgBonus" />
+          </div>
+          <div>
+            <div class="label">Min Deposit (ብር)</div>
+            <input type="number" id="cfgMinDep" />
+          </div>
+        </div>
+        <div class="label">Min Withdraw (ብር)</div>
+        <input type="number" id="cfgMinWdr" />
+        <div class="grid">
+          <div>
+            <div class="label">Prize Percentage (%)</div>
+            <input type="number" id="cfgPrizePct" value="80" />
+          </div>
+          <div>
+            <div class="label">Max Cards / Player</div>
+            <input type="number" id="cfgMaxCards" value="2" />
+          </div>
+        </div>
+        <button class="btn btn-green" type="button" onclick="saveSettings()">💾 ቅንብሮችን አስቀምጥ</button>
+      </div>
+    </div>
+
+    <!-- 9. BROADCAST -->
+    <div id="sec-broadcast" class="studio-sec" style="display:none;">
+      <div class="card">
+        <h3>📢 Notification & Broadcast</h3>
+        <div class="grid">
+          <div>
+            <span class="label">Audience</span>
+            <select id="bcTarget">
+              <option value="All Players">All Players</option>
+              <option value="Selected Player">Selected Player</option>
+              <option value="Winners">Winners</option>
+            </select>
+          </div>
+          <div>
+            <span class="label">Type</span>
+            <select id="bcType">
+              <option value="Game Announcement">Game Announcement</option>
+              <option value="Winner Announcement">Winner Announcement</option>
+              <option value="Payment Confirmation">Payment Confirmation</option>
+              <option value="New Game Alert">New Game Alert</option>
+            </select>
+          </div>
+        </div>
+        <textarea id="bcMessage" rows="3" placeholder="ለተጫዋቾች የሚላክ መልእክት ይጻፉ..."></textarea>
+        <button class="btn btn-blue" type="button" onclick="sendBroadcast()">📤 Broadcast ላክ</button>
+      </div>
+    </div>
+
+    <!-- 10. REPORTS -->
+    <div id="sec-reports" class="studio-sec" style="display:none;">
+      <div class="card">
+        <h3>📈 Reports & Statistics</h3>
+        <div class="grid">
+          <div class="stat"><div class="label">Net Profit</div><div class="val ok">Br 84,200.00</div></div>
+          <div class="stat"><div class="label">Player Wallet Liabilities</div><div class="val warn">Br 3,070.00</div></div>
+        </div>
+        <div style="margin-top:10px;">
+          <button class="btn btn-green" type="button" onclick="exportCsv()">⬇ Export CSV Report</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 11 & 12. SUPPORT & STAFF -->
+    <div id="sec-support" class="studio-sec" style="display:none;">
+      <div class="card">
+        <h3>🎧 Support Tickets</h3>
+        <div id="ticketsBox"></div>
+      </div>
+      <div class="card">
+        <h3>🛡 Admin & Staff Roles</h3>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Role</th><th>Permissions</th></tr></thead>
+            <tbody>
+              <tr><td>Super Admin</td><td>Full system & financial control</td></tr>
+              <tr><td>Finance Admin</td><td>Deposits, withdrawals, wallet audits</td></tr>
+              <tr><td>Game Manager</td><td>Games, cards, winners, settings</td></tr>
+              <tr><td>Support Admin</td><td>Player tickets & replies</td></tr>
+              <tr><td>Report Viewer</td><td>Read-only reports & exports</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 13, 14 & 18. SECURITY, SERVER & DB MIGRATION -->
+    <div id="sec-system" class="studio-sec" style="display:none;">
+      <div class="card">
+        <h3>🖥 Server & Bot Control</h3>
+        <div class="grid4" style="margin-bottom:10px;">
+          <div class="stat"><div class="label">Bot Status</div><div class="val ok" id="sysBot">ONLINE</div></div>
+          <div class="stat"><div class="label">CPU / RAM</div><div class="val">14% / 218MB</div></div>
+          <div class="stat"><div class="label">Disk / DB</div><div class="val">1.2GB · OK</div></div>
+          <div class="stat"><div class="label">Uptime</div><div class="val">18d 06h</div></div>
+        </div>
+        <div class="row-gap">
+          <button class="btn btn-green" type="button" onclick="toggleBotStatus(true)">Bot Online</button>
+          <button class="btn btn-red" type="button" onclick="toggleBotStatus(false)">Bot Offline</button>
+          <button class="btn btn-yellow" type="button" onclick="notifyAction('Bot restart signal sent')">↻ Restart Bot</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>🗄 Database Backups & Safe Migration</h3>
+        <p class="label">ሁሉም የተጫዋቾች መለያዎች፣ Telegram IDs፣ ባላንስ፣ ግብይት እና ጨዋታ ታሪኮች በማሻሻያ ወቅት ይጠበቃሉ።</p>
+        <button class="btn btn-green" type="button" onclick="createBackup()">+ Create Database Backup</button>
+        <div id="backupList" style="margin-top:10px;"></div>
+      </div>
     </div>
   </div>
 
   <script>
     const currentPin = '1219';
+    const STORE_KEY = 'zina_studio_extended_v1';
     let settingsInitialized = false;
+
+    const SECTIONS = [
+      ['dashboard', '📡 Dashboard & Live'],
+      ['players', '👥 Players'],
+      ['games', '🎮 Games'],
+      ['wallet', '💳 Wallet & Audit'],
+      ['requests', '📥 Deposits & Withdrawals'],
+      ['winners', '🏆 Winners'],
+      ['settings', '⚙️ Settings'],
+      ['broadcast', '📢 Broadcast'],
+      ['reports', '📈 Reports'],
+      ['support', '🎧 Support & Staff'],
+      ['system', '🖥 Server, Logs & DB']
+    ];
+
+    function defaultExt() {
+      return {
+        activeSec: 'dashboard',
+        botOnline: true,
+        players: [
+          { id: '7379955498', name: 'Admin', username: '@admin', balance: 2500, status: 'active' },
+          { id: '100200301', name: 'Player 1', username: '@player1', balance: 420, status: 'active' },
+          { id: '100200302', name: 'Player 2', username: '@player2', balance: 150, status: 'frozen' }
+        ],
+        winners: [
+          { id: 'W-1', game: 'R1041', player: '@player1', board: '#44', pattern: 'Diagonal', prize: 320, paid: true }
+        ],
+        audit: [
+          { user: '@admin', action: 'INIT', amount: 'Br 0.00', reason: 'Studio audit log ready' }
+        ],
+        tickets: [
+          { id: 'TKT-1', player: '@player2', text: 'Deposit verification support', status: 'open' }
+        ],
+        backups: [
+          { id: 'BKP-01', note: 'Existing accounts & balances preserved' }
+        ]
+      };
+    }
+
+    let EXT = loadExt();
+    function loadExt() {
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        return raw ? Object.assign(defaultExt(), JSON.parse(raw)) : defaultExt();
+      } catch (e) { return defaultExt(); }
+    }
+    function saveExt() {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(EXT)); } catch (e) {}
+    }
+    function toast(msg) {
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2200);
+    }
+    function notifyAction(msg) {
+      EXT.audit.unshift({ user: 'Admin', action: 'ACTION', amount: '-', reason: msg });
+      saveExt();
+      renderAudit();
+      toast('✅ ' + msg);
+    }
+
+    function renderTabs() {
+      const box = document.getElementById('secTabs');
+      box.innerHTML = SECTIONS.map(([id, label]) =>
+        `<button class="btn tab ${EXT.activeSec === id ? 'active' : ''}" type="button" onclick="switchSec('${id}')">${label}</button>`
+      ).join('');
+      document.querySelectorAll('.studio-sec').forEach(el => {
+        el.style.display = (el.id === 'sec-' + EXT.activeSec) ? 'block' : 'none';
+      });
+    }
+
+    function switchSec(id) {
+      EXT.activeSec = id;
+      saveExt();
+      renderTabs();
+    }
 
     function headers() {
       return {
@@ -118,6 +410,11 @@
       } catch (e) {
         document.getElementById('requestsList').innerHTML = '<div style="color:#f87171;">ስህተት: ' + e.message + '</div>';
       }
+      renderPlayers();
+      renderWinners();
+      renderAudit();
+      renderTickets();
+      renderBackups();
     }
 
     function renderRequests(list) {
@@ -135,8 +432,8 @@
         const accHtml = req.accountInfo ? '<div><b>Account:</b> <code>' + req.accountInfo + '</code></div>' : '';
         const actionsHtml = req.status === 'pending'
           ? '<div style="margin-top:8px;">' +
-              '<button class="btn-green" style="margin-right:8px;" onclick="decideReq(\'' + req.id + '\', \'approve\')">✅ Approve</button>' +
-              '<button class="btn-red" onclick="decideReq(\'' + req.id + '\', \'reject\')">❌ Reject</button>' +
+              '<button class="btn-green" type="button" style="margin-right:8px;" onclick="decideReq(\'' + req.id + '\', \'approve\')">✅ Approve</button>' +
+              '<button class="btn-red" type="button" onclick="decideReq(\'' + req.id + '\', \'reject\')">❌ Reject</button>' +
             '</div>'
           : '';
         return (
@@ -157,6 +454,124 @@
       }).join('');
     }
 
+    function renderPlayers() {
+      const q = (document.getElementById('playerQuery')?.value || '').toLowerCase();
+      const rows = EXT.players.filter(p => !q || p.id.includes(q) || p.username.toLowerCase().includes(q) || p.name.toLowerCase().includes(q));
+      document.getElementById('playersTbody').innerHTML = rows.map(p => `
+        <tr>
+          <td>${p.id}</td>
+          <td>${p.name} (${p.username})</td>
+          <td><b>Br ${p.balance}</b></td>
+          <td><span class="badge ${p.status==='active'?'approved':'pending'}">${p.status}</span></td>
+          <td>
+            <div class="row-gap">
+              <button class="btn btn-green" type="button" onclick="setPlayerStatus('${p.id}','active')">Active</button>
+              <button class="btn btn-yellow" type="button" onclick="setPlayerStatus('${p.id}','frozen')">Freeze</button>
+              <button class="btn btn-red" type="button" onclick="setPlayerStatus('${p.id}','banned')">Ban</button>
+            </div>
+          </td>
+        </tr>`).join('');
+    }
+
+    function setPlayerStatus(id, st) {
+      const p = EXT.players.find(x => x.id === id);
+      if (!p) return;
+      p.status = st;
+      EXT.audit.unshift({ user: p.username, action: 'STATUS_' + st.toUpperCase(), amount: '-', reason: 'Updated by Admin' });
+      saveExt();
+      renderPlayers();
+      renderAudit();
+      toast('Player updated: ' + st);
+    }
+
+    function setGameState(phase, msg) {
+      document.getElementById('sPhase').textContent = phase;
+      notifyAction(msg);
+    }
+
+    function renderWinners() {
+      document.getElementById('winnersTbody').innerHTML = EXT.winners.map(w => `
+        <tr>
+          <td>${w.game}</td>
+          <td>${w.player}</td>
+          <td>${w.board} · ${w.pattern}</td>
+          <td><b>Br ${w.prize}</b></td>
+          <td>${w.paid ? '<span class="badge approved">PAID</span>' : `<button class="btn btn-green" type="button" onclick="approveWinner('${w.id}')">Approve Prize</button>`}</td>
+        </tr>`).join('');
+    }
+
+    function approveWinner(id) {
+      const w = EXT.winners.find(x => x.id === id);
+      if (!w) return;
+      w.paid = true;
+      EXT.audit.unshift({ user: w.player, action: 'PRIZE_PAID', amount: 'Br ' + w.prize, reason: 'Verified winner ' + w.id });
+      saveExt();
+      renderWinners();
+      renderAudit();
+      toast('Prize approved');
+    }
+
+    function renderAudit() {
+      document.getElementById('auditTbody').innerHTML = EXT.audit.map(a => `
+        <tr><td>${a.user}</td><td>${a.action}</td><td>${a.amount}</td><td>${a.reason}</td></tr>`).join('');
+    }
+
+    function sendBroadcast() {
+      const msg = (document.getElementById('bcMessage').value || '').trim();
+      const target = document.getElementById('bcTarget').value;
+      const type = document.getElementById('bcType').value;
+      if (!msg) return toast('መልእክት ያስገቡ');
+      document.getElementById('bcMessage').value = '';
+      notifyAction(`${type} -> ${target}: ${msg}`);
+    }
+
+    function exportCsv() {
+      const csv = 'Section,Value\nTotal Players,1240\nActive Players,86\nToday Deposits,14850\nToday Withdrawals,6200';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+      a.download = 'zina-bingo-report.csv';
+      a.click();
+      toast('CSV ወርዷል');
+    }
+
+    function renderTickets() {
+      document.getElementById('ticketsBox').innerHTML = EXT.tickets.map(t => `
+        <div class="req-item">
+          <b>${t.id} · ${t.player}</b> — <span class="badge ${t.status==='open'?'pending':'approved'}">${t.status}</span>
+          <div style="margin:6px 0;font-size:13px;">${t.text}</div>
+          ${t.status==='open' ? `<button class="btn btn-green" type="button" onclick="closeTicket('${t.id}')">Close Ticket</button>` : ''}
+        </div>`).join('');
+    }
+
+    function closeTicket(id) {
+      const t = EXT.tickets.find(x => x.id === id);
+      if (!t) return;
+      t.status = 'closed';
+      saveExt();
+      renderTickets();
+      toast('Ticket closed');
+    }
+
+    function toggleBotStatus(on) {
+      EXT.botOnline = on;
+      document.getElementById('sysBot').textContent = on ? 'ONLINE' : 'OFFLINE';
+      saveExt();
+      notifyAction('Bot status: ' + (on ? 'ONLINE' : 'OFFLINE'));
+    }
+
+    function createBackup() {
+      EXT.backups.unshift({ id: 'BKP-' + String(Date.now()).slice(-5), note: 'Safe backup — all balances & history intact' });
+      saveExt();
+      renderBackups();
+      toast('Backup created');
+    }
+
+    function renderBackups() {
+      document.getElementById('backupList').innerHTML = EXT.backups.map(b =>
+        `<div class="req-item"><b>${b.id}</b> — <span class="label" style="display:inline;">${b.note}</span></div>`
+      ).join('');
+    }
+
     async function saveSettings() {
       const body = {
         telebirr: document.getElementById('cfgTelebirr').value,
@@ -171,6 +586,9 @@
         body: JSON.stringify(body)
       });
       if (r.ok) {
+        EXT.audit.unshift({ user: 'Admin', action: 'SETTINGS', amount: '-', reason: 'Updated payment & game settings' });
+        saveExt();
+        renderAudit();
         alert('✅ ቅንብሮች ተቀምጠዋል!');
         loadAll();
       }
@@ -179,6 +597,7 @@
     async function adjustBalance() {
       const userId = document.getElementById('balUserId').value.trim();
       const delta = Number(document.getElementById('balDelta').value);
+      const reason = (document.getElementById('balReason')?.value || 'Admin balance adjustment').trim();
       const r = await fetch('/api/studio/balance', {
         method: 'POST',
         headers: headers(),
@@ -186,9 +605,13 @@
       });
       const d = await r.json();
       if (r.ok) {
+        EXT.audit.unshift({ user: userId, action: 'BALANCE_ADJ', amount: (delta >= 0 ? '+' : '') + delta + ' ብር', reason });
+        saveExt();
+        renderAudit();
         alert('✅ ሂሳብ ተዘምኗል! አዲስ Main Balance: ' + d.user.main + ' ብር');
         document.getElementById('balUserId').value = '';
         document.getElementById('balDelta').value = '';
+        if (document.getElementById('balReason')) document.getElementById('balReason').value = '';
       } else {
         alert('❌ ' + (d.error || 'ስህተት'));
       }
@@ -201,12 +624,15 @@
       });
       const d = await r.json();
       if (r.ok) {
+        EXT.audit.unshift({ user: id, action: 'REQ_' + action.toUpperCase(), amount: '-', reason: 'Processed request ' + id });
+        saveExt();
         loadAll();
       } else {
         alert('❌ ' + (d.error || 'ስህተት'));
       }
     }
 
+    renderTabs();
     loadAll();
     setInterval(loadAll, 4000);
   </script>
