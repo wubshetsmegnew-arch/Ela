@@ -53,7 +53,7 @@
     const currentPin = '1219';
     const STORE_KEY = 'zina_studio_master_v3';
     let settingsInitialized = false;
-    let liveCache = { phase: '-', countdown: '-', gameCode: '-', takenBoardsCount: 0, prizePool: 0, settings: {}, requests: [] };
+    let liveCache = { phase: '-', countdown: '-', gameCode: '-', takenBoardsCount: 0, prizePool: 0, usersCount: 0, settings: {}, requests: [] };
 
     const SECTIONS = [
       ['dashboard', '📡 Dashboard & Live'],
@@ -68,6 +68,16 @@
       ['support', '🎧 Support & Staff'],
       ['system', '🖥 Server, Logs & DB']
     ];
+
+    function escapeHtml(str) {
+      return String(str ?? '').replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[ch]));
+    }
 
     function isAdminAuthorized() {
       try {
@@ -87,9 +97,11 @@
     }
 
     function unlockStudio() {
-      const val = (document.getElementById('admUnlockInput').value || '').trim();
+      const input = document.getElementById('admUnlockInput');
+      const val = (input ? input.value : '').trim();
       if (ADMIN_IDS.includes(val) || val === currentPin) {
         sessionStorage.setItem('zina_adm_ok', '1');
+        settingsInitialized = false;
         toast('Admin access verified');
         renderLayout();
         loadAll();
@@ -153,7 +165,7 @@
           <div class="card" style="max-width:420px;margin:36px auto;">
             <h2>🔒 Admin Access Only</h2>
             <p class="label">ይህ ገጽ ለAdmin ብቻ ነው። የAdmin ID ወይም PIN ያስገቡ።</p>
-            <input type="password" id="admUnlockInput" placeholder="Admin ID or PIN" />
+            <input type="password" id="admUnlockInput" placeholder="Admin ID or PIN" onkeydown="if(event.key==='Enter')unlockStudio()" />
             <button class="btn-green" type="button" style="width:100%;justify-content:center;" onclick="unlockStudio()">ክፈት / Unlock</button>
           </div>`;
         return;
@@ -189,14 +201,14 @@
           <div class="card">
             <h3>📊 Admin Dashboard</h3>
             <div class="grid4">
-              <div class="stat"><div class="label">Total Players</div><div class="val" id="dTotalPlayers">1,240</div></div>
-              <div class="stat"><div class="label">Active Players</div><div class="val ok">86</div></div>
-              <div class="stat"><div class="label">New Players Today</div><div class="val">29</div></div>
-              <div class="stat"><div class="label">Total / Running / Done</div><div class="val">418 / 2 / 416</div></div>
+              <div class="stat"><div class="label">Registered Users (DB)</div><div class="val" id="dTotalPlayers">0</div></div>
+              <div class="stat"><div class="label">Booked Boards</div><div class="val ok" id="dBookedBoards">0</div></div>
+              <div class="stat"><div class="label">Pending Requests</div><div class="val warn" id="dPendingReqs">0</div></div>
+              <div class="stat"><div class="label">Current Prize Pool</div><div class="val" id="dPrizePool">0 ብር</div></div>
               <div class="stat"><div class="label">Today's Deposits</div><div class="val ok">Br 14,850</div></div>
               <div class="stat"><div class="label">Today's Withdrawals</div><div class="val bad">Br 6,200</div></div>
               <div class="stat"><div class="label">Revenue / Expenses</div><div class="val">Br 98.4k / 14.2k</div></div>
-              <div class="stat"><div class="label">Prizes Paid / Bot</div><div class="val warn" id="dPrizeBot">Br 61.5k · ONLINE</div></div>
+              <div class="stat"><div class="label">Bot Status</div><div class="val ok" id="dPrizeBot">ONLINE</div></div>
             </div>
           </div>
         </div>
@@ -400,7 +412,7 @@
       const box = document.getElementById('secTabs');
       if (!box) return;
       box.innerHTML = SECTIONS.map(([id, label]) =>
-        `<button class="btn tab ${EXT.activeSec === id ? 'active' : ''}" type="button" onclick="switchSec('${id}')">${label}</button>`
+        `<button class="btn tab ${EXT.activeSec === id ? 'active' : ''}" type="button" onclick="switchSec('${id}')">${escapeHtml(label)}</button>`
       ).join('');
       document.querySelectorAll('.studio-sec').forEach(el => {
         el.style.display = (el.id === 'sec-' + EXT.activeSec) ? 'block' : 'none';
@@ -422,10 +434,18 @@
 
     function applyLiveToDom() {
       const d = liveCache;
+      const pendingCount = (d.requests || []).filter(r => r.status === 'pending').length;
       if (document.getElementById('sPhase')) document.getElementById('sPhase').textContent = d.phase || '-';
-      if (document.getElementById('sCount')) document.getElementById('sCount').textContent = (d.countdown != null ? d.countdown + 's' : '-');
+      if (document.getElementById('sCount')) document.getElementById('sCount').textContent = (d.countdown != null && d.countdown !== '-' ? d.countdown + 's' : '-');
       if (document.getElementById('sCode')) document.getElementById('sCode').textContent = d.gameCode || '-';
       if (document.getElementById('sPool')) document.getElementById('sPool').textContent = (d.takenBoardsCount ?? 0) + 'b / ' + (d.prizePool ?? 0) + 'ብር';
+
+      if (document.getElementById('dTotalPlayers')) document.getElementById('dTotalPlayers').textContent = String(d.usersCount ?? 0);
+      if (document.getElementById('dBookedBoards')) document.getElementById('dBookedBoards').textContent = String(d.takenBoardsCount ?? 0);
+      if (document.getElementById('dPendingReqs')) document.getElementById('dPendingReqs').textContent = String(pendingCount);
+      if (document.getElementById('dPrizePool')) document.getElementById('dPrizePool').textContent = (d.prizePool ?? 0) + ' ብር';
+      if (document.getElementById('dPrizeBot')) document.getElementById('dPrizeBot').textContent = EXT.botOnline ? 'ONLINE' : 'OFFLINE';
+      if (document.getElementById('sysBot')) document.getElementById('sysBot').textContent = EXT.botOnline ? 'ONLINE' : 'OFFLINE';
 
       if (!settingsInitialized && d.settings && document.getElementById('cfgTelebirr')) {
         document.getElementById('cfgTelebirr').value = d.settings.telebirr || '';
@@ -455,13 +475,14 @@
           gameCode: d.live ? d.live.gameCode : '-',
           takenBoardsCount: d.live ? d.live.takenBoardsCount : 0,
           prizePool: d.live ? d.live.prizePool : 0,
+          usersCount: d.usersCount ?? 0,
           settings: d.settings || {},
           requests: d.requests || []
         };
         applyLiveToDom();
       } catch (e) {
         if (document.getElementById('requestsList')) {
-          document.getElementById('requestsList').innerHTML = '<div style="color:#f87171;">ስህተት: ' + e.message + '</div>';
+          document.getElementById('requestsList').innerHTML = '<div style="color:#f87171;">ስህተት: ' + escapeHtml(e.message) + '</div>';
         }
       }
     }
@@ -475,25 +496,26 @@
       }
       box.innerHTML = list.map((req) => {
         const badgeClass = req.status === 'approved' ? 'approved' : (req.status === 'rejected' ? 'rejected' : 'pending');
+        const safeId = escapeHtml(req.id);
         const imgHtml = req.photoUrl
-          ? '<a href="' + req.photoUrl + '" target="_blank"><img class="req-img" src="' + req.photoUrl + '" alt="Screenshot" /></a>'
+          ? '<a href="' + escapeHtml(req.photoUrl) + '" target="_blank"><img class="req-img" src="' + escapeHtml(req.photoUrl) + '" alt="Screenshot" /></a>'
           : '';
-        const txHtml = req.txNumber ? '<div><b>Tx No:</b> <code>' + req.txNumber + '</code></div>' : '';
-        const accHtml = req.accountInfo ? '<div><b>Account:</b> <code>' + req.accountInfo + '</code></div>' : '';
+        const txHtml = req.txNumber ? '<div><b>Tx No:</b> <code>' + escapeHtml(req.txNumber) + '</code></div>' : '';
+        const accHtml = req.accountInfo ? '<div><b>Account:</b> <code>' + escapeHtml(req.accountInfo) + '</code></div>' : '';
         const actionsHtml = req.status === 'pending'
           ? '<div style="margin-top:8px;">' +
-              '<button class="btn-green" type="button" style="margin-right:8px;" onclick="decideReq(\'' + req.id + '\', \'approve\')">✅ Approve</button>' +
-              '<button class="btn-red" type="button" onclick="decideReq(\'' + req.id + '\', \'reject\')">❌ Reject</button>' +
+              '<button class="btn-green" type="button" style="margin-right:8px;" onclick="decideReq(\'' + safeId + '\', \'approve\')">✅ Approve</button>' +
+              '<button class="btn-red" type="button" onclick="decideReq(\'' + safeId + '\', \'reject\')">❌ Reject</button>' +
             '</div>'
           : '';
         return (
           '<div class="req-item">' +
             '<div style="display:flex; justify-content:space-between; align-items:center;">' +
-              '<b>' + req.type.toUpperCase() + ' • ' + req.amount + ' ብር</b>' +
-              '<span class="badge ' + badgeClass + '">' + req.status + '</span>' +
+              '<b>' + escapeHtml(String(req.type || '').toUpperCase()) + ' • ' + escapeHtml(req.amount) + ' ብር</b>' +
+              '<span class="badge ' + badgeClass + '">' + escapeHtml(req.status) + '</span>' +
             '</div>' +
             '<div style="font-size:13px; margin-top:6px;">' +
-              '<div><b>User:</b> ' + (req.userName || 'Player') + ' (<code>' + req.userId + '</code>)</div>' +
+              '<div><b>User:</b> ' + escapeHtml(req.userName || 'Player') + ' (<code>' + escapeHtml(req.userId) + '</code>)</div>' +
               txHtml +
               accHtml +
             '</div>' +
@@ -508,18 +530,18 @@
       const tbody = document.getElementById('playersTbody');
       if (!tbody) return;
       const q = (document.getElementById('playerQuery')?.value || '').toLowerCase();
-      const rows = EXT.players.filter(p => !q || p.id.includes(q) || p.username.toLowerCase().includes(q) || p.name.toLowerCase().includes(q));
+      const rows = EXT.players.filter(p => !q || String(p.id).includes(q) || String(p.username).toLowerCase().includes(q) || String(p.name).toLowerCase().includes(q));
       tbody.innerHTML = rows.map(p => `
         <tr>
-          <td>${p.id}</td>
-          <td>${p.name} (${p.username})</td>
-          <td><b>Br ${p.balance}</b></td>
-          <td><span class="badge ${p.status==='active'?'approved':'pending'}">${p.status}</span></td>
+          <td>${escapeHtml(p.id)}</td>
+          <td>${escapeHtml(p.name)} (${escapeHtml(p.username)})</td>
+          <td><b>Br ${escapeHtml(p.balance)}</b></td>
+          <td><span class="badge ${p.status==='active'?'approved':'pending'}">${escapeHtml(p.status)}</span></td>
           <td>
             <div class="row-gap">
-              <button class="btn btn-green" type="button" onclick="setPlayerStatus('${p.id}','active')">Active</button>
-              <button class="btn btn-yellow" type="button" onclick="setPlayerStatus('${p.id}','frozen')">Freeze</button>
-              <button class="btn btn-red" type="button" onclick="setPlayerStatus('${p.id}','banned')">Ban</button>
+              <button class="btn btn-green" type="button" onclick="setPlayerStatus('${escapeHtml(p.id)}','active')">Active</button>
+              <button class="btn btn-yellow" type="button" onclick="setPlayerStatus('${escapeHtml(p.id)}','frozen')">Freeze</button>
+              <button class="btn btn-red" type="button" onclick="setPlayerStatus('${escapeHtml(p.id)}','banned')">Ban</button>
             </div>
           </td>
         </tr>`).join('');
@@ -547,11 +569,11 @@
       if (!tbody) return;
       tbody.innerHTML = EXT.winners.map(w => `
         <tr>
-          <td>${w.game}</td>
-          <td>${w.player}</td>
-          <td>${w.board} · ${w.pattern}</td>
-          <td><b>Br ${w.prize}</b></td>
-          <td>${w.paid ? '<span class="badge approved">PAID</span>' : `<button class="btn btn-green" type="button" onclick="approveWinner('${w.id}')">Approve Prize</button>`}</td>
+          <td>${escapeHtml(w.game)}</td>
+          <td>${escapeHtml(w.player)}</td>
+          <td>${escapeHtml(w.board)} · ${escapeHtml(w.pattern)}</td>
+          <td><b>Br ${escapeHtml(w.prize)}</b></td>
+          <td>${w.paid ? '<span class="badge approved">PAID</span>' : `<button class="btn btn-green" type="button" onclick="approveWinner('${escapeHtml(w.id)}')">Approve Prize</button>`}</td>
         </tr>`).join('');
     }
 
@@ -570,7 +592,7 @@
       const tbody = document.getElementById('auditTbody');
       if (!tbody) return;
       tbody.innerHTML = EXT.audit.map(a => `
-        <tr><td>${a.user}</td><td>${a.action}</td><td>${a.amount}</td><td>${a.reason}</td></tr>`).join('');
+        <tr><td>${escapeHtml(a.user)}</td><td>${escapeHtml(a.action)}</td><td>${escapeHtml(a.amount)}</td><td>${escapeHtml(a.reason)}</td></tr>`).join('');
     }
 
     function sendBroadcast() {
@@ -583,7 +605,7 @@
     }
 
     function exportCsv() {
-      const csv = 'Section,Value\nTotal Players,1240\nActive Players,86\nToday Deposits,14850\nToday Withdrawals,6200';
+      const csv = 'Section,Value\nRegistered Users,' + (liveCache.usersCount ?? 0) + '\nBooked Boards,' + (liveCache.takenBoardsCount ?? 0) + '\nToday Deposits,14850\nToday Withdrawals,6200';
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
       a.download = 'zina-bingo-report.csv';
@@ -596,9 +618,9 @@
       if (!box) return;
       box.innerHTML = EXT.tickets.map(t => `
         <div class="req-item">
-          <b>${t.id} · ${t.player}</b> — <span class="badge ${t.status==='open'?'pending':'approved'}">${t.status}</span>
-          <div style="margin:6px 0;font-size:13px;">${t.text}</div>
-          ${t.status==='open' ? `<button class="btn btn-green" type="button" onclick="closeTicket('${t.id}')">Close Ticket</button>` : ''}
+          <b>${escapeHtml(t.id)} · ${escapeHtml(t.player)}</b> — <span class="badge ${t.status==='open'?'pending':'approved'}">${escapeHtml(t.status)}</span>
+          <div style="margin:6px 0;font-size:13px;">${escapeHtml(t.text)}</div>
+          ${t.status==='open' ? `<button class="btn btn-green" type="button" onclick="closeTicket('${escapeHtml(t.id)}')">Close Ticket</button>` : ''}
         </div>`).join('');
     }
 
@@ -613,7 +635,7 @@
 
     function toggleBotStatus(on) {
       EXT.botOnline = on;
-      if (document.getElementById('sysBot')) document.getElementById('sysBot').textContent = on ? 'ONLINE' : 'OFFLINE';
+      applyLiveToDom();
       saveState();
       notifyAction('Bot status: ' + (on ? 'ONLINE' : 'OFFLINE'));
     }
@@ -629,7 +651,7 @@
       const box = document.getElementById('backupList');
       if (!box) return;
       box.innerHTML = EXT.backups.map(b =>
-        `<div class="req-item"><b>${b.id}</b> — <span class="label" style="display:inline;">${b.note}</span></div>`
+        `<div class="req-item"><b>${escapeHtml(b.id)}</b> — <span class="label" style="display:inline;">${escapeHtml(b.note)}</span></div>`
       ).join('');
     }
 
