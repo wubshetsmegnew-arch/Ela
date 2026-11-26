@@ -12,7 +12,6 @@ const crypto = require('crypto');
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname));
 
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) {
@@ -1335,11 +1334,19 @@ async function startBotPolling() {
 
 function requireStudioPin(req, res, next) {
   const pin = String(req.headers['x-admin-pin'] || req.query.pin || '').trim();
-  if (!ADMIN_PIN || pin === ADMIN_PIN || pin === '1219' || pin === '1234' || pin === 'OPEN') {
+  if (pin === ADMIN_PIN || pin === String(ADMIN_ID)) {
     return next();
   }
-  return next();
+  return res.status(403).json({ ok: false, error: 'Admin access required.' });
 }
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/studio', (req, res) => {
+  res.sendFile(path.join(__dirname, 'studio.html'));
+});
 
 app.get('/status', (req, res) => {
   res.json({
@@ -1432,252 +1439,7 @@ app.post('/api/studio/requests/:id/reject', requireStudioPin, (req, res) => {
   res.json(result);
 });
 
-app.get('/studio', (req, res) => {
-  res.send(`<!DOCTYPE html>
-<html lang="am">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Zina Bingo Studio</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 14px; }
-    .wrap { max-width: 720px; margin: 0 auto; }
-    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-    .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
-    .tab-btn { padding: 10px 8px; border-radius: 10px; border: 1px solid #334155; background: #1e293b; color: #cbd5e1; font-weight: 700; cursor: pointer; font-size: 13px; }
-    .tab-btn.active { background: #2563eb; color: #fff; border-color: #3b82f6; }
-    .page { display: none; }
-    .page.active { display: block; }
-    .card { background: #1e293b; border-radius: 12px; padding: 14px; margin-bottom: 14px; border: 1px solid #334155; }
-    h2, h3 { margin: 0 0 10px 0; }
-    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-    .stat { background: #0f172a; padding: 10px; border-radius: 8px; }
-    .label { font-size: 11px; color: #94a3b8; }
-    .val { font-size: 18px; font-weight: 700; margin-top: 3px; color: #38bdf8; }
-    input { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff; margin-bottom: 8px; }
-    button, a.btn { cursor: pointer; border: none; border-radius: 8px; padding: 9px 12px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 13px; }
-    .btn-blue { background: #2563eb; color: #fff; }
-    .btn-green { background: #16a34a; color: #fff; }
-    .btn-red { background: #dc2626; color: #fff; }
-    .btn-gray { background: #334155; color: #f8fafc; }
-    .req-item { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
-    .req-img { max-width: 100%; max-height: 220px; border-radius: 8px; margin: 8px 0; display: block; border: 1px solid #475569; }
-    .badge { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-    .pending { background: #f59e0b; color: #0f172a; }
-    .approved { background: #16a34a; color: #fff; }
-    .rejected { background: #dc2626; color: #fff; }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="topbar">
-      <h2>🎬 Zina Bingo Studio</h2>
-      <div>
-        <a class="btn btn-blue" href="${WEBAPP_URL}" target="_blank">🎮 Mini App</a>
-        <button class="btn-gray" onclick="loadAll()">🔄 አድስ</button>
-      </div>
-    </div>
-
-    <div class="tabs">
-      <button class="tab-btn active" id="tabBtn1" onclick="showPage(1)">📡 ጨዋታ</button>
-      <button class="tab-btn" id="tabBtn2" onclick="showPage(2)">💳 ሂሳብ & ቅንብር</button>
-      <button class="tab-btn" id="tabBtn3" onclick="showPage(3)">📥 ጥያቄዎች</button>
-    </div>
-
-    <!-- Page 1: Live Game -->
-    <div class="page active" id="page1">
-      <div class="card">
-        <h3>📡 የቀጥታ ጨዋታ ሁኔታ</h3>
-        <div class="grid">
-          <div class="stat"><div class="label">Phase</div><div class="val" id="sPhase">-</div></div>
-          <div class="stat"><div class="label">Countdown</div><div class="val" id="sCount">-</div></div>
-          <div class="stat"><div class="label">Game Code</div><div class="val" id="sCode">-</div></div>
-          <div class="stat"><div class="label">Boards / Pool</div><div class="val" id="sPool">-</div></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Page 2: Balance & Settings -->
-    <div class="page" id="page2">
-      <div class="card">
-        <h3>💳 የተጫዋች ሂሳብ ጨምር / ቀንስ</h3>
-        <div class="grid">
-          <input type="text" id="balUserId" placeholder="User ID (ለምሳሌ 7379955498)" />
-          <input type="number" id="balDelta" placeholder="መጠን (ለምሳሌ 50 ወይም -20)" />
-        </div>
-        <button class="btn-blue" onclick="adjustBalance()">ሂሳብ አዘምን</button>
-      </div>
-
-      <div class="card">
-        <h3>⚙️ ቅንብሮችን አስተካክል (Edit Settings)</h3>
-        <div class="label">Telebirr</div>
-        <input type="text" id="cfgTelebirr" />
-        <div class="label">CBE</div>
-        <input type="text" id="cfgCbe" />
-        <div class="grid">
-          <div>
-            <div class="label">Welcome Bonus (ብር)</div>
-            <input type="number" id="cfgBonus" />
-          </div>
-          <div>
-            <div class="label">Min Deposit (ብር)</div>
-            <input type="number" id="cfgMinDep" />
-          </div>
-        </div>
-        <div class="label">Min Withdraw (ብር)</div>
-        <input type="number" id="cfgMinWdr" />
-        <button class="btn-green" onclick="saveSettings()">💾 ቅንብሮችን አስቀምጥ</button>
-      </div>
-    </div>
-
-    <!-- Page 3: Deposit & Withdraw Requests -->
-    <div class="page" id="page3">
-      <div class="card">
-        <h3>📥 Deposit & Withdraw ጥያቄዎች (Screenshot + Tx No)</h3>
-        <div id="requestsList">በመጫን ላይ...</div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const currentPin = '1219';
-    let settingsInitialized = false;
-
-    function showPage(num) {
-      [1, 2, 3].forEach((n) => {
-        document.getElementById('page' + n).classList.toggle('active', n === num);
-        document.getElementById('tabBtn' + n).classList.toggle('active', n === num);
-      });
-    }
-
-    function headers() {
-      return {
-        'Content-Type': 'application/json',
-        'x-admin-pin': currentPin
-      };
-    }
-
-    async function loadAll() {
-      try {
-        const r = await fetch('/api/studio/data', { headers: { 'x-admin-pin': currentPin } });
-        if (!r.ok) {
-          document.getElementById('requestsList').innerHTML = '<div style="color:#f87171;">ዳታ መጫን አልተቻለም (' + r.status + ')</div>';
-          return;
-        }
-        const d = await r.json();
-        document.getElementById('sPhase').textContent = d.live.phase;
-        document.getElementById('sCount').textContent = d.live.countdown + 's';
-        document.getElementById('sCode').textContent = d.live.gameCode;
-        document.getElementById('sPool').textContent = d.live.takenBoardsCount + 'b / ' + d.live.prizePool + 'ብር';
-
-        if (!settingsInitialized) {
-          document.getElementById('cfgTelebirr').value = d.settings.telebirr || '';
-          document.getElementById('cfgCbe').value = d.settings.cbe || '';
-          document.getElementById('cfgBonus').value = d.settings.welcomeBonus ?? 0;
-          document.getElementById('cfgMinDep').value = d.settings.minDeposit ?? 20;
-          document.getElementById('cfgMinWdr').value = d.settings.minWithdraw ?? 50;
-          settingsInitialized = true;
-        }
-        renderRequests(d.requests || []);
-      } catch (e) {
-        document.getElementById('requestsList').innerHTML = '<div style="color:#f87171;">ስህተት: ' + e.message + '</div>';
-      }
-    }
-
-    function renderRequests(list) {
-      const box = document.getElementById('requestsList');
-      if (!list.length) {
-        box.innerHTML = '<div class="label">ምንም ጥያቄ የለም።</div>';
-        return;
-      }
-      box.innerHTML = list.map((req) => {
-        const badgeClass = req.status === 'approved' ? 'approved' : (req.status === 'rejected' ? 'rejected' : 'pending');
-        const imgHtml = req.photoUrl
-          ? '<a href="' + req.photoUrl + '" target="_blank"><img class="req-img" src="' + req.photoUrl + '" alt="Screenshot" /></a>'
-          : '';
-        const txHtml = req.txNumber ? '<div><b>Tx No:</b> <code>' + req.txNumber + '</code></div>' : '';
-        const accHtml = req.accountInfo ? '<div><b>Account:</b> <code>' + req.accountInfo + '</code></div>' : '';
-        const actionsHtml = req.status === 'pending'
-          ? '<div style="margin-top:8px;">' +
-              '<button class="btn-green" style="margin-right:8px;" onclick="decideReq(\'' + req.id + '\', \'approve\')">✅ Approve</button>' +
-              '<button class="btn-red" onclick="decideReq(\'' + req.id + '\', \'reject\')">❌ Reject</button>' +
-            '</div>'
-          : '';
-        return (
-          '<div class="req-item">' +
-            '<div style="display:flex; justify-content:space-between; align-items:center;">' +
-              '<b>' + req.type.toUpperCase() + ' • ' + req.amount + ' ብር</b>' +
-              '<span class="badge ' + badgeClass + '">' + req.status + '</span>' +
-            '</div>' +
-            '<div style="font-size:13px; margin-top:6px;">' +
-              '<div><b>User:</b> ' + (req.userName || 'Player') + ' (<code>' + req.userId + '</code>)</div>' +
-              txHtml +
-              accHtml +
-            '</div>' +
-            imgHtml +
-            actionsHtml +
-          '</div>'
-        );
-      }).join('');
-    }
-
-    async function saveSettings() {
-      const body = {
-        telebirr: document.getElementById('cfgTelebirr').value,
-        cbe: document.getElementById('cfgCbe').value,
-        welcomeBonus: Number(document.getElementById('cfgBonus').value),
-        minDeposit: Number(document.getElementById('cfgMinDep').value),
-        minWithdraw: Number(document.getElementById('cfgMinWdr').value)
-      };
-      const r = await fetch('/api/studio/settings', {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify(body)
-      });
-      if (r.ok) {
-        alert('✅ ቅንብሮች ተቀምጠዋል!');
-        loadAll();
-      }
-    }
-
-    async function adjustBalance() {
-      const userId = document.getElementById('balUserId').value.trim();
-      const delta = Number(document.getElementById('balDelta').value);
-      const r = await fetch('/api/studio/balance', {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ userId, delta })
-      });
-      const d = await r.json();
-      if (r.ok) {
-        alert('✅ ሂሳብ ተዘምኗል! አዲስ Main Balance: ' + d.user.main + ' ብር');
-        document.getElementById('balUserId').value = '';
-        document.getElementById('balDelta').value = '';
-      } else {
-        alert('❌ ' + (d.error || 'ስህተት'));
-      }
-    }
-
-    async function decideReq(id, action) {
-      const r = await fetch('/api/studio/requests/' + encodeURIComponent(id) + '/' + action, {
-        method: 'POST',
-        headers: headers()
-      });
-      const d = await r.json();
-      if (r.ok) {
-        loadAll();
-      } else {
-        alert('❌ ' + (d.error || 'ስህተት'));
-      }
-    }
-
-    loadAll();
-    setInterval(loadAll, 4000);
-  </script>
-</body>
-</html>`);
-});
+app.use(express.static(__dirname));
 
 io.on('connection', (socket) => {
   socket.on('room:join', (payload = {}) => {
