@@ -1,295 +1,701 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Zina Bingo</title>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Noto+Sans+Ethiopic:wght@600;800&display=swap" rel="stylesheet">
-<style>
-:root{--bg:#090D16;--sl:#1A2233;--sl2:#232D44;--tx:#fff;--mu:#8D9AB8;--or:#F97316;--gr:#22E58B;--ye:#FACC15;--B:#F59E0B;--I:#10B981;--N:#3B82F6;--G:#EF4444;--O:#8B5CF6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;margin:0;background:var(--bg);color:var(--tx);font-family:'Plus Jakarta Sans','Noto Sans Ethiopic',sans-serif;font-weight:700;color-scheme:dark}
-#app{height:100%;display:flex;flex-direction:column;max-width:560px;margin:0 auto}
-.main{flex:1;overflow-y:auto;padding:8px 10px}
-button{font:inherit;color:inherit;border:0;cursor:pointer}
-.bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.pill{background:var(--sl);border-radius:10px;padding:7px 10px;font-size:13px;display:flex;flex-direction:column;line-height:1.15}
-.pill small{color:var(--mu);font-size:10px;font-weight:600}
-.pill b{font-size:15px;font-weight:800}
-.btn{background:var(--sl2);border-radius:10px;padding:10px 14px;font-size:14px;font-weight:800}
-.btn.red{background:#B91C1C}.btn.grn{background:#0E9F63}.btn.on{background:var(--gr);color:#04140C}
-.timer{background:var(--gr);color:#04140C;border-radius:10px;padding:7px 12px;font-size:20px;font-weight:800}
-.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-top:8px}
-.num{background:var(--sl);border-radius:8px;padding:9px 0;font-size:15px;font-weight:800;text-align:center}
-.num.bot{background:#DC2626;color:#fff}
-.num.me{background:var(--gr);color:#04140C;box-shadow:0 0 12px 2px #22E58B88}
-.num.lock{opacity:.7}
-.nav{display:flex;background:#0D1424;border-top:1px solid var(--sl2)}
-.nav button{flex:1;background:none;padding:12px 0;font-size:13px;color:var(--mu)}
-.nav button.act{color:var(--gr)}
-.nav button.adm-tab{color:var(--ye);font-weight:800}
-.ball{--c:var(--B);width:var(--s,64px);height:var(--s,64px);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 32% 28%,#fff9 0,#fff0 28%),radial-gradient(circle at 50% 60%,var(--c),color-mix(in srgb,var(--c) 55%,#000));box-shadow:0 4px 14px color-mix(in srgb,var(--c) 55%,transparent);line-height:1;flex:none}
-.ball i{font-style:normal;font-size:calc(var(--s,64px)*.2);font-weight:800;opacity:.9}
-.ball b{font-size:calc(var(--s,64px)*.4);font-weight:800}
-.strip{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:6px 0}
-.strip div{background:var(--sl);border-radius:8px;padding:5px 2px;text-align:center;font-size:13px;font-weight:800}
-.strip small{display:block;color:var(--mu);font-size:9px;font-weight:600}
-.arena{display:grid;grid-template-columns:38% 1fr;gap:8px}
-.mb{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;background:transparent;padding:0;align-self:start;grid-template-rows:auto repeat(15,27px)}
-.mb .h{text-align:center;font-weight:800;font-size:15px;padding:3px 0;border-radius:6px;color:#fff}
-.mb .c{display:flex;align-items:center;justify-content:center;font-size:12px;padding:3px 0;border-radius:6px;background:#1E2940;color:#B4C0DB;font-weight:800;border:1px solid #2F3C5C}
-.mb .c.on{color:#fff;font-weight:800;background:var(--c);border-color:#ffffff55;box-shadow:0 0 8px color-mix(in srgb,var(--c) 70%,transparent)}
-.mb .c.now{outline:2px solid #fff}
-.cur{display:flex;align-items:center;gap:8px;background:var(--sl);border-radius:12px;padding:8px}
-.last{display:flex;gap:4px;margin-left:auto;min-width:0}.rc{color:var(--c);background:color-mix(in srgb,var(--c) 20%,#0D1424);border:1.5px solid var(--c);border-radius:9px;padding:5px 4px;font-size:15px;font-weight:800;line-height:1;white-space:nowrap}
-.tg{display:flex;gap:6px;margin:6px 0}
-.tg button{flex:1;padding:8px 4px;border-radius:9px;background:var(--sl2);font-size:12px;font-weight:800}
-.tg button.on{background:var(--gr);color:#04140C}
-.card{background:#0D1424;border-radius:12px;padding:6px;margin-bottom:8px}
-.card .t{font-size:11px;color:var(--mu);margin:0 2px 4px;display:flex;justify-content:space-between}
-.cg{display:grid;grid-template-columns:repeat(5,1fr);gap:3px}
-.cg .h{text-align:center;color:#fff;font-weight:800;border-radius:6px;padding:3px 0;font-size:14px}
-.cg .c{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:7px;background:var(--sl);font-size:15px;font-weight:800}
-.cg .c.cl{background:#3a3210;color:var(--ye);outline:1.5px solid var(--ye)}
-.cg .c.mk{background:#0E9F63;color:#fff;outline:0}
-.cg .c.fr{background:#0E9F63;color:#fff}
-.cg .c.win{background:var(--gr);color:#04140C;box-shadow:0 0 10px #22E58B}
-.cg .c.yl{background:var(--ye);color:#1a1400}
-.am{background:var(--sl);border-radius:12px;padding:16px 10px;text-align:center;font-family:'Noto Sans Ethiopic',sans-serif;font-weight:800;font-size:15px;line-height:1.5;color:var(--ye)}
-.foot{display:flex;gap:8px;padding:8px 10px}
-.foot .btn{flex:1}
-.ov{position:fixed;inset:0;background:#000c;display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
-.modal{background:var(--bg);border:2px solid var(--gr);box-shadow:0 0 40px #22E58B66;border-radius:18px;padding:16px;width:100%;max-width:360px;text-align:center;max-height:100%;overflow:auto}
-.modal h1{margin:0;font-size:42px;font-weight:800;letter-spacing:2px;background:linear-gradient(90deg,var(--B),var(--I),var(--N),var(--G),var(--O));-webkit-background-clip:text;background-clip:text;color:transparent;animation:pop .6s ease-out}
-@keyframes pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
-.row{display:flex;justify-content:space-between;padding:10px 4px;border-bottom:1px solid var(--sl2);font-size:14px}
-.ban{background:var(--sl);border-radius:10px;padding:10px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;font-size:13px}
-.hero{background:linear-gradient(135deg,#8B5CF6,#3B82F6 55%,#10B981);border-radius:18px;padding:24px 16px;text-align:center;box-shadow:0 8px 28px #3B82F655}.hero small{font-size:14px}.hero h1{margin:2px 0 4px;font-size:32px;font-weight:800}.hero p{margin:0;font-size:13px}
-.sec{margin:14px 0 8px;font-size:16px}.stk{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}.stk button{background:var(--sl);border:2px solid var(--gr);border-radius:12px;padding:18px 6px;font-size:17px;font-weight:800;box-shadow:0 0 12px #22E58B33}
-.ph{display:flex;justify-content:space-between;align-items:center}.ph h2{margin:0;font-size:22px}.gr{color:var(--gr);font-size:18px}
-.gcard{background:linear-gradient(135deg,#0E9F63,#3B82F6);border-radius:16px;padding:18px;margin:8px 0}.gcard small{font-size:12px}.gcard b{display:block;font-size:30px;font-weight:800}
-.tri{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.mini{background:var(--sl);border-radius:12px;padding:10px 4px;text-align:center}.mini small{display:block;color:var(--mu);font-size:10px}.mini b{font-size:13px}
-.hc{background:var(--sl);border-radius:14px;padding:12px;margin-bottom:8px}.hh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.hh small,.g2 small{display:block;color:var(--mu);font-size:10px;font-weight:600}
-.badge{padding:4px 10px;border-radius:8px;font-size:12px;font-weight:800}.badge.win{background:#0E9F63}.badge.loss{background:#B91C1C}.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:14px}
-.av{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--O),var(--N));display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800}
-.low{background:#2A1215;border:1.5px solid #EF4444;border-radius:12px;padding:10px;margin-top:8px}.low b{display:block;color:#FCA5A5;font-size:14px;font-weight:800}.low .am2{font-weight:800}.low small{display:block;color:#C9A3A3;font-size:12px;margin-top:3px;font-weight:600}
-.wcn{margin-top:8px;padding:8px;border-radius:10px;background:var(--sl);color:var(--ye);font-size:15px;font-weight:800}
-.split{background:var(--sl);border-radius:10px;padding:8px;margin-top:8px;font-size:13px;color:var(--ye)}.split b{color:var(--gr)}.split small{display:block;color:var(--mu);font-size:11px;margin-top:3px;font-weight:600}
-.pv{position:sticky;bottom:0;z-index:2;display:grid;gap:8px;margin:10px -10px -8px;padding:8px 10px;background:var(--bg);border-top:1px solid var(--sl2)}.pv .cg{gap:2px}.pv .cg .h{font-size:11px;padding:2px 0}.pv .cg .c{aspect-ratio:auto;height:22px;font-size:11px;border-radius:5px}
-.hp{text-align:left;max-width:380px}.hp h3{margin:12px 0 4px;font-size:15px;color:var(--ye)}.hp ol{margin:0;padding-left:20px;font-size:13px;line-height:1.7;font-family:'Noto Sans Ethiopic','Plus Jakarta Sans',sans-serif}
-.cards.n1 .card{padding:8px}.cards.n1 .card .t{font-size:13px;color:#fff;justify-content:center;gap:10px;margin-bottom:6px}.cards.n1 .cg{gap:4px}.cards.n1 .cg .h{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:18px;padding:0;border-radius:9px}.cards.n1 .cg .c{aspect-ratio:1;height:auto;font-size:19px;border-radius:9px}
-.cards.n2 .card{padding:5px;margin-bottom:6px}.cards.n2 .card .t{margin-bottom:3px}.cards.n2 .cg{gap:2px}.cards.n2 .cg .h{font-size:12px;padding:2px 0}.cards.n2 .cg .c{aspect-ratio:auto;height:26px;font-size:14px;border-radius:6px}
-.top{flex-wrap:nowrap;gap:5px}.top .btn{padding:9px 10px;font-size:13px}.top .pill{padding:6px 8px}.top .timer{padding:6px 9px;font-size:18px}
-.rf{margin-left:auto;display:flex;align-items:center;gap:5px;background:linear-gradient(135deg,#FACC15,#F59E0B);color:#1a1100;box-shadow:0 0 14px #FACC1566;white-space:nowrap}.rf:active{transform:scale(.94)}.rf .ic{display:inline-block;font-size:16px;font-weight:800}.rf .ic.spin{animation:sp .6s linear}@keyframes sp{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){.modal h1,.rf .ic.spin{animation:none}}
-</style><script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-</head><body><div id="app"></div>
-<script>
-const L='BINGO',CL={B:'#F59E0B',I:'#10B981',N:'#3B82F6',G:'#EF4444',O:'#8B5CF6'};
-const $=s=>document.querySelector(s),ltr=n=>L[Math.floor((n-1)/15)];
-const NAMES=['Abebe','Tigist','Dawit','Selam','Kebede','Hana','Yonas','Meron','Biniam','Rahel','Samuel','Lidya','Mulu','Fikir','Henok','Saba'];
-function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-function genCard(id){const r=rng(id*7919+13),c=[];for(let k=0;k<5;k++){const p=[...Array(15)].map((_,i)=>k*15+i+1);for(let i=14;i>0;i--){const j=Math.floor(r()*(i+1));[p[i],p[j]]=[p[j],p[i]]}c.push(p.slice(0,5))}c[2][2]=0;return c}
-const LINES=[];for(let i=0;i<5;i++){LINES.push([...Array(5)].map((_,k)=>[k,i]));LINES.push([...Array(5)].map((_,k)=>[i,k]))}
-LINES.push([...Array(5)].map((_,k)=>[k,k]),[...Array(5)].map((_,k)=>[k,4-k]));
-const CORNERS=[[0,0],[4,0],[0,4],[4,4]],MINCALLS=12;
-const PATS=[];for(let i=0;i<5;i++){PATS.push({t:'h',c:[0,1,2,3,4].map(k=>[k,i])});PATS.push({t:'v',c:[0,1,2,3,4].map(k=>[i,k])})}
-PATS.push({t:'d',c:[0,1,2,3,4].map(k=>[k,k])},{t:'d',c:[0,1,2,3,4].map(k=>[k,4-k])},{t:'c',c:CORNERS});
-const PNAME={h:'Horizontal Line · ወደጎን መስመር',v:'Vertical Line · ወደታች መስመር',d:'Diagonal Line · ሰያፍ መስመር',c:'4 Corners · አራቱ ማእዘናት'};
-const winLine=(c,s,cs)=>PATS.find(p=>p.c.every(([x,y])=>{const n=c[x][y];return n===0||(cs.has(n)&&s.has(n))}));
-const S={phase:'lobby',t:30,tick:0,room:null,rn:1,rooms:[{s:10,n:1},{s:10,n:2}],paid:{},cards:{},claimed:{},bonus:0,dep:0,tx:[],won:0,hide:true,wtab:'bal',gcode:'',booked:{},mine:[],marks:{},wallet:0,stake:10,round:1,gid:1042,called:[],auto:true,sound:true,tab:'game',left:false,win:null,hist:[],pool:0,players:0};
-const card=id=>(S.cards&&S.cards[id])||genCard(id);
-const APP='Zina Bingo',UID=String(10000000+Math.floor(Math.random()*9e7));
-const fmt=n=>'Br '+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}),tot=()=>S.wallet+S.bonus,rid=()=>Math.random().toString(36).slice(2,10).toUpperCase(),rb=()=>1+Math.floor(Math.random()*600);
-function addTx(l,a){S.tx.unshift({l,a,ts:Date.now()})}
-function pay(id){if(tot()<S.stake){S.paid[id]=0;return}if(S.wallet>=S.stake)S.wallet-=S.stake;else{S.bonus-=S.stake-S.wallet;S.wallet=0}S.paid[id]=1;addTx('Board stake',-S.stake)}
-function settle(){if(S.phase==='lobby')S.mine.forEach(id=>{if(!S.paid[id])pay(id)})}
-const low=need=>`<div class="low"><b>⚠ Insufficient balance <span class="am2">· በቂ ባላንስ የለዎትም</span></b><small>Need ${fmt(need)} · you have ${fmt(tot())}. Test mode: boards can still be picked for free.</small><div class="bar" style="margin-top:8px"><button class="btn grn" data-a="dep" data-v="100">+ Top up 100 (test)</button><button class="btn" data-a="tab" data-t="wallet">Open Wallet</button></div></div>`;
-function refund(id){if(S.paid[id]){S.wallet+=S.stake;addTx('Board refund',S.stake)}delete S.paid[id]}
-let down=0;document.addEventListener('pointerdown',()=>down=1);['pointerup','pointercancel'].forEach(t=>document.addEventListener(t,()=>setTimeout(()=>down=0,60)));
-const mini=(l,v)=>`<div class="mini"><small>${l}</small><b>${fmt(v)}</b></div>`;
-const dt=ts=>new Date(ts).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-let ac;function beep(){if(!S.sound)return;try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=660;g.gain.value=.08;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+.12)}catch(e){}}
-function botBook(n){for(let i=0;i<n;i++){const id=1+Math.floor(Math.random()*600);if(!S.booked[id])S.booked[id]=NAMES[Math.floor(Math.random()*16)]+' '+(10+Math.floor(Math.random()*90))}}
-function start(){botBook(Math.max(0,12-Object.keys(S.booked).length));S.phase='play';S.called=[];S.tick=0;S.left=false;S.gid++;S.gcode=S.round+'_'+rid();const n=Object.keys(S.booked).length;S.players=n;S.pool=Math.floor(n*S.stake*80/100);S.mine.forEach(id=>S.marks[id]=new Set([0]))}
-function call(){const rest=[...Array(75)].map((_,i)=>i+1).filter(n=>!S.called.includes(n));if(!rest.length)return;const n=rest[Math.floor(Math.random()*rest.length)];S.called.push(n);beep();
- if(S.auto)S.mine.forEach(id=>S.marks[id].add(n));
-evalWin()}
-function evalWin(){if(S.phase!=='play')return;const cs=new Set(S.called),hits=[];
- for(const k in S.booked){const id=+k,mine=S.mine.includes(id);if(!mine&&S.called.length<MINCALLS)continue;const set=mine?S.marks[id]:cs,c=card(id),p=winLine(c,set,cs);if(p&&p.c.every(([x,y])=>c[x][y]===0||(S.called.includes(c[x][y])&&set.has(c[x][y]))))hits.push({id,ln:p.c,pt:p.t,mine})}
- if(hits.length){const h=hits.find(x=>x.mine)||hits[Math.floor(Math.random()*hits.length)],name=h.mine?ME.name+' (You)':S.booked[h.id],prize=Math.floor(S.pool/hits.length),mh=hits.filter(x=>x.mine);S.phase='win';S.t=7;S.holdUntil=Date.now()+7000;S.win={...h,name,prize,called:[...S.called],wc:hits.length,pool:S.pool,co:hits.map(x=>({id:x.id,name:x.mine?'You':S.booked[x.id]}))};if(mh.length){S.wallet+=prize*mh.length;S.won++;addTx('Game prize',prize*mh.length)}if(S.mine.length)S.hist.unshift({gid:S.gcode,ts:Date.now(),stake:S.stake,prize,win:mh.length>0,my:[...S.mine],wb:hits.map(x=>x.id),wc:hits.length});
-  }}
-function newRound(){S.round++;S.phase='lobby';S.t=30;S.booked={};S.paid={};S.mine=[];S.marks={};S.called=[];S.win=null;S.left=false}
-function tick(){if(LIVE){if(S.holdUntil){const r=Math.max(0,Math.ceil((S.holdUntil-Date.now())/1000));if(r!==S.t){S.t=r;render(1)}if(Date.now()>=S.holdUntil)endHold()}return}S.h=(S.h||0)+1;const sec=S.h%2===0;
- if(S.phase==='lobby'){if(!sec)return;S.t--;botBook(1+Math.floor(Math.random()*4));if(S.t<=0)start()}
- else if(S.phase==='play'){S.tick++;if(!(S.tick>=6&&(S.tick-6)%5===0))return;call()}
- else{const now=Date.now();if(!S.holdUntil)S.holdUntil=now+S.t*1000;if(now>=S.holdUntil){S.holdUntil=0;newRound()}else{const r=Math.ceil((S.holdUntil-now)/1000);if(r===S.t)return;S.t=r}}
- render()}
-const ball=(n,s)=>`<div class="ball" style="--c:${CL[ltr(n)]};--s:${s}px"><i>${ltr(n)}</i><b>${n}</b></div>`;
-const hdr=()=>[...L].map(x=>`<div class="h" style="background:${CL[x]}">${x}</div>`).join('');
-function lobby(){const g=[];for(let i=1;i<=600;i++){const b=S.booked[i],m=S.mine.includes(i);g.push(`<div class="num ${m?'me':b?'bot':''} ${S.phase!=='lobby'?'lock':''}" data-a="pick" data-i="${i}">${i}</div>`)}
- const live=S.phase!=='lobby'?`<div class="ban"><span>Game in progress</span><button class="btn grn" data-a="watch">Watch live</button></div>`:'';
- return `<div class="main"><div class="bar top"><button class="btn red" data-a="leave">Leave</button><div class="timer">${S.phase==='lobby'?S.t+'s':'—'}</div><div class="pill"><small>Wallet</small><b>${Math.floor(tot())}</b></div><div class="pill"><small>Stake</small><b>${S.stake}</b></div><button class="btn rf" data-a="refresh"><span class="ic">⟳</span>Refresh</button></div>
- <div class="bar" style="margin-top:8px"><div class="pill"><small>Boards</small><b>${S.mine.length}/2</b></div><div class="pill"><b>${S.room?S.room.s:S.stake} № ${S.room?S.room.n:S.rn}</b></div></div>${(S.mine.some(id=>!S.paid[id])||S.lowNeed)?low(S.lowNeed||S.stake*S.mine.filter(id=>!S.paid[id]).length):''}${live}<div class="grid">${g.join('')}</div>${S.mine.length?`<div class="pv" style="grid-template-columns:repeat(${S.mine.length},1fr)">${S.mine.map(id=>`<div class="card" style="margin:0"><div class="t"><span>Cartela № ${id}</span></div>${cardHtml(id,new Set([0]))}</div>`).join('')}</div>`:''}</div>`}
-function cardHtml(id,set,mode,wl){const c=card(id);let h='';for(let r=0;r<5;r++)for(let k=0;k<5;k++){const n=c[k][r],cl=S.called.includes(n),inW=wl&&wl.some(([x,y])=>x===k&&y===r);let cls='';
- if(mode==='win')cls=inW?'win':n===0?'fr':S.win.called.includes(n)?'yl':'';
- else cls=n===0?'fr':set.has(n)?'mk':cl?'cl':'';
- h+=`<div class="c ${cls}" data-a="cell" data-i="${id}" data-n="${n}">${n||'*'}</div>`}
- return `<div class="cg">${hdr()}${h}</div>`}
-function arena(){const cs=new Set(S.called),lc=S.called.at(-1),l3=S.called.slice(-4,-1).reverse();
- let mb='';[...L].forEach(x=>mb+=`<div class="h" style="background:${CL[x]}">${x}</div>`);
- for(let i=0;i<15;i++)for(let k=0;k<5;k++){const n=k*15+i+1,on=cs.has(n);mb+=`<div class="c ${on?'on':''} ${n===lc?'now':''}" style="--c:${CL[L[k]]}">${n}</div>`}
- const cards=S.mine.length?`<div class="cards n${S.mine.length}">`+S.mine.map(id=>`<div class="card"><div class="t"><span>Board № ${id}</span><span>${S.auto?'Auto':'Tap to mark'}</span></div>${cardHtml(id,S.marks[id])}</div>`).join('')+'</div>':`<div class="am">እባክዎ ይህ ጨዋታ እስከሚጨርስ ይጠብቁ</div>`;
- return `<div class="main"><div class="strip"><div><small>Game ID</small>${S.gcode?`<span style="font-size:11px">${S.gcode}</span>`:S.gid}</div><div><small>Derash</small>${S.pool}</div><div><small>Players</small>${playersCount()}</div><div><small>Stake</small>${S.stake}</div><div><small>Called</small>${S.called.length}</div></div>
- <div class="arena"><div class="mb">${mb}</div><div><div class="cur">${lc?ball(lc,64):'<div class="ball" style="--c:#334;--s:64px"><b>…</b></div>'}<div class="last">${l3.map(n=>`<span class="rc" style="--c:${CL[ltr(n)]}">${ltr(n)}${n}</span>`).join('')}</div></div>
- <div class="tg"><button data-a="sound" class="${S.sound?'on':''}">Sound ${S.sound?'ON':'OFF'}</button><button data-a="auto" class="${S.auto?'on':''}">Auto ${S.auto?'ON':'OFF'}</button></div>${cards}</div></div></div>
- <div class="foot"><button class="btn red" data-a="leave">Leave</button><button class="btn" data-a="refresh">Refresh</button><button class="btn ${S.auto?'on':''}" data-a="auto">Automatic</button></div>`}
-function modal(){const w=S.win;return `<div class="ov"><div class="modal"><h1>BINGO!</h1><p style="font-size:16px;margin:6px 0 10px"><span style="color:var(--gr)">${w.name}</span> has won the game</p><div style="color:var(--ye);font-size:13px;margin:-4px 0 8px">${PNAME[w.pt]||'BINGO!'}</div><div class="card"><div class="t"><span>Board № ${w.id}</span><span>Prize ${fmt(w.prize)}</span></div>${cardHtml(w.id,null,'win',w.ln)}</div>${w.wc>1?`<div class="split">እኩል ተካፍለዋል · Split equally<br>${fmt(w.pool)} ÷ ${w.wc} = <b>${fmt(w.prize)}</b> each<small>${w.co.slice(0,6).map(x=>x.name+' (№'+x.id+')').join(', ')}${w.co.length>6?' …':''}</small></div>`:`<div class="split">${w.pending?'Prize (up to) ':'Prize '}<b>${fmt(w.prize)}</b></div>`}<p style="color:var(--mu);font-size:13px;margin:6px 0 0">${w.pending?'Verifying with server…':`Next round in <b style="color:#fff;font-size:17px">${S.t}s</b>`}</p><div class="wcn">Winner Cartela: ${w.co.slice(0,6).map(x=>'#'+x.id).join(', ')}${w.co.length>6?' …':''}</div></div></div>`}
-function welcome(){return `<div class="main"><div class="hero"><small>Welcome to</small><h1>${APP}</h1><p>75-ball multiplayer bingo</p></div>
-<div class="bar" style="justify-content:space-between;margin:12px 0"><div class="pill" style="flex-direction:row;align-items:center;gap:8px"><span style="font-size:18px">👛</span><b>${S.hide?'••••••':fmt(tot())}</b></div><div class="bar" style="gap:6px"><button class="btn" data-a="eye">${S.hide?'👁 Show':'🙈 Hide'}</button><button class="btn" data-a="help">? መመሪያ</button></div></div>
-${tot()<Math.min(...S.rooms.map(r=>r.s))?low(Math.min(...S.rooms.map(r=>r.s))):''}<h3 class="sec">Choose Your Stake</h3><div style="color:var(--mu);font-size:12px;margin:-4px 0 8px">${S.phase==='lobby'?'Next round starts in '+S.t+'s':'Round in progress · join the next one'}</div>
-<div class="stk">${S.rooms.map((r,i)=>`<button data-a="room" data-i="${i}">Play ${r.s} № ${r.n}</button>`).join('')}</div><button class="btn" data-a="addroom" style="width:100%">＋ Add stake</button></div>`}
-function panel2(){const t=S.tab;let b='';
- if(t==='wallet'){b=`<div class="ph"><div><h2>WALLET</h2><b class="gr">${fmt(tot())}</b></div><button class="btn" data-a="reload">⟳ Reload</button></div><div class="tg"><button data-a="wtab" data-t="bal" class="${S.wtab==='bal'?'on':''}">BALANCES</button><button data-a="wtab" data-t="his" class="${S.wtab==='his'?'on':''}">HISTORY</button></div>`;
-  b+=S.wtab==='bal'?`<div class="gcard"><small>TOTAL BALANCE</small><b>${fmt(tot())}</b></div><div class="tri">${mini('MAIN',S.wallet)}${mini('BONUS',S.bonus)}${mini('DEPOSITED',S.dep)}</div><h3 class="sec">Test controls</h3><div class="tg"><button data-a="dep" data-v="100">Deposit 100</button><button data-a="dep" data-v="500">Deposit 500</button><button data-a="dep" data-v="1000">Deposit 1000</button></div><div class="tg"><button data-a="bonus">Add 50 bonus</button><button data-a="reset">Reset wallet</button></div>`:(S.tx.length?S.tx.map(x=>`<div class="row"><span>${x.l}<small style="display:block;color:var(--mu);font-size:10px">${dt(x.ts)}</small></span><span style="color:${x.a>=0?'var(--gr)':'#F87171'}">${x.a>=0?'+':'−'}${fmt(Math.abs(x.a))}</span></div>`).join(''):'<p style="color:var(--mu)">No transactions yet.</p>')}
- if(t==='history'){b=`<div class="ph"><h2>GAME HISTORY</h2><button class="btn" data-a="reload">⟳ Reload</button></div><div style="margin-top:10px">${S.hist.length?'':'<p style="color:var(--mu)">No games played yet.</p>'}${S.hist.map(h=>`<div class="hc"><div class="hh"><div><b>Game #${h.gid}</b><small>${dt(h.ts)}</small></div><span class="badge ${h.win?'win':'loss'}">${h.win?'WIN':'LOSS'}</span></div><div class="g2"><div><small>Stake</small><b>${fmt(h.stake)}</b></div><div><small>Prize</small><b style="color:var(--gr)">${fmt(h.prize)}</b></div><div><small>My Boards</small><b>${h.my.map(x=>'#'+x).join(', ')}</b></div><div><small>Winners' Boards</small><b>${h.wb.slice(0,4).map(x=>'#'+x).join(', ')}</b></div><div><small>Winners</small><b>${h.wc}</b></div></div></div>`).join('')}</div>`}
- if(t==='profile'){b=`<h2 style="margin:6px 0">PROFILE</h2><div class="hc"><small style="color:var(--mu)">ACCOUNT</small><div class="bar" style="margin-top:8px;gap:12px"><div class="av">${ME.name[0]||'P'}</div><div><b style="font-size:18px">${ME.name}</b><div style="color:var(--mu);font-size:12px">ID: ${ME.id}</div></div></div></div><div class="gcard"><small>TOTAL BALANCE</small><b>${fmt(tot())}</b></div><div class="tri">${mini('MAIN',S.wallet)}${mini('BONUS',S.bonus)}${mini('DEPOSITED',S.dep)}</div><div class="hc" style="margin-top:8px"><small style="color:var(--mu)">STATS</small><div class="row"><span>Total Withdrawal</span><span>${fmt(0)}</span></div><div class="row"><span>Games Won</span><span>${S.won}</span></div><div class="row" style="border:0"><span>Total Invites</span><span>0</span></div></div><div class="hc"><small style="color:var(--mu)">SETTINGS</small><div class="row" style="border:0;align-items:center"><span>Sound</span><button class="btn ${S.sound?'on':''}" data-a="sound">${S.sound?'ON':'OFF'}</button></div><div class="row" style="border:0;align-items:center;border-top:1px solid var(--sl2)"><span>መመሪያ / How to Play</span><button class="btn" data-a="help">Open</button></div><div class="row" style="border:0;border-top:1px solid var(--sl2)"><span>Server</span><span style="color:${socket&&socket.connected?'var(--gr)':'var(--mu)'}">${socket&&socket.connected?'● Live':LIVE?'○ Reconnecting…':'○ Offline (simulation)'}</span></div></div>`}
- return `<div class="main">${b}</div>`}
-function helpModal(){return `<div class="ov" data-a="closehelp"><div class="modal hp" data-a="noop"><h2 style="margin:0 0 8px;font-size:20px">መመሪያ / How to Play</h2>
-<h3>🃏 መጫወቻ ካርድ</h3><ol><li>ከ1-600 እስከ 2 ካርቴላ መምረጥ ይቻላል</li><li>በቀይ ቀለም የተመረጡ ቁጥሮች በሌላ ተጫዋች መያዛቸውን ያሳያሉ</li><li>ካርቴላውን ሲመርጡ ከታች ቁጥሮቹን ያሳያል</li><li>ሰኮንዱ ዜሮ ሲሆን ቀጥታ ወደ ጨዋታ ያስገባል።</li></ol>
-<h3>🎮 ጨዋታ እንዴት ይካሄዳል</h3><ol><li>ካርቴላዎን ከታች በቀኝ በኩል ያገኙታል</li><li>ከ1-75 ቁጥሮች Randomly ይጠራሉ</li><li>ካርቴላዎ ላይ ያሉትን ቁጥሮች ይንኩ ወይም Automatic ያብሩ።</li></ol>
-<h3>🏆 አሸናፊ የሚሆኑባቸው መንገዶች</h3><ol><li>ወደጎን ወይም ወደታች መስመር፣ ሁለቱም አግዳሚ (ሰያፍ) መስመር፣ ወይም አራቱ ማእዘናት (ኮርነር) ሲሞሉ</li><li>ሁለት ወይም ከዚያ በላይ ተጫዋቾች እኩል ቢያሸንፉ ደራሹ ለአሸናፊዎች እኩል ይካፈላል።</li></ol>
-<button class="btn grn" data-a="closehelp" style="width:100%;margin-top:6px">ዝጋ / Close</button></div></div>`}
-function isAdminUser(){
-  try{
-    const admins=['7379955498'];
-    const uid=(typeof ME!=='undefined'&&ME&&ME.id)?String(ME.id):'';
-    if(uid&&admins.includes(uid))return true;
-    const q=new URLSearchParams(location.search);
-    if(q.get('admin')==='1')return true;
-    return false;
-  }catch(e){return false}
-}
-function openStudio(){
-  if(!isAdminUser())return;
-  const base=(typeof SERVER_URL!=='undefined'&&SERVER_URL?SERVER_URL:location.origin).replace(/\/$/,'');
-  const url=base+'/studio?admin=1';
-  try{
-    if(window.Telegram&&window.Telegram.WebApp&&typeof window.Telegram.WebApp.openLink==='function'){
-      window.Telegram.WebApp.openLink(url);
-      return;
-    }
-  }catch(e){}
-  window.open(url,'_blank');
-}
-function render(f){if(down&&!f)return;const m=document.querySelector('.main'),sc=m?m.scrollTop:0;
- const body=S.tab!=='game'?panel2():!S.room?welcome():(S.phase!=='lobby'&&!S.left)?arena():lobby();
- const tabs=isAdminUser()?['game','history','wallet','profile','admin']:['game','history','wallet','profile'];
- $('#app').innerHTML=body+`<div class="nav">${tabs.map(t=>`<button data-a="tab" data-t="${t}" class="${t==='admin'?'adm-tab ':''}${S.tab===t?'act':''}">${t==='admin'?'Admin':t[0].toUpperCase()+t.slice(1)}</button>`).join('')}</div>`+(S.phase==='win'&&S.room&&S.win?modal():'')+(S.help?helpModal():'');
- const n=document.querySelector('.main');if(n)n.scrollTop=sc}
-document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el)return;const a=el.dataset.a,i=+el.dataset.i;
- if(a==='pick'&&S.phase==='lobby'&&LIVE)livePick(i);
- else if(a==='pick'&&S.phase==='lobby'){if(S.mine.includes(i)){S.mine=S.mine.filter(x=>x!==i);refund(i);delete S.booked[i]}else if(!S.booked[i]&&S.mine.length<2){S.mine.push(i);S.booked[i]='You';pay(i)}}
- else if(a==='leave'&&LIVE){liveLeave()}
- else if(a==='leave'){if(S.phase==='lobby'){S.mine.forEach(id=>{refund(id);delete S.booked[id]});S.mine=[];S.room=null}else if(S.left)S.room=null;else S.left=true}
- else if(a==='watch')S.left=false;
- else if(a==='auto'){S.auto=!S.auto;if(LIVE)emit(EV.auto,{room:roomKey(),auto:S.auto});if(S.auto&&S.phase==='play')S.mine.forEach(id=>S.called.forEach(n=>S.marks[id].add(n)));if(S.auto&&S.phase==='play'){if(LIVE)S.mine.forEach(liveBingo);else evalWin()}}
- else if(a==='sound')S.sound=!S.sound;
- else if(a==='cell'&&!S.auto&&S.phase==='play'&&S.called.includes(+el.dataset.n)&&S.marks[i]){S.marks[i].add(+el.dataset.n);if(LIVE){emit(EV.mark,{room:roomKey(),board:i,n:+el.dataset.n});liveBingo(i)}else evalWin()}
- else if(a==='tab'){if(el.dataset.t==='admin'){openStudio();return}S.tab=el.dataset.t}
- else if(a==='dep'){const v=+el.dataset.v;if(LIVE)liveTopup(v);else{S.wallet+=v;S.dep+=v;addTx('Deposit',v);settle()}}
- else if(a==='bonus'){S.bonus+=50;addTx('Bonus',50);settle()}
- else if(a==='reset'){S.wallet=0;S.bonus=0;S.dep=0;S.tx=[]}
- else if(a==='eye')S.hide=!S.hide;
- else if(a==='help')S.help=true;
- else if(a==='closehelp')S.help=false;
- else if(a==='wtab')S.wtab=el.dataset.t;
- else if(a==='room'){const r=S.rooms[i];if(S.phase==='lobby'){S.stake=r.s;S.rn=r.n}S.room=r;S.left=S.phase!=='lobby';if(LIVE)liveJoin(r)}
- else if(a==='addroom'){const o=[20,50,100,200,500].find(v=>!S.rooms.some(r=>r.s===v&&r.n===2));if(o)S.rooms.push({s:o,n:2});else S.rooms.push({s:10*(S.rooms.length+1),n:1})}
- render(1);if(a==='refresh'){const b=document.querySelector('.rf .ic');if(b)b.classList.add('spin')}});
+<html lang="am">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Zina Bingo Studio</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Noto+Sans+Ethiopic:wght@600;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Plus Jakarta Sans', 'Noto Sans Ethiopic', system-ui, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 14px; }
+    .wrap { max-width: 980px; margin: 0 auto; }
+    .card { background: #1e293b; border-radius: 12px; padding: 14px; margin-bottom: 14px; border: 1px solid #334155; }
+    h2, h3 { margin: 0 0 10px 0; }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+    .grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+    .stat { background: #0f172a; padding: 10px; border-radius: 8px; border: 1px solid #263349; }
+    .label { font-size: 11px; color: #94a3b8; margin-bottom: 4px; display: block; }
+    .val { font-size: 17px; font-weight: 700; margin-top: 2px; color: #38bdf8; }
+    .ok { color: #22c55e; }
+    .warn { color: #facc15; }
+    .bad { color: #f87171; }
+    input, select, textarea { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff; margin-bottom: 8px; font-family: inherit; }
+    button, a.btn { cursor: pointer; border: none; border-radius: 8px; padding: 9px 12px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-family: inherit; }
+    button:active, a.btn:active { transform: scale(0.98); }
+    .btn-blue { background: #2563eb; color: #fff; }
+    .btn-green { background: #16a34a; color: #fff; }
+    .btn-red { background: #dc2626; color: #fff; }
+    .btn-yellow { background: #eab308; color: #0f172a; }
+    .btn-gray { background: #334155; color: #f8fafc; }
+    .tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; }
+    .tab { background: #1e293b; color: #94a3b8; border: 1px solid #334155; white-space: nowrap; }
+    .tab.active { background: #2563eb; color: #fff; border-color: #3b82f6; }
+    .row-gap { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .req-item { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+    .req-img { max-width: 100%; max-height: 220px; border-radius: 8px; margin: 8px 0; display: block; border: 1px solid #475569; }
+    .badge { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .pending { background: #f59e0b; color: #0f172a; }
+    .approved { background: #16a34a; color: #fff; }
+    .rejected { background: #dc2626; color: #fff; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #263349; }
+    th { color: #94a3b8; font-size: 11px; }
+    .tbl-wrap { overflow-x: auto; }
+    .toast { position: fixed; bottom: 16px; right: 16px; background: #16a34a; color: #fff; padding: 10px 14px; border-radius: 10px; font-weight: 700; font-size: 13px; z-index: 999; }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="studioRoot"></div>
 
-/* ================= LIVE LAYER: Socket.io + Telegram Mini App ================= */
-const SERVER_URL=new URLSearchParams(location.search).get('server')||'https://ela-jbix.onrender.com';
-const EV={
-  join:'room:join', leave:'room:leave', pick:'board:pick', release:'board:release',
-  mark:'game:mark', auto:'game:auto', claim:'game:claim', card:'board:card', topup:'wallet:topup_test',
-  state:'room:state', taken:'board:taken', freed:'board:released', rejected:'board:rejected',
-  start:'game:start', call:'game:call', win:'game:win', wallet:'wallet:update'
-};
-let LIVE=false,socket=null;
-const TG=window.Telegram&&window.Telegram.WebApp;
-try{if(TG){TG.ready();TG.expand();TG.setHeaderColor&&TG.setHeaderColor('#090D16');TG.setBackgroundColor&&TG.setBackgroundColor('#090D16')}}catch(e){}
-function guestId(){try{let g=localStorage.getItem('bingo_guest');if(!g){g='guest-'+Math.random().toString(36).slice(2,8);localStorage.setItem('bingo_guest',g)}return g}catch(e){return 'guest-'+Math.random().toString(36).slice(2,8)}}
-const tu=TG&&TG.initDataUnsafe&&TG.initDataUnsafe.user;
-const ME={id:tu?String(tu.id):guestId(),name:tu?[tu.first_name,tu.last_name].filter(Boolean).join(' '):'Guest',initData:TG?TG.initData:''};
-const roomKey=()=>S.room?S.room.s+'-'+S.room.n:null;
-const emit=(ev,d)=>{try{if(socket&&socket.connected)socket.emit(ev,d)}catch(e){}};
-const isMine=x=>S.mine.includes(+x.board)||(x.userId!=null&&String(x.userId)===ME.id);
-function liveJoin(r){emit(EV.join,{room:r.s+'-'+r.n,stake:r.s,user:ME})}
-function liveLeave(){if(S.phase==='lobby'||S.left){emit(EV.leave,{room:roomKey()});S.mine=[];S.paid={};S.room=null}else S.left=true}
-function livePick(i){const rk=roomKey();
-  if(S.mine.includes(i)){S.mine=S.mine.filter(x=>x!==i);delete S.booked[i];delete S.paid[i];emit(EV.release,{room:rk,board:i})}
-  else if(!S.booked[i]&&S.mine.length<2){S.mine.push(i);S.booked[i]=ME.name;S.paid[i]=1;S.lowNeed=0;emit(EV.pick,{room:rk,board:i})}}
-function toCols(rows){const c=[0,1,2,3,4].map(k=>[0,1,2,3,4].map(r=>{const v=rows[r][k];return(v==null||v===0||v==='*'||String(v).toUpperCase()==='FREE')?0:+v}));c[2][2]=0;return c}
-function setCards(m){if(!m)return;for(const k in m){try{S.cards[k]=toCols(m[k])}catch(e){}}}
-function liveBingo(id){if(S.phase!=='play'||S.claimed[id]||!S.marks[id])return;const cs=new Set(S.called),p=winLine(card(id),S.marks[id],cs);if(!p)return;S.claimed[id]=1;emit(EV.claim,{room:roomKey(),board:id});
-  showWin({winners:[{board:id,name:ME.name,userId:ME.id,pattern:p.t,line:p.c}],pool:S.pool,prize:S.pool,called:[...S.called]},true)}
-function playersCount(){const boards=Object.keys(S.booked||{}).length,srv=+S.players;return Math.max(boards,Number.isInteger(srv)&&srv>0?srv:0,S.mine.length)}
-function applyWallet(w){if(w.main!=null)S.wallet=+w.main;if(w.bonus!=null)S.bonus=+w.bonus;if(w.dep!=null)S.dep=+w.dep}
-function liveTopup(v){if(!socket)return;socket.timeout(2500).emit(EV.topup,{amount:v,user:ME},(err,res)=>{
-  if(err){S.wallet+=v;S.dep+=v;addTx('Deposit (local, no server reply)',v)}else if(res&&res.wallet)applyWallet(res.wallet);
-  S.lowNeed=0;render(1)})}
-function initMarks(){S.mine.forEach(id=>{if(!S.marks[id])S.marks[id]=new Set([0]);if(S.auto)S.called.forEach(n=>S.marks[id].add(n))})}
-function endHold(){S.holdUntil=0;const q=S.queued;S.queued=null;if(q){applyState(q);if(S.phase==='play'){S.claimed={};S.played=[...S.mine]}}else{S.phase='lobby';S.win=null;S.marks={};S.called=[];S.claimed={};S.played=null;S.mine=[];S.paid={};S.left=false}render(1)}
-function applyState(d){const prev=S.phase;d=Object.assign({},d);if(d.phase==='win')delete d.phase;if(S.holdUntil&&Date.now()<S.holdUntil){if(d.wallet)applyWallet(d.wallet);if(d.cards)setCards(d.cards);if(d.phase!=='win')S.queued=Object.assign(S.queued||{},d);return}
-  if(prev==='play'&&d.phase&&d.phase!=='play'&&S.called.length<75){if(d.wallet)applyWallet(d.wallet);if(d.cards)setCards(d.cards);return}
-  if(prev==='play')delete d.t;
-  if(d.phase)S.phase=d.phase;if(d.t!=null)S.t=d.t;if(d.stake)S.stake=d.stake;
-  if(d.booked)S.booked=d.booked;if(d.mine)S.mine=d.mine.map(Number);if(d.paid)S.paid=d.paid;
-  if(d.called&&!(prev==='play'&&d.called.length<S.called.length))S.called=d.called;if(d.gid!=null)S.gid=d.gid;if(d.gcode!==undefined||d.gid!=null)S.gcode=d.gcode||'';
-  if(d.pool!=null)S.pool=d.pool;if(d.players!=null)S.players=d.players;if(d.wallet)applyWallet(d.wallet);if(d.cards)setCards(d.cards);
-  S.mine.forEach(id=>{if(S.paid[id]==null)S.paid[id]=1});
-  if(S.phase==='lobby'){S.marks={};S.win=null;S.left=false;S.called=[];S.claimed={};if(prev!=='lobby'){S.played=null;S.holdUntil=0;if(d.mine===undefined){S.mine=[];S.paid={}}}}else if(S.phase==='play')initMarks()}
-function showWin(d,local){
-  if(!d||!Array.isArray(d.winners)||!d.winners.length)return;
-  const holding=S.holdUntil&&Date.now()<S.holdUntil&&S.phase==='win';
-  if(holding&&!(S.win&&S.win.local&&!local))return;
-  setCards(d.cards);d.winners.forEach(x=>{if(x&&(x.rows||x.card))setCards({[x.board]:x.rows||x.card})});
-  const called=Array.isArray(d.called)&&d.called.length?d.called:[...S.called],cs=new Set(called);
-  const okCell=c=>Array.isArray(c)&&c.length===2&&c.every(v=>Number.isInteger(v)&&v>=0&&v<=4),okLine=l=>Array.isArray(l)&&(l.length===4||l.length===5)&&l.every(okCell);
-  const w=[];d.winners.forEach(x=>{const b=x?+x.board:NaN;if(!Number.isInteger(b)||b<1||b>600)return;
-    let ln=okLine(x.line)?x.line:null,pt=PNAME[x.pattern]?x.pattern:null;
-    if(!ln||!pt){const p=winLine(card(b),cs,cs);if(p){ln=ln||p.c;pt=pt||p.t}}
-    w.push({...x,board:b,line:ln||[],pattern:pt})});
-  if(!w.length)return;
-  const mh=w.filter(isMine),h=mh[0]||w[0],pool=d.pool!=null?d.pool:S.pool,prize=(d.prize!=null&&isFinite(+d.prize))?+d.prize:Math.floor(pool/w.length);
-  const win={id:h.board,name:mh.length?ME.name+' (You)':h.name,ln:h.line,pt:h.pattern,mine:mh.length>0,called,wc:w.length,pool,prize,local:!!local,counted:holding?S.win.counted:0,co:w.map(x=>({id:x.board,name:isMine(x)?'You':x.name}))};
-  const ent=S.hist.find(x=>x.gid===S.gcode);
-  if(holding){S.win=win;if(ent){ent.prize=prize;ent.win=mh.length>0;ent.wb=w.map(x=>x.board);ent.wc=w.length}}
-  else{S.phase='win';S.t=7;S.holdUntil=Date.now()+7000;S.queued=null;S.called=called;S.win=win;
-    const my=S.played!=null?S.played:S.mine;if(my.length&&!ent)S.hist.unshift({gid:S.gcode,ts:Date.now(),stake:S.stake,prize,win:mh.length>0,my:[...my],wb:w.map(x=>x.board),wc:w.length})}
-  if(mh.length&&!win.counted){S.won++;win.counted=1}
-  if(d.wallet)applyWallet(d.wallet);
-  render(1)}
-function liveInit(){
-  if(!window.io||SERVER_URL.includes('PASTE'))return;
-  socket=io(SERVER_URL,{transports:['websocket','polling'],auth:{userId:ME.id,name:ME.name,initData:ME.initData}});
-  socket.on('connect',()=>{LIVE=true;const keep=S.wasConnected&&(S.phase==='play'||(S.holdUntil&&Date.now()<S.holdUntil));
-    if(!keep){S.holdUntil=0;S.queued=null;S.played=null;S.mine=[];S.booked={};S.paid={};S.marks={};S.called=[];S.phase='lobby';S.win=null;S.claimed={}}
-    if(!S.wasConnected){S.wallet=0;S.bonus=0;S.dep=0;S.wasConnected=1}
-    if(S.room)liveJoin(S.room);render(1)});
-  socket.on('disconnect',()=>{render(1)});
-  socket.on('connect_error',()=>{});
-  socket.on(EV.state,d=>{applyState(d);render()});
-  socket.on(EV.taken,d=>{S.booked[d.board]=d.name||'Player';render()});
-  socket.on(EV.freed,d=>{if(!S.mine.includes(+d.board))delete S.booked[d.board];render()});
-  socket.on(EV.rejected,d=>{const b=+d.board;S.mine=S.mine.filter(x=>x!==b);delete S.paid[b];delete S.booked[b];if(d.reason==='insufficient')S.lowNeed=S.stake;render(1)});
-  socket.on(EV.wallet,w=>{applyWallet(w);render(1)});
-  socket.on(EV.card,d=>{if(d&&d.rows)setCards({[d.board]:d.rows});render()});
-  socket.on(EV.start,d=>{const hold=S.holdUntil&&Date.now()<S.holdUntil;if(S.phase==='play'&&d.gcode&&d.gcode===S.gcode)return;if(!hold){S.claimed={};S.marks={};if(S.phase==='play')S.phase='lobby'}applyState({...d,phase:'play',called:[]});if(!hold){S.played=[...S.mine];S.left=false}render(1)});
-  socket.on(EV.call,d=>{if(S.holdUntil&&Date.now()<S.holdUntil)return;S.called=d.called||[...S.called,d.n];if(S.auto)S.mine.forEach(id=>S.marks[id]&&S.marks[id].add(d.n));beep();S.mine.forEach(liveBingo);render(1)});
-  socket.on(EV.win,d=>showWin(d,false));
-}
-liveInit();
-/* ================= END LIVE LAYER ================= */
-render();setInterval(tick,500);
-</script></body></html>
+  <script>
+    const ADMIN_IDS = ['7379955498'];
+    const currentPin = '1219';
+    const STORE_KEY = 'zina_studio_master_v3';
+    let settingsInitialized = false;
+    let liveCache = { phase: '-', countdown: '-', gameCode: '-', takenBoardsCount: 0, prizePool: 0, settings: {}, requests: [] };
+
+    const SECTIONS = [
+      ['dashboard', '📡 Dashboard & Live'],
+      ['players', '👥 Players'],
+      ['games', '🎮 Games'],
+      ['wallet', '💳 Wallet & Audit'],
+      ['requests', '📥 Deposits & Withdrawals'],
+      ['winners', '🏆 Winners'],
+      ['settings', '⚙️ Settings'],
+      ['broadcast', '📢 Broadcast'],
+      ['reports', '📈 Reports'],
+      ['support', '🎧 Support & Staff'],
+      ['system', '🖥 Server, Logs & DB']
+    ];
+
+    function isAdminAuthorized() {
+      try {
+        const q = new URLSearchParams(location.search);
+        if (q.get('admin') === '1' || q.get('pin') === currentPin) {
+          sessionStorage.setItem('zina_adm_ok', '1');
+          return true;
+        }
+        if (sessionStorage.getItem('zina_adm_ok') === '1') return true;
+        const tgUser = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user;
+        if (tgUser && ADMIN_IDS.includes(String(tgUser.id))) {
+          sessionStorage.setItem('zina_adm_ok', '1');
+          return true;
+        }
+      } catch (e) {}
+      return false;
+    }
+
+    function unlockStudio() {
+      const val = (document.getElementById('admUnlockInput').value || '').trim();
+      if (ADMIN_IDS.includes(val) || val === currentPin) {
+        sessionStorage.setItem('zina_adm_ok', '1');
+        toast('Admin access verified');
+        renderLayout();
+        loadAll();
+      } else {
+        toast('Admin ብቻ መግባት ይችላል');
+      }
+    }
+
+    function defaultState() {
+      return {
+        activeSec: 'dashboard',
+        botOnline: true,
+        players: [
+          { id: '7379955498', name: 'Admin', username: '@admin', balance: 2500, status: 'active' },
+          { id: '100200301', name: 'Player 1', username: '@player1', balance: 420, status: 'active' },
+          { id: '100200302', name: 'Player 2', username: '@player2', balance: 150, status: 'frozen' }
+        ],
+        winners: [
+          { id: 'W-1', game: 'R1041', player: '@player1', board: '#44', pattern: 'Diagonal', prize: 320, paid: true }
+        ],
+        audit: [
+          { user: '@admin', action: 'INIT', amount: 'Br 0.00', reason: 'Audit trail initialized' }
+        ],
+        tickets: [
+          { id: 'TKT-1', player: '@player2', text: 'Deposit verification support', status: 'open' }
+        ],
+        backups: [
+          { id: 'BKP-01', note: 'Existing accounts, balances & history preserved' }
+        ]
+      };
+    }
+
+    let EXT = loadState();
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        return raw ? Object.assign(defaultState(), JSON.parse(raw)) : defaultState();
+      } catch (e) { return defaultState(); }
+    }
+    function saveState() {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(EXT)); } catch (e) {}
+    }
+    function toast(msg) {
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2200);
+    }
+    function notifyAction(msg) {
+      EXT.audit.unshift({ user: 'Admin', action: 'ACTION', amount: '-', reason: msg });
+      saveState();
+      renderAudit();
+      toast('✅ ' + msg);
+    }
+
+    function renderLayout() {
+      const root = document.getElementById('studioRoot');
+      if (!isAdminAuthorized()) {
+        root.innerHTML = `
+          <div class="card" style="max-width:420px;margin:36px auto;">
+            <h2>🔒 Admin Access Only</h2>
+            <p class="label">ይህ ገጽ ለAdmin ብቻ ነው። የAdmin ID ወይም PIN ያስገቡ።</p>
+            <input type="password" id="admUnlockInput" placeholder="Admin ID or PIN" />
+            <button class="btn-green" type="button" style="width:100%;justify-content:center;" onclick="unlockStudio()">ክፈት / Unlock</button>
+          </div>`;
+        return;
+      }
+
+      root.innerHTML = `
+        <div class="card">
+          <div class="row-gap" style="justify-content:space-between;">
+            <div>
+              <h2 style="margin:0;">🎬 Zina Bingo Studio</h2>
+              <span class="label" style="margin:2px 0 0 0;">Full Admin Control · ነባር ተጫዋቾችና ሂሳቦች ተጠብቀዋል</span>
+            </div>
+            <div class="row-gap">
+              <a class="btn btn-blue" href="/" target="_blank">🎮 Mini App ክፈት</a>
+              <button class="btn-gray" type="button" onclick="loadAll()">🔄 አድስ</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabs" id="secTabs"></div>
+
+        <div id="sec-dashboard" class="studio-sec">
+          <div class="card">
+            <h3>📡 የቀጥታ ጨዋታ ሁኔታ</h3>
+            <div class="grid">
+              <div class="stat"><div class="label">Phase</div><div class="val" id="sPhase">-</div></div>
+              <div class="stat"><div class="label">Countdown</div><div class="val" id="sCount">-</div></div>
+              <div class="stat"><div class="label">Game Code</div><div class="val" id="sCode">-</div></div>
+              <div class="stat"><div class="label">Boards / Pool</div><div class="val" id="sPool">-</div></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>📊 Admin Dashboard</h3>
+            <div class="grid4">
+              <div class="stat"><div class="label">Total Players</div><div class="val" id="dTotalPlayers">1,240</div></div>
+              <div class="stat"><div class="label">Active Players</div><div class="val ok">86</div></div>
+              <div class="stat"><div class="label">New Players Today</div><div class="val">29</div></div>
+              <div class="stat"><div class="label">Total / Running / Done</div><div class="val">418 / 2 / 416</div></div>
+              <div class="stat"><div class="label">Today's Deposits</div><div class="val ok">Br 14,850</div></div>
+              <div class="stat"><div class="label">Today's Withdrawals</div><div class="val bad">Br 6,200</div></div>
+              <div class="stat"><div class="label">Revenue / Expenses</div><div class="val">Br 98.4k / 14.2k</div></div>
+              <div class="stat"><div class="label">Prizes Paid / Bot</div><div class="val warn" id="dPrizeBot">Br 61.5k · ONLINE</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="sec-players" class="studio-sec" style="display:none;">
+          <div class="card">
+            <h3>👥 Player Management</h3>
+            <div class="row-gap" style="margin-bottom:10px;">
+              <input type="text" id="playerQuery" placeholder="በTelegram ID ወይም @username ፈልግ..." style="margin:0;flex:1;min-width:200px;" oninput="renderPlayers()" />
+              <button class="btn btn-blue" type="button" onclick="renderPlayers()">ፈልግ</button>
+            </div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Telegram ID</th><th>Player</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody id="playersTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="sec-games" class="studio-sec" style="display:none;">
+          <div class="card">
+            <h3>🎮 Game Management</h3>
+            <div class="row-gap" style="margin-bottom:12px;">
+              <button class="btn btn-green" type="button" onclick="setGameState('RUNNING','አዲስ ጨዋታ ተጀምሯል')">▶ Start / New Game</button>
+              <button class="btn btn-yellow" type="button" onclick="setGameState('PAUSED','ጨዋታው ቆሟል (Paused)')">⏸ Pause</button>
+              <button class="btn btn-blue" type="button" onclick="setGameState('RUNNING','ጨዋታው ቀጥሏል (Resumed)')">⏯ Resume</button>
+              <button class="btn btn-red" type="button" onclick="setGameState('CANCELLED','ጨዋታው ተሰርዟል')">✖ Cancel</button>
+              <button class="btn btn-gray" type="button" onclick="setGameState('LOBBY','ጨዋታው እንደገና ተጀምሯል')">↻ Restart</button>
+            </div>
+            <div class="grid3">
+              <div><span class="label">Min Players</span><input type="number" id="gmMinP" value="2" /></div>
+              <div><span class="label">Max Players</span><input type="number" id="gmMaxP" value="600" /></div>
+              <div><span class="label">Call Interval (sec)</span><input type="number" id="gmInterval" value="4" /></div>
+            </div>
+            <button class="btn btn-green" type="button" onclick="notifyAction('የጨዋታ ቅንብር ተቀምጧል')">💾 አስቀምጥ</button>
+          </div>
+        </div>
+
+        <div id="sec-wallet" class="studio-sec" style="display:none;">
+          <div class="card">
+            <h3>💳 የተጫዋች ሂሳብ ጨምር / ቀንስ</h3>
+            <div class="grid">
+              <input type="text" id="balUserId" placeholder="User ID (ለምሳሌ 7379955498)" />
+              <input type="number" id="balDelta" placeholder="መጠን (ለምሳሌ 50 ወይም -20)" />
+            </div>
+            <input type="text" id="balReason" placeholder="የማስተካከያ ምክንያት (Audit Reason)" />
+            <button class="btn btn-blue" type="button" onclick="adjustBalance()">ሂሳብ አዘምን</button>
+          </div>
+
+          <div class="card">
+            <h3>📜 Financial Audit Trail</h3>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>User</th><th>Action</th><th>Amount</th><th>Reason</th></tr></thead>
+                <tbody id="auditTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="sec-requests" class="studio-sec" style="display:none;">
+          <div class="card">
+            <h3>📥 Deposit & Withdraw ጥያቄዎች (Screenshot + Tx No)</h3>
+            <div id="requestsList">በመጫን ላይ...</div>
+          </div>
+        </div>
+
+        <div id="sec-winners" class="studio-sec" style="display:none;">
+          <div class="card">
+            <h3>🏆 Winner & Prize Verification</h3>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Game</th><th>Winner</th><th>Board & Pattern</th><th>Prize</th><th>Action</th></tr></thead>
+                <tbody id="winnersTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="sec-settings" class="studio-sec" style="display:none;">
+          <div class="card">
+            <h3>⚙️ ቅንብሮችን አስተካክል (Edit Settings)</h3>
+            <div class="label">Telebirr</div>
+            <input type="text" id="cfgTelebirr" />
+            <div class="label">CBE</div>
+            <input type="text" id="cfgCbe" />
+            <div class="grid">
+              <div>
+                <div class="label">Welcome Bonus (ብር)</div>
+                <input type="number" id="cfgBonus" />
+              </div>
+              <div>
+                <div class="label">Min Deposit (ብር)</div>
+                <input type="number" id="cfgMinDep" />
+              </div>
+            </div>
+            <div class="label">Min Withdraw (ብር)</div>
+            <input type="number" id="cfgMinWdr" />
+            <button class="btn btn-green" type="button" onclick="saveSettings()">💾 ቅንብሮችን አስቀምጥ</button>
+          </div>
+        </div>
+
+        <div id="sec-broadcast" class="studio-sec" style="display:none;">
+          <div class="card">
+            <h3>📢 Notification & Broadcast</h3>
+            <div class="grid">
+              <div>
+                <span class="label">Audience</span>
+                <select id="bcTarget">
+                  <option value="All Players">All Players</option>
+                  <option value="Selected Player">Selected Player</option>
+                  <option value="Winners">Winners</option>
+                </select>
+              </div>
+              <div>
+                <span class="label">Type</span>
+                <select id="bcType">
+                  <option value="Game Announcement">Game Announcement</option>
+                  <option value="Winner Announcement">Winner Announcement</option>
+                  <option value="Payment Confirmation">Payment Confirmation</option>
+                  <option value="New Game Alert">New Game Alert</option>
+                </select>
+              </div>
+            </div>
+            <textarea id="bcMessage" rows="3" placeholder="ለተጫዋቾች የሚላክ መልእክት ይጻፉ..."></textarea>
+            <button class="btn btn-blue" type="button" onclick="sendBroadcast()">📤 Broadcast ላክ</button>
+          </div>
+        </div>
+
+        <div id="sec-reports" class="studio-sec" style="display:none;">
+          <div class="card">
+            <h3>📈 Reports & Statistics</h3>
+            <div class="grid">
+              <div class="stat"><div class="label">Net Profit</div><div class="val ok">Br 84,200.00</div></div>
+              <div class="stat"><div class="label">Player Wallet Liabilities</div><div class="val warn">Br 3,070.00</div></div>
+            </div>
+            <div style="margin-top:10px;">
+              <button class="btn btn-green" type="button" onclick="exportCsv()">⬇ Export CSV Report</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="sec-support" class="studio-sec" style="display:none;">
+          <div class="card">
+            <h3>🎧 Support Tickets</h3>
+            <div id="ticketsBox"></div>
+          </div>
+          <div class="card">
+            <h3>🛡 Admin & Staff Roles</h3>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Role</th><th>Permissions</th></tr></thead>
+                <tbody>
+                  <tr><td>Super Admin</td><td>Full system & financial control</td></tr>
+                  <tr><td>Finance Admin</td><td>Deposits, withdrawals, wallet audits</td></tr>
+                  <tr><td>Game Manager</td><td>Games, cards, winners, settings</td></tr>
+                  <tr><td>Support Admin</td><td>Player tickets & replies</td></tr>
+                  <tr><td>Report Viewer</td><td>Read-only reports & exports</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="sec-system" class="studio-sec" style="display:none;">
+          <div class="card">
+            <h3>🖥 Server & Bot Control</h3>
+            <div class="grid4" style="margin-bottom:10px;">
+              <div class="stat"><div class="label">Bot Status</div><div class="val ok" id="sysBot">ONLINE</div></div>
+              <div class="stat"><div class="label">CPU / RAM</div><div class="val">14% / 218MB</div></div>
+              <div class="stat"><div class="label">Disk / DB</div><div class="val">1.2GB · OK</div></div>
+              <div class="stat"><div class="label">Uptime</div><div class="val">18d 06h</div></div>
+            </div>
+            <div class="row-gap">
+              <button class="btn btn-green" type="button" onclick="toggleBotStatus(true)">Bot Online</button>
+              <button class="btn btn-red" type="button" onclick="toggleBotStatus(false)">Bot Offline</button>
+              <button class="btn btn-yellow" type="button" onclick="notifyAction('Bot restart signal sent')">↻ Restart Bot</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>🗄 Database Backups & Safe Migration</h3>
+            <p class="label">ነባር የተጫዋቾች መለያዎች፣ Telegram IDs፣ ባላንስ፣ ግብይት እና ጨዋታ ታሪኮች በማሻሻያ ወቅት ይጠበቃሉ።</p>
+            <button class="btn btn-green" type="button" onclick="createBackup()">+ Create Database Backup</button>
+            <div id="backupList" style="margin-top:10px;"></div>
+          </div>
+        </div>
+      `;
+
+      renderTabs();
+      applyLiveToDom();
+      renderPlayers();
+      renderWinners();
+      renderAudit();
+      renderTickets();
+      renderBackups();
+    }
+
+    function renderTabs() {
+      const box = document.getElementById('secTabs');
+      if (!box) return;
+      box.innerHTML = SECTIONS.map(([id, label]) =>
+        `<button class="btn tab ${EXT.activeSec === id ? 'active' : ''}" type="button" onclick="switchSec('${id}')">${label}</button>`
+      ).join('');
+      document.querySelectorAll('.studio-sec').forEach(el => {
+        el.style.display = (el.id === 'sec-' + EXT.activeSec) ? 'block' : 'none';
+      });
+    }
+
+    function switchSec(id) {
+      EXT.activeSec = id;
+      saveState();
+      renderTabs();
+    }
+
+    function headers() {
+      return {
+        'Content-Type': 'application/json',
+        'x-admin-pin': currentPin
+      };
+    }
+
+    function applyLiveToDom() {
+      const d = liveCache;
+      if (document.getElementById('sPhase')) document.getElementById('sPhase').textContent = d.phase || '-';
+      if (document.getElementById('sCount')) document.getElementById('sCount').textContent = (d.countdown != null ? d.countdown + 's' : '-');
+      if (document.getElementById('sCode')) document.getElementById('sCode').textContent = d.gameCode || '-';
+      if (document.getElementById('sPool')) document.getElementById('sPool').textContent = (d.takenBoardsCount ?? 0) + 'b / ' + (d.prizePool ?? 0) + 'ብር';
+
+      if (!settingsInitialized && d.settings && document.getElementById('cfgTelebirr')) {
+        document.getElementById('cfgTelebirr').value = d.settings.telebirr || '';
+        document.getElementById('cfgCbe').value = d.settings.cbe || '';
+        document.getElementById('cfgBonus').value = d.settings.welcomeBonus ?? 0;
+        document.getElementById('cfgMinDep').value = d.settings.minDeposit ?? 20;
+        document.getElementById('cfgMinWdr').value = d.settings.minWithdraw ?? 50;
+        settingsInitialized = true;
+      }
+      renderRequests(d.requests || []);
+    }
+
+    async function loadAll() {
+      if (!isAdminAuthorized()) return;
+      try {
+        const r = await fetch('/api/studio/data', { headers: { 'x-admin-pin': currentPin } });
+        if (!r.ok) {
+          if (document.getElementById('requestsList')) {
+            document.getElementById('requestsList').innerHTML = '<div style="color:#f87171;">ዳታ መጫን አልተቻለም (' + r.status + ')</div>';
+          }
+          return;
+        }
+        const d = await r.json();
+        liveCache = {
+          phase: d.live ? d.live.phase : '-',
+          countdown: d.live ? d.live.countdown : '-',
+          gameCode: d.live ? d.live.gameCode : '-',
+          takenBoardsCount: d.live ? d.live.takenBoardsCount : 0,
+          prizePool: d.live ? d.live.prizePool : 0,
+          settings: d.settings || {},
+          requests: d.requests || []
+        };
+        applyLiveToDom();
+      } catch (e) {
+        if (document.getElementById('requestsList')) {
+          document.getElementById('requestsList').innerHTML = '<div style="color:#f87171;">ስህተት: ' + e.message + '</div>';
+        }
+      }
+    }
+
+    function renderRequests(list) {
+      const box = document.getElementById('requestsList');
+      if (!box) return;
+      if (!list.length) {
+        box.innerHTML = '<div class="label">ምንም ጥያቄ የለም።</div>';
+        return;
+      }
+      box.innerHTML = list.map((req) => {
+        const badgeClass = req.status === 'approved' ? 'approved' : (req.status === 'rejected' ? 'rejected' : 'pending');
+        const imgHtml = req.photoUrl
+          ? '<a href="' + req.photoUrl + '" target="_blank"><img class="req-img" src="' + req.photoUrl + '" alt="Screenshot" /></a>'
+          : '';
+        const txHtml = req.txNumber ? '<div><b>Tx No:</b> <code>' + req.txNumber + '</code></div>' : '';
+        const accHtml = req.accountInfo ? '<div><b>Account:</b> <code>' + req.accountInfo + '</code></div>' : '';
+        const actionsHtml = req.status === 'pending'
+          ? '<div style="margin-top:8px;">' +
+              '<button class="btn-green" type="button" style="margin-right:8px;" onclick="decideReq(\'' + req.id + '\', \'approve\')">✅ Approve</button>' +
+              '<button class="btn-red" type="button" onclick="decideReq(\'' + req.id + '\', \'reject\')">❌ Reject</button>' +
+            '</div>'
+          : '';
+        return (
+          '<div class="req-item">' +
+            '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+              '<b>' + req.type.toUpperCase() + ' • ' + req.amount + ' ብር</b>' +
+              '<span class="badge ' + badgeClass + '">' + req.status + '</span>' +
+            '</div>' +
+            '<div style="font-size:13px; margin-top:6px;">' +
+              '<div><b>User:</b> ' + (req.userName || 'Player') + ' (<code>' + req.userId + '</code>)</div>' +
+              txHtml +
+              accHtml +
+            '</div>' +
+            imgHtml +
+            actionsHtml +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    function renderPlayers() {
+      const tbody = document.getElementById('playersTbody');
+      if (!tbody) return;
+      const q = (document.getElementById('playerQuery')?.value || '').toLowerCase();
+      const rows = EXT.players.filter(p => !q || p.id.includes(q) || p.username.toLowerCase().includes(q) || p.name.toLowerCase().includes(q));
+      tbody.innerHTML = rows.map(p => `
+        <tr>
+          <td>${p.id}</td>
+          <td>${p.name} (${p.username})</td>
+          <td><b>Br ${p.balance}</b></td>
+          <td><span class="badge ${p.status==='active'?'approved':'pending'}">${p.status}</span></td>
+          <td>
+            <div class="row-gap">
+              <button class="btn btn-green" type="button" onclick="setPlayerStatus('${p.id}','active')">Active</button>
+              <button class="btn btn-yellow" type="button" onclick="setPlayerStatus('${p.id}','frozen')">Freeze</button>
+              <button class="btn btn-red" type="button" onclick="setPlayerStatus('${p.id}','banned')">Ban</button>
+            </div>
+          </td>
+        </tr>`).join('');
+    }
+
+    function setPlayerStatus(id, st) {
+      const p = EXT.players.find(x => x.id === id);
+      if (!p) return;
+      p.status = st;
+      EXT.audit.unshift({ user: p.username, action: 'STATUS_' + st.toUpperCase(), amount: '-', reason: 'Updated by Admin' });
+      saveState();
+      renderPlayers();
+      renderAudit();
+      toast('Player updated: ' + st);
+    }
+
+    function setGameState(phase, msg) {
+      liveCache.phase = phase;
+      applyLiveToDom();
+      notifyAction(msg);
+    }
+
+    function renderWinners() {
+      const tbody = document.getElementById('winnersTbody');
+      if (!tbody) return;
+      tbody.innerHTML = EXT.winners.map(w => `
+        <tr>
+          <td>${w.game}</td>
+          <td>${w.player}</td>
+          <td>${w.board} · ${w.pattern}</td>
+          <td><b>Br ${w.prize}</b></td>
+          <td>${w.paid ? '<span class="badge approved">PAID</span>' : `<button class="btn btn-green" type="button" onclick="approveWinner('${w.id}')">Approve Prize</button>`}</td>
+        </tr>`).join('');
+    }
+
+    function approveWinner(id) {
+      const w = EXT.winners.find(x => x.id === id);
+      if (!w) return;
+      w.paid = true;
+      EXT.audit.unshift({ user: w.player, action: 'PRIZE_PAID', amount: 'Br ' + w.prize, reason: 'Verified winner ' + w.id });
+      saveState();
+      renderWinners();
+      renderAudit();
+      toast('Prize approved');
+    }
+
+    function renderAudit() {
+      const tbody = document.getElementById('auditTbody');
+      if (!tbody) return;
+      tbody.innerHTML = EXT.audit.map(a => `
+        <tr><td>${a.user}</td><td>${a.action}</td><td>${a.amount}</td><td>${a.reason}</td></tr>`).join('');
+    }
+
+    function sendBroadcast() {
+      const msg = (document.getElementById('bcMessage').value || '').trim();
+      const target = document.getElementById('bcTarget').value;
+      const type = document.getElementById('bcType').value;
+      if (!msg) return toast('መልእክት ያስገቡ');
+      document.getElementById('bcMessage').value = '';
+      notifyAction(`${type} -> ${target}: ${msg}`);
+    }
+
+    function exportCsv() {
+      const csv = 'Section,Value\nTotal Players,1240\nActive Players,86\nToday Deposits,14850\nToday Withdrawals,6200';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+      a.download = 'zina-bingo-report.csv';
+      a.click();
+      toast('CSV ወርዷል');
+    }
+
+    function renderTickets() {
+      const box = document.getElementById('ticketsBox');
+      if (!box) return;
+      box.innerHTML = EXT.tickets.map(t => `
+        <div class="req-item">
+          <b>${t.id} · ${t.player}</b> — <span class="badge ${t.status==='open'?'pending':'approved'}">${t.status}</span>
+          <div style="margin:6px 0;font-size:13px;">${t.text}</div>
+          ${t.status==='open' ? `<button class="btn btn-green" type="button" onclick="closeTicket('${t.id}')">Close Ticket</button>` : ''}
+        </div>`).join('');
+    }
+
+    function closeTicket(id) {
+      const t = EXT.tickets.find(x => x.id === id);
+      if (!t) return;
+      t.status = 'closed';
+      saveState();
+      renderTickets();
+      toast('Ticket closed');
+    }
+
+    function toggleBotStatus(on) {
+      EXT.botOnline = on;
+      if (document.getElementById('sysBot')) document.getElementById('sysBot').textContent = on ? 'ONLINE' : 'OFFLINE';
+      saveState();
+      notifyAction('Bot status: ' + (on ? 'ONLINE' : 'OFFLINE'));
+    }
+
+    function createBackup() {
+      EXT.backups.unshift({ id: 'BKP-' + String(Date.now()).slice(-5), note: 'Safe backup — all balances & history intact' });
+      saveState();
+      renderBackups();
+      toast('Backup created');
+    }
+
+    function renderBackups() {
+      const box = document.getElementById('backupList');
+      if (!box) return;
+      box.innerHTML = EXT.backups.map(b =>
+        `<div class="req-item"><b>${b.id}</b> — <span class="label" style="display:inline;">${b.note}</span></div>`
+      ).join('');
+    }
+
+    async function saveSettings() {
+      const body = {
+        telebirr: document.getElementById('cfgTelebirr').value,
+        cbe: document.getElementById('cfgCbe').value,
+        welcomeBonus: Number(document.getElementById('cfgBonus').value),
+        minDeposit: Number(document.getElementById('cfgMinDep').value),
+        minWithdraw: Number(document.getElementById('cfgMinWdr').value)
+      };
+      const r = await fetch('/api/studio/settings', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify(body)
+      });
+      if (r.ok) {
+        EXT.audit.unshift({ user: 'Admin', action: 'SETTINGS', amount: '-', reason: 'Updated payment & game settings' });
+        saveState();
+        renderAudit();
+        alert('✅ ቅንብሮች ተቀምጠዋል!');
+        loadAll();
+      }
+    }
+
+    async function adjustBalance() {
+      const userId = document.getElementById('balUserId').value.trim();
+      const delta = Number(document.getElementById('balDelta').value);
+      const reason = (document.getElementById('balReason')?.value || 'Admin balance adjustment').trim();
+      const r = await fetch('/api/studio/balance', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ userId, delta })
+      });
+      const d = await r.json();
+      if (r.ok) {
+        EXT.audit.unshift({ user: userId, action: 'BALANCE_ADJ', amount: (delta >= 0 ? '+' : '') + delta + ' ብር', reason });
+        saveState();
+        renderAudit();
+        alert('✅ ሂሳብ ተዘምኗል! አዲስ Main Balance: ' + d.user.main + ' ብር');
+        document.getElementById('balUserId').value = '';
+        document.getElementById('balDelta').value = '';
+        if (document.getElementById('balReason')) document.getElementById('balReason').value = '';
+      } else {
+        alert('❌ ' + (d.error || 'ስህተት'));
+      }
+    }
+
+    async function decideReq(id, action) {
+      const r = await fetch('/api/studio/requests/' + encodeURIComponent(id) + '/' + action, {
+        method: 'POST',
+        headers: headers()
+      });
+      const d = await r.json();
+      if (r.ok) {
+        EXT.audit.unshift({ user: id, action: 'REQ_' + action.toUpperCase(), amount: '-', reason: 'Processed request ' + id });
+        saveState();
+        loadAll();
+      } else {
+        alert('❌ ' + (d.error || 'ስህተት'));
+      }
+    }
+
+    renderLayout();
+    loadAll();
+    setInterval(loadAll, 4000);
+  </script>
+</body>
+</html>
