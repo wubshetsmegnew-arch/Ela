@@ -3,721 +3,494 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Zina Bingo Studio</title>
+  <title>Zina Bingo — 75-Ball Multiplayer</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Noto+Sans+Ethiopic:wght@600;800&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body { font-family: 'Plus Jakarta Sans', 'Noto Sans Ethiopic', system-ui, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 14px; }
-    .wrap { max-width: 980px; margin: 0 auto; }
-    .card { background: #1e293b; border-radius: 12px; padding: 14px; margin-bottom: 14px; border: 1px solid #334155; }
-    h2, h3 { margin: 0 0 10px 0; }
-    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-    .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
-    .grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
-    .stat { background: #0f172a; padding: 10px; border-radius: 8px; border: 1px solid #263349; }
-    .label { font-size: 11px; color: #94a3b8; margin-bottom: 4px; display: block; }
-    .val { font-size: 17px; font-weight: 700; margin-top: 2px; color: #38bdf8; }
-    .ok { color: #22c55e; }
-    .warn { color: #facc15; }
-    .bad { color: #f87171; }
-    input, select, textarea { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff; margin-bottom: 8px; font-family: inherit; }
-    button, a.btn { cursor: pointer; border: none; border-radius: 8px; padding: 9px 12px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-family: inherit; }
-    button:active, a.btn:active { transform: scale(0.98); }
-    .btn-blue { background: #2563eb; color: #fff; }
-    .btn-green { background: #16a34a; color: #fff; }
-    .btn-red { background: #dc2626; color: #fff; }
-    .btn-yellow { background: #eab308; color: #0f172a; }
-    .btn-gray { background: #334155; color: #f8fafc; }
-    .tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; }
-    .tab { background: #1e293b; color: #94a3b8; border: 1px solid #334155; white-space: nowrap; }
-    .tab.active { background: #2563eb; color: #fff; border-color: #3b82f6; }
-    .row-gap { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-    .req-item { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
-    .req-img { max-width: 100%; max-height: 220px; border-radius: 8px; margin: 8px 0; display: block; border: 1px solid #475569; }
-    .badge { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-    .pending { background: #f59e0b; color: #0f172a; }
-    .approved { background: #16a34a; color: #fff; }
-    .rejected { background: #dc2626; color: #fff; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #263349; }
-    th { color: #94a3b8; font-size: 11px; }
-    .tbl-wrap { overflow-x: auto; }
-    .toast { position: fixed; bottom: 16px; right: 16px; background: #16a34a; color: #fff; padding: 10px 14px; border-radius: 10px; font-weight: 700; font-size: 13px; z-index: 999; }
+    body {
+      margin: 0;
+      font-family: 'Plus Jakarta Sans', 'Noto Sans Ethiopic', system-ui, sans-serif;
+      background: #070d19;
+      color: #f8fafc;
+      min-height: 100vh;
+      padding: 12px;
+    }
+    .app {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      background: #111c33;
+      border: 1px solid #233558;
+      border-radius: 14px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+    }
+    .brand {
+      font-weight: 800;
+      font-size: 16px;
+      color: #38bdf8;
+    }
+    .wallet-pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .pill {
+      background: #091120;
+      border: 1px solid #263b63;
+      border-radius: 999px;
+      padding: 5px 10px;
+    }
+    .pill span { color: #4ade80; }
+    .pill.bonus span { color: #facc15; }
+    .status-card {
+      background: #111c33;
+      border: 1px solid #233558;
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+    .status-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      text-align: center;
+    }
+    .stat-box {
+      background: #091120;
+      border: 1px solid #1b2c4c;
+      border-radius: 10px;
+      padding: 8px 6px;
+    }
+    .stat-lbl { font-size: 11px; color: #94a3b8; }
+    .stat-val { font-size: 15px; font-weight: 800; margin-top: 2px; color: #f8fafc; }
+    .call-banner {
+      margin-top: 10px;
+      background: linear-gradient(90deg, #1d4ed8, #0284c7);
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .last-ball {
+      background: #f8fafc;
+      color: #091120;
+      font-weight: 800;
+      font-size: 18px;
+      min-width: 56px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 10px;
+    }
+    .called-strip {
+      display: flex;
+      gap: 5px;
+      overflow-x: auto;
+      padding-top: 8px;
+    }
+    .mini-ball {
+      flex: 0 0 auto;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 7px;
+      border-radius: 7px;
+    }
+    .my-boards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .bingo-card {
+      background: #111c33;
+      border: 1px solid #2b416b;
+      border-radius: 14px;
+      padding: 10px;
+    }
+    .bingo-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .bingo-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+    }
+    .cell {
+      aspect-ratio: 1;
+      border-radius: 8px;
+      background: #091120;
+      border: 1px solid #223558;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .cell.free { background: #334155; color: #facc15; font-size: 10px; }
+    .cell.marked { background: #16a34a; color: #ffffff; border-color: #22c55e; }
+    .cell.win-cell { background: #eab308; color: #091120; border-color: #fef08a; }
+    .picker-card {
+      background: #111c33;
+      border: 1px solid #233558;
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .picker-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .boards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+      gap: 6px;
+      max-height: 310px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+    .b-btn {
+      padding: 8px 4px;
+      border-radius: 8px;
+      border: 1px solid #2a3f66;
+      background: #091120;
+      color: #e2e8f0;
+      font-weight: 800;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .b-btn.mine { background: #2563eb; border-color: #60a5fa; color: #fff; }
+    .b-btn.taken { background: #3f1d2e; border-color: #9f1239; color: #fda4af; cursor: not-allowed; opacity: 0.75; }
+    .win-banner {
+      display: none;
+      background: #14532d;
+      border: 1px solid #22c55e;
+      color: #dcfce7;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+    .toast {
+      position: fixed;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0f172a;
+      color: #f8fafc;
+      border: 1px solid #38bdf8;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      z-index: 99;
+    }
   </style>
 </head>
 <body>
-  <div class="wrap" id="studioRoot"></div>
+  <div class="app">
+    <div class="topbar">
+      <div class="brand">🎯 Zina Bingo</div>
+      <div class="wallet-pills">
+        <div class="pill">Main: <span id="wMain">0.00</span> ብር</div>
+        <div class="pill bonus">Bonus: <span id="wBonus">0.00</span> ብር</div>
+      </div>
+    </div>
+
+    <div class="win-banner" id="winBanner"></div>
+
+    <div class="status-card">
+      <div class="status-row">
+        <div class="stat-box">
+          <div class="stat-lbl">Phase</div>
+          <div class="stat-val" id="stPhase">LOBBY</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-lbl">Timer</div>
+          <div class="stat-val" id="stTimer">30s</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-lbl">Stake</div>
+          <div class="stat-val" id="stStake">10 ብር</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-lbl">Prize Pool</div>
+          <div class="stat-val" id="stPool">0 ብር</div>
+        </div>
+      </div>
+
+      <div class="call-banner">
+        <div>
+          <div style="font-size:11px;opacity:0.9;" id="stGameCode">Round #1</div>
+          <div style="font-size:13px;font-weight:800;" id="stStatusText">ካርቴላ ይምረጡ (እስከ 2 ካርቴላ)</div>
+        </div>
+        <div class="last-ball" id="lastBall">--</div>
+      </div>
+
+      <div class="called-strip" id="calledStrip"></div>
+    </div>
+
+    <div class="my-boards" id="myBoards"></div>
+
+    <div class="picker-card">
+      <div class="picker-top">
+        <div style="font-weight:800;font-size:13px;">ካርቴላ ምረጥ (1 - 600) · የተያዙ: <span id="bookedCount">0</span></div>
+        <div style="font-size:11px;color:#94a3b8;" id="playerLabel">Player</div>
+      </div>
+      <div class="boards-grid" id="boardsGrid"></div>
+    </div>
+  </div>
 
   <script>
-    const ADMIN_IDS = ['7379955498'];
-    const currentPin = '1219';
-    const STORE_KEY = 'zina_studio_master_v3';
-    let settingsInitialized = false;
-    let liveCache = { phase: '-', countdown: '-', gameCode: '-', takenBoardsCount: 0, prizePool: 0, usersCount: 0, settings: {}, requests: [] };
-
-    const SECTIONS = [
-      ['dashboard', '📡 Dashboard & Live'],
-      ['players', '👥 Players'],
-      ['games', '🎮 Games'],
-      ['wallet', '💳 Wallet & Audit'],
-      ['requests', '📥 Deposits & Withdrawals'],
-      ['winners', '🏆 Winners'],
-      ['settings', '⚙️ Settings'],
-      ['broadcast', '📢 Broadcast'],
-      ['reports', '📈 Reports'],
-      ['support', '🎧 Support & Staff'],
-      ['system', '🖥 Server, Logs & DB']
-    ];
-
-    function escapeHtml(str) {
-      return String(str ?? '').replace(/[&<>"']/g, (ch) => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-      }[ch]));
+    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    if (tg) {
+      tg.ready();
+      tg.expand();
     }
 
-    function isAdminAuthorized() {
-      try {
-        const q = new URLSearchParams(location.search);
-        if (q.get('admin') === '1' || q.get('pin') === currentPin) {
-          sessionStorage.setItem('zina_adm_ok', '1');
-          return true;
-        }
-        if (sessionStorage.getItem('zina_adm_ok') === '1') return true;
-        const tgUser = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user;
-        if (tgUser && ADMIN_IDS.includes(String(tgUser.id))) {
-          sessionStorage.setItem('zina_adm_ok', '1');
-          return true;
-        }
-      } catch (e) {}
-      return false;
-    }
+    const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null;
+    const playerInfo = {
+      id: tgUser && tgUser.id ? String(tgUser.id) : ('guest_' + Math.random().toString(36).slice(2, 8)),
+      name: (tgUser && (tgUser.first_name || tgUser.username)) || 'Player'
+    };
+    document.getElementById('playerLabel').textContent = playerInfo.name + ' (' + playerInfo.id + ')';
 
-    function unlockStudio() {
-      const input = document.getElementById('admUnlockInput');
-      const val = (input ? input.value : '').trim();
-      if (ADMIN_IDS.includes(val) || val === currentPin) {
-        sessionStorage.setItem('zina_adm_ok', '1');
-        settingsInitialized = false;
-        toast('Admin access verified');
-        renderLayout();
-        loadAll();
-      } else {
-        toast('Admin ብቻ መግባት ይችላል');
-      }
-    }
+    const socket = io();
+    let state = {
+      phase: 'lobby',
+      t: 30,
+      stake: 10,
+      pool: 0,
+      gcode: '',
+      booked: {},
+      mine: [],
+      called: [],
+      pickedGrids: {},
+      winCellsByBoard: {}
+    };
 
-    function defaultState() {
-      return {
-        activeSec: 'dashboard',
-        botOnline: true,
-        players: [
-          { id: '7379955498', name: 'Admin', username: '@admin', balance: 2500, status: 'active' },
-          { id: '100200301', name: 'Player 1', username: '@player1', balance: 420, status: 'active' },
-          { id: '100200302', name: 'Player 2', username: '@player2', balance: 150, status: 'frozen' }
-        ],
-        winners: [
-          { id: 'W-1', game: 'R1041', player: '@player1', board: '#44', pattern: 'Diagonal', prize: 320, paid: true }
-        ],
-        audit: [
-          { user: '@admin', action: 'INIT', amount: 'Br 0.00', reason: 'Audit trail initialized' }
-        ],
-        tickets: [
-          { id: 'TKT-1', player: '@player2', text: 'Deposit verification support', status: 'open' }
-        ],
-        backups: [
-          { id: 'BKP-01', note: 'Existing accounts, balances & history preserved' }
-        ]
-      };
-    }
-
-    let EXT = loadState();
-    function loadState() {
-      try {
-        const raw = localStorage.getItem(STORE_KEY);
-        return raw ? Object.assign(defaultState(), JSON.parse(raw)) : defaultState();
-      } catch (e) { return defaultState(); }
-    }
-    function saveState() {
-      try { localStorage.setItem(STORE_KEY, JSON.stringify(EXT)); } catch (e) {}
-    }
-    function toast(msg) {
+    function showToast(msg) {
       const el = document.createElement('div');
       el.className = 'toast';
       el.textContent = msg;
       document.body.appendChild(el);
-      setTimeout(() => el.remove(), 2200);
-    }
-    function notifyAction(msg) {
-      EXT.audit.unshift({ user: 'Admin', action: 'ACTION', amount: '-', reason: msg });
-      saveState();
-      renderAudit();
-      toast('✅ ' + msg);
+      setTimeout(() => el.remove(), 2000);
     }
 
-    function renderLayout() {
-      const root = document.getElementById('studioRoot');
-      if (!isAdminAuthorized()) {
-        root.innerHTML = `
-          <div class="card" style="max-width:420px;margin:36px auto;">
-            <h2>🔒 Admin Access Only</h2>
-            <p class="label">ይህ ገጽ ለAdmin ብቻ ነው። የAdmin ID ወይም PIN ያስገቡ።</p>
-            <input type="password" id="admUnlockInput" placeholder="Admin ID or PIN" onkeydown="if(event.key==='Enter')unlockStudio()" />
-            <button class="btn-green" type="button" style="width:100%;justify-content:center;" onclick="unlockStudio()">ክፈት / Unlock</button>
-          </div>`;
-        return;
-      }
-
-      root.innerHTML = `
-        <div class="card">
-          <div class="row-gap" style="justify-content:space-between;">
-            <div>
-              <h2 style="margin:0;">🎬 Zina Bingo Studio</h2>
-              <span class="label" style="margin:2px 0 0 0;">Full Admin Control · ነባር ተጫዋቾችና ሂሳቦች ተጠብቀዋል</span>
-            </div>
-            <div class="row-gap">
-              <a class="btn btn-blue" href="/" target="_blank">🎮 Mini App ክፈት</a>
-              <button class="btn-gray" type="button" onclick="loadAll()">🔄 አድስ</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="tabs" id="secTabs"></div>
-
-        <div id="sec-dashboard" class="studio-sec">
-          <div class="card">
-            <h3>📡 የቀጥታ ጨዋታ ሁኔታ</h3>
-            <div class="grid">
-              <div class="stat"><div class="label">Phase</div><div class="val" id="sPhase">-</div></div>
-              <div class="stat"><div class="label">Countdown</div><div class="val" id="sCount">-</div></div>
-              <div class="stat"><div class="label">Game Code</div><div class="val" id="sCode">-</div></div>
-              <div class="stat"><div class="label">Boards / Pool</div><div class="val" id="sPool">-</div></div>
-            </div>
-          </div>
-
-          <div class="card">
-            <h3>📊 Admin Dashboard</h3>
-            <div class="grid4">
-              <div class="stat"><div class="label">Registered Users (DB)</div><div class="val" id="dTotalPlayers">0</div></div>
-              <div class="stat"><div class="label">Booked Boards</div><div class="val ok" id="dBookedBoards">0</div></div>
-              <div class="stat"><div class="label">Pending Requests</div><div class="val warn" id="dPendingReqs">0</div></div>
-              <div class="stat"><div class="label">Current Prize Pool</div><div class="val" id="dPrizePool">0 ብር</div></div>
-              <div class="stat"><div class="label">Today's Deposits</div><div class="val ok">Br 14,850</div></div>
-              <div class="stat"><div class="label">Today's Withdrawals</div><div class="val bad">Br 6,200</div></div>
-              <div class="stat"><div class="label">Revenue / Expenses</div><div class="val">Br 98.4k / 14.2k</div></div>
-              <div class="stat"><div class="label">Bot Status</div><div class="val ok" id="dPrizeBot">ONLINE</div></div>
-            </div>
-          </div>
-        </div>
-
-        <div id="sec-players" class="studio-sec" style="display:none;">
-          <div class="card">
-            <h3>👥 Player Management</h3>
-            <div class="row-gap" style="margin-bottom:10px;">
-              <input type="text" id="playerQuery" placeholder="በTelegram ID ወይም @username ፈልግ..." style="margin:0;flex:1;min-width:200px;" oninput="renderPlayers()" />
-              <button class="btn btn-blue" type="button" onclick="renderPlayers()">ፈልግ</button>
-            </div>
-            <div class="tbl-wrap">
-              <table>
-                <thead><tr><th>Telegram ID</th><th>Player</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
-                <tbody id="playersTbody"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <div id="sec-games" class="studio-sec" style="display:none;">
-          <div class="card">
-            <h3>🎮 Game Management</h3>
-            <div class="row-gap" style="margin-bottom:12px;">
-              <button class="btn btn-green" type="button" onclick="setGameState('RUNNING','አዲስ ጨዋታ ተጀምሯል')">▶ Start / New Game</button>
-              <button class="btn btn-yellow" type="button" onclick="setGameState('PAUSED','ጨዋታው ቆሟል (Paused)')">⏸ Pause</button>
-              <button class="btn btn-blue" type="button" onclick="setGameState('RUNNING','ጨዋታው ቀጥሏል (Resumed)')">⏯ Resume</button>
-              <button class="btn btn-red" type="button" onclick="setGameState('CANCELLED','ጨዋታው ተሰርዟል')">✖ Cancel</button>
-              <button class="btn btn-gray" type="button" onclick="setGameState('LOBBY','ጨዋታው እንደገና ተጀምሯል')">↻ Restart</button>
-            </div>
-            <div class="grid3">
-              <div><span class="label">Min Players</span><input type="number" id="gmMinP" value="2" /></div>
-              <div><span class="label">Max Players</span><input type="number" id="gmMaxP" value="600" /></div>
-              <div><span class="label">Call Interval (sec)</span><input type="number" id="gmInterval" value="4" /></div>
-            </div>
-            <button class="btn btn-green" type="button" onclick="notifyAction('የጨዋታ ቅንብር ተቀምጧል')">💾 አስቀምጥ</button>
-          </div>
-        </div>
-
-        <div id="sec-wallet" class="studio-sec" style="display:none;">
-          <div class="card">
-            <h3>💳 የተጫዋች ሂሳብ ጨምር / ቀንስ</h3>
-            <div class="grid">
-              <input type="text" id="balUserId" placeholder="User ID (ለምሳሌ 7379955498)" />
-              <input type="number" id="balDelta" placeholder="መጠን (ለምሳሌ 50 ወይም -20)" />
-            </div>
-            <input type="text" id="balReason" placeholder="የማስተካከያ ምክንያት (Audit Reason)" />
-            <button class="btn btn-blue" type="button" onclick="adjustBalance()">ሂሳብ አዘምን</button>
-          </div>
-
-          <div class="card">
-            <h3>📜 Financial Audit Trail</h3>
-            <div class="tbl-wrap">
-              <table>
-                <thead><tr><th>User</th><th>Action</th><th>Amount</th><th>Reason</th></tr></thead>
-                <tbody id="auditTbody"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <div id="sec-requests" class="studio-sec" style="display:none;">
-          <div class="card">
-            <h3>📥 Deposit & Withdraw ጥያቄዎች (Screenshot + Tx No)</h3>
-            <div id="requestsList">በመጫን ላይ...</div>
-          </div>
-        </div>
-
-        <div id="sec-winners" class="studio-sec" style="display:none;">
-          <div class="card">
-            <h3>🏆 Winner & Prize Verification</h3>
-            <div class="tbl-wrap">
-              <table>
-                <thead><tr><th>Game</th><th>Winner</th><th>Board & Pattern</th><th>Prize</th><th>Action</th></tr></thead>
-                <tbody id="winnersTbody"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <div id="sec-settings" class="studio-sec" style="display:none;">
-          <div class="card">
-            <h3>⚙️ ቅንብሮችን አስተካክል (Edit Settings)</h3>
-            <div class="label">Telebirr</div>
-            <input type="text" id="cfgTelebirr" />
-            <div class="label">CBE</div>
-            <input type="text" id="cfgCbe" />
-            <div class="grid">
-              <div>
-                <div class="label">Welcome Bonus (ብር)</div>
-                <input type="number" id="cfgBonus" />
-              </div>
-              <div>
-                <div class="label">Min Deposit (ብር)</div>
-                <input type="number" id="cfgMinDep" />
-              </div>
-            </div>
-            <div class="label">Min Withdraw (ብር)</div>
-            <input type="number" id="cfgMinWdr" />
-            <button class="btn btn-green" type="button" onclick="saveSettings()">💾 ቅንብሮችን አስቀምጥ</button>
-          </div>
-        </div>
-
-        <div id="sec-broadcast" class="studio-sec" style="display:none;">
-          <div class="card">
-            <h3>📢 Notification & Broadcast</h3>
-            <div class="grid">
-              <div>
-                <span class="label">Audience</span>
-                <select id="bcTarget">
-                  <option value="All Players">All Players</option>
-                  <option value="Selected Player">Selected Player</option>
-                  <option value="Winners">Winners</option>
-                </select>
-              </div>
-              <div>
-                <span class="label">Type</span>
-                <select id="bcType">
-                  <option value="Game Announcement">Game Announcement</option>
-                  <option value="Winner Announcement">Winner Announcement</option>
-                  <option value="Payment Confirmation">Payment Confirmation</option>
-                  <option value="New Game Alert">New Game Alert</option>
-                </select>
-              </div>
-            </div>
-            <textarea id="bcMessage" rows="3" placeholder="ለተጫዋቾች የሚላክ መልእክት ይጻፉ..."></textarea>
-            <button class="btn btn-blue" type="button" onclick="sendBroadcast()">📤 Broadcast ላክ</button>
-          </div>
-        </div>
-
-        <div id="sec-reports" class="studio-sec" style="display:none;">
-          <div class="card">
-            <h3>📈 Reports & Statistics</h3>
-            <div class="grid">
-              <div class="stat"><div class="label">Net Profit</div><div class="val ok">Br 84,200.00</div></div>
-              <div class="stat"><div class="label">Player Wallet Liabilities</div><div class="val warn">Br 3,070.00</div></div>
-            </div>
-            <div style="margin-top:10px;">
-              <button class="btn btn-green" type="button" onclick="exportCsv()">⬇ Export CSV Report</button>
-            </div>
-          </div>
-        </div>
-
-        <div id="sec-support" class="studio-sec" style="display:none;">
-          <div class="card">
-            <h3>🎧 Support Tickets</h3>
-            <div id="ticketsBox"></div>
-          </div>
-          <div class="card">
-            <h3>🛡 Admin & Staff Roles</h3>
-            <div class="tbl-wrap">
-              <table>
-                <thead><tr><th>Role</th><th>Permissions</th></tr></thead>
-                <tbody>
-                  <tr><td>Super Admin</td><td>Full system & financial control</td></tr>
-                  <tr><td>Finance Admin</td><td>Deposits, withdrawals, wallet audits</td></tr>
-                  <tr><td>Game Manager</td><td>Games, cards, winners, settings</td></tr>
-                  <tr><td>Support Admin</td><td>Player tickets & replies</td></tr>
-                  <tr><td>Report Viewer</td><td>Read-only reports & exports</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <div id="sec-system" class="studio-sec" style="display:none;">
-          <div class="card">
-            <h3>🖥 Server & Bot Control</h3>
-            <div class="grid4" style="margin-bottom:10px;">
-              <div class="stat"><div class="label">Bot Status</div><div class="val ok" id="sysBot">ONLINE</div></div>
-              <div class="stat"><div class="label">CPU / RAM</div><div class="val">14% / 218MB</div></div>
-              <div class="stat"><div class="label">Disk / DB</div><div class="val">1.2GB · OK</div></div>
-              <div class="stat"><div class="label">Uptime</div><div class="val">18d 06h</div></div>
-            </div>
-            <div class="row-gap">
-              <button class="btn btn-green" type="button" onclick="toggleBotStatus(true)">Bot Online</button>
-              <button class="btn btn-red" type="button" onclick="toggleBotStatus(false)">Bot Offline</button>
-              <button class="btn btn-yellow" type="button" onclick="notifyAction('Bot restart signal sent')">↻ Restart Bot</button>
-            </div>
-          </div>
-
-          <div class="card">
-            <h3>🗄 Database Backups & Safe Migration</h3>
-            <p class="label">ነባር የተጫዋቾች መለያዎች፣ Telegram IDs፣ ባላንስ፣ ግብይት እና ጨዋታ ታሪኮች በማሻሻያ ወቅት ይጠበቃሉ።</p>
-            <button class="btn btn-green" type="button" onclick="createBackup()">+ Create Database Backup</button>
-            <div id="backupList" style="margin-top:10px;"></div>
-          </div>
-        </div>
-      `;
-
-      renderTabs();
-      applyLiveToDom();
-      renderPlayers();
-      renderWinners();
-      renderAudit();
-      renderTickets();
-      renderBackups();
+    function updateWallet(w) {
+      if (!w) return;
+      document.getElementById('wMain').textContent = Number(w.main ?? 0).toFixed(2);
+      document.getElementById('wBonus').textContent = Number(w.bonus ?? 0).toFixed(2);
     }
 
-    function renderTabs() {
-      const box = document.getElementById('secTabs');
-      if (!box) return;
-      box.innerHTML = SECTIONS.map(([id, label]) =>
-        `<button class="btn tab ${EXT.activeSec === id ? 'active' : ''}" type="button" onclick="switchSec('${id}')">${escapeHtml(label)}</button>`
+    function renderStatus() {
+      const phaseLabel = state.phase === 'lobby' ? 'LOBBY' : (state.phase === 'play' ? 'PLAYING' : 'FINISHED');
+      document.getElementById('stPhase').textContent = phaseLabel;
+      document.getElementById('stTimer').textContent = (state.t ?? 0) + 's';
+      document.getElementById('stStake').textContent = (state.stake ?? 10) + ' ብር';
+      document.getElementById('stPool').textContent = (state.pool ?? 0) + ' ብር';
+      document.getElementById('stGameCode').textContent = 'Game: ' + (state.gcode || '#');
+      document.getElementById('stStatusText').textContent =
+        state.phase === 'lobby'
+          ? 'ካርቴላ ይምረጡ ወይም ይቀይሩ (እስከ 2 ካርቴላ)'
+          : (state.phase === 'play' ? 'ቁጥሮች እየተጠሩ ነው...' : 'ጨዋታው ተጠናቋል');
+
+      const called = Array.isArray(state.called) ? state.called : [];
+      document.getElementById('lastBall').textContent = called.length ? called[called.length - 1] : '--';
+      document.getElementById('calledStrip').innerHTML = called.slice(-15).reverse().map(n =>
+        `<div class="mini-ball">${n}</div>`
       ).join('');
-      document.querySelectorAll('.studio-sec').forEach(el => {
-        el.style.display = (el.id === 'sec-' + EXT.activeSec) ? 'block' : 'none';
-      });
     }
 
-    function switchSec(id) {
-      EXT.activeSec = id;
-      saveState();
-      renderTabs();
-    }
+    function renderBoardsGrid() {
+      const box = document.getElementById('boardsGrid');
+      const booked = state.booked || {};
+      const mineSet = new Set(state.mine || []);
+      document.getElementById('bookedCount').textContent = Object.keys(booked).length;
 
-    function headers() {
-      return {
-        'Content-Type': 'application/json',
-        'x-admin-pin': currentPin
-      };
-    }
-
-    function applyLiveToDom() {
-      const d = liveCache;
-      const pendingCount = (d.requests || []).filter(r => r.status === 'pending').length;
-      if (document.getElementById('sPhase')) document.getElementById('sPhase').textContent = d.phase || '-';
-      if (document.getElementById('sCount')) document.getElementById('sCount').textContent = (d.countdown != null && d.countdown !== '-' ? d.countdown + 's' : '-');
-      if (document.getElementById('sCode')) document.getElementById('sCode').textContent = d.gameCode || '-';
-      if (document.getElementById('sPool')) document.getElementById('sPool').textContent = (d.takenBoardsCount ?? 0) + 'b / ' + (d.prizePool ?? 0) + 'ብር';
-
-      if (document.getElementById('dTotalPlayers')) document.getElementById('dTotalPlayers').textContent = String(d.usersCount ?? 0);
-      if (document.getElementById('dBookedBoards')) document.getElementById('dBookedBoards').textContent = String(d.takenBoardsCount ?? 0);
-      if (document.getElementById('dPendingReqs')) document.getElementById('dPendingReqs').textContent = String(pendingCount);
-      if (document.getElementById('dPrizePool')) document.getElementById('dPrizePool').textContent = (d.prizePool ?? 0) + ' ብር';
-      if (document.getElementById('dPrizeBot')) document.getElementById('dPrizeBot').textContent = EXT.botOnline ? 'ONLINE' : 'OFFLINE';
-      if (document.getElementById('sysBot')) document.getElementById('sysBot').textContent = EXT.botOnline ? 'ONLINE' : 'OFFLINE';
-
-      if (!settingsInitialized && d.settings && document.getElementById('cfgTelebirr')) {
-        document.getElementById('cfgTelebirr').value = d.settings.telebirr || '';
-        document.getElementById('cfgCbe').value = d.settings.cbe || '';
-        document.getElementById('cfgBonus').value = d.settings.welcomeBonus ?? 0;
-        document.getElementById('cfgMinDep').value = d.settings.minDeposit ?? 20;
-        document.getElementById('cfgMinWdr').value = d.settings.minWithdraw ?? 50;
-        settingsInitialized = true;
+      let html = '';
+      for (let i = 1; i <= 600; i++) {
+        const isMine = mineSet.has(i);
+        const isTaken = Boolean(booked[i]) && !isMine;
+        const cls = isMine ? 'b-btn mine' : (isTaken ? 'b-btn taken' : 'b-btn');
+        html += `<button class="${cls}" type="button" ${isTaken ? 'disabled' : ''} onclick="toggleBoard(${i})">${i}</button>`;
       }
-      renderRequests(d.requests || []);
+      box.innerHTML = html;
     }
 
-    async function loadAll() {
-      if (!isAdminAuthorized()) return;
-      try {
-        const r = await fetch('/api/studio/data', { headers: { 'x-admin-pin': currentPin } });
-        if (!r.ok) {
-          if (document.getElementById('requestsList')) {
-            document.getElementById('requestsList').innerHTML = '<div style="color:#f87171;">ዳታ መጫን አልተቻለም (' + r.status + ')</div>';
-          }
-          return;
-        }
-        const d = await r.json();
-        liveCache = {
-          phase: d.live ? d.live.phase : '-',
-          countdown: d.live ? d.live.countdown : '-',
-          gameCode: d.live ? d.live.gameCode : '-',
-          takenBoardsCount: d.live ? d.live.takenBoardsCount : 0,
-          prizePool: d.live ? d.live.prizePool : 0,
-          usersCount: d.usersCount ?? 0,
-          settings: d.settings || {},
-          requests: d.requests || []
-        };
-        applyLiveToDom();
-      } catch (e) {
-        if (document.getElementById('requestsList')) {
-          document.getElementById('requestsList').innerHTML = '<div style="color:#f87171;">ስህተት: ' + escapeHtml(e.message) + '</div>';
-        }
-      }
-    }
+    function renderMyBoards() {
+      const box = document.getElementById('myBoards');
+      const calledSet = new Set(state.called || []);
+      const mine = state.mine || [];
 
-    function renderRequests(list) {
-      const box = document.getElementById('requestsList');
-      if (!box) return;
-      if (!list.length) {
-        box.innerHTML = '<div class="label">ምንም ጥያቄ የለም።</div>';
+      if (!mine.length) {
+        box.innerHTML = '';
         return;
       }
-      box.innerHTML = list.map((req) => {
-        const badgeClass = req.status === 'approved' ? 'approved' : (req.status === 'rejected' ? 'rejected' : 'pending');
-        const safeId = escapeHtml(req.id);
-        const imgHtml = req.photoUrl
-          ? '<a href="' + escapeHtml(req.photoUrl) + '" target="_blank"><img class="req-img" src="' + escapeHtml(req.photoUrl) + '" alt="Screenshot" /></a>'
-          : '';
-        const txHtml = req.txNumber ? '<div><b>Tx No:</b> <code>' + escapeHtml(req.txNumber) + '</code></div>' : '';
-        const accHtml = req.accountInfo ? '<div><b>Account:</b> <code>' + escapeHtml(req.accountInfo) + '</code></div>' : '';
-        const actionsHtml = req.status === 'pending'
-          ? '<div style="margin-top:8px;">' +
-              '<button class="btn-green" type="button" style="margin-right:8px;" onclick="decideReq(\'' + safeId + '\', \'approve\')">✅ Approve</button>' +
-              '<button class="btn-red" type="button" onclick="decideReq(\'' + safeId + '\', \'reject\')">❌ Reject</button>' +
-            '</div>'
-          : '';
-        return (
-          '<div class="req-item">' +
-            '<div style="display:flex; justify-content:space-between; align-items:center;">' +
-              '<b>' + escapeHtml(String(req.type || '').toUpperCase()) + ' • ' + escapeHtml(req.amount) + ' ብር</b>' +
-              '<span class="badge ' + badgeClass + '">' + escapeHtml(req.status) + '</span>' +
-            '</div>' +
-            '<div style="font-size:13px; margin-top:6px;">' +
-              '<div><b>User:</b> ' + escapeHtml(req.userName || 'Player') + ' (<code>' + escapeHtml(req.userId) + '</code>)</div>' +
-              txHtml +
-              accHtml +
-            '</div>' +
-            imgHtml +
-            actionsHtml +
-          '</div>'
-        );
+
+      box.innerHTML = mine.map(boardId => {
+        const data = state.pickedGrids[boardId];
+        const winSet = new Set((state.winCellsByBoard[boardId] || []).map(c => c[0] + ',' + c[1]));
+        let cellsHtml = '';
+        if (data && Array.isArray(data.grid)) {
+          for (let r = 0; r < 5; r++) {
+            for (let c = 0; c < 5; c++) {
+              const val = data.grid[r][c];
+              const isFree = val === 'FREE';
+              const isMarked = isFree || calledSet.has(val);
+              const isWin = winSet.has(r + ',' + c);
+              const cls = isWin ? 'cell win-cell' : (isFree ? 'cell free' : (isMarked ? 'cell marked' : 'cell'));
+              cellsHtml += `<div class="${cls}">${isFree ? 'FREE' : val}</div>`;
+            }
+          }
+        }
+        return `
+          <div class="bingo-card">
+            <div class="bingo-head">
+              <span>ካርቴላ #${boardId}</span>
+              <span style="font-size:11px;color:#38bdf8;">${state.phase === 'lobby' ? 'ተመርጧል' : 'በጨዋታ ላይ'}</span>
+            </div>
+            <div class="bingo-grid">${cellsHtml}</div>
+          </div>`;
       }).join('');
     }
 
-    function renderPlayers() {
-      const tbody = document.getElementById('playersTbody');
-      if (!tbody) return;
-      const q = (document.getElementById('playerQuery')?.value || '').toLowerCase();
-      const rows = EXT.players.filter(p => !q || String(p.id).includes(q) || String(p.username).toLowerCase().includes(q) || String(p.name).toLowerCase().includes(q));
-      tbody.innerHTML = rows.map(p => `
-        <tr>
-          <td>${escapeHtml(p.id)}</td>
-          <td>${escapeHtml(p.name)} (${escapeHtml(p.username)})</td>
-          <td><b>Br ${escapeHtml(p.balance)}</b></td>
-          <td><span class="badge ${p.status==='active'?'approved':'pending'}">${escapeHtml(p.status)}</span></td>
-          <td>
-            <div class="row-gap">
-              <button class="btn btn-green" type="button" onclick="setPlayerStatus('${escapeHtml(p.id)}','active')">Active</button>
-              <button class="btn btn-yellow" type="button" onclick="setPlayerStatus('${escapeHtml(p.id)}','frozen')">Freeze</button>
-              <button class="btn btn-red" type="button" onclick="setPlayerStatus('${escapeHtml(p.id)}','banned')">Ban</button>
-            </div>
-          </td>
-        </tr>`).join('');
-    }
-
-    function setPlayerStatus(id, st) {
-      const p = EXT.players.find(x => x.id === id);
-      if (!p) return;
-      p.status = st;
-      EXT.audit.unshift({ user: p.username, action: 'STATUS_' + st.toUpperCase(), amount: '-', reason: 'Updated by Admin' });
-      saveState();
-      renderPlayers();
-      renderAudit();
-      toast('Player updated: ' + st);
-    }
-
-    function setGameState(phase, msg) {
-      liveCache.phase = phase;
-      applyLiveToDom();
-      notifyAction(msg);
-    }
-
-    function renderWinners() {
-      const tbody = document.getElementById('winnersTbody');
-      if (!tbody) return;
-      tbody.innerHTML = EXT.winners.map(w => `
-        <tr>
-          <td>${escapeHtml(w.game)}</td>
-          <td>${escapeHtml(w.player)}</td>
-          <td>${escapeHtml(w.board)} · ${escapeHtml(w.pattern)}</td>
-          <td><b>Br ${escapeHtml(w.prize)}</b></td>
-          <td>${w.paid ? '<span class="badge approved">PAID</span>' : `<button class="btn btn-green" type="button" onclick="approveWinner('${escapeHtml(w.id)}')">Approve Prize</button>`}</td>
-        </tr>`).join('');
-    }
-
-    function approveWinner(id) {
-      const w = EXT.winners.find(x => x.id === id);
-      if (!w) return;
-      w.paid = true;
-      EXT.audit.unshift({ user: w.player, action: 'PRIZE_PAID', amount: 'Br ' + w.prize, reason: 'Verified winner ' + w.id });
-      saveState();
-      renderWinners();
-      renderAudit();
-      toast('Prize approved');
-    }
-
-    function renderAudit() {
-      const tbody = document.getElementById('auditTbody');
-      if (!tbody) return;
-      tbody.innerHTML = EXT.audit.map(a => `
-        <tr><td>${escapeHtml(a.user)}</td><td>${escapeHtml(a.action)}</td><td>${escapeHtml(a.amount)}</td><td>${escapeHtml(a.reason)}</td></tr>`).join('');
-    }
-
-    function sendBroadcast() {
-      const msg = (document.getElementById('bcMessage').value || '').trim();
-      const target = document.getElementById('bcTarget').value;
-      const type = document.getElementById('bcType').value;
-      if (!msg) return toast('መልእክት ያስገቡ');
-      document.getElementById('bcMessage').value = '';
-      notifyAction(`${type} -> ${target}: ${msg}`);
-    }
-
-    function exportCsv() {
-      const csv = 'Section,Value\nRegistered Users,' + (liveCache.usersCount ?? 0) + '\nBooked Boards,' + (liveCache.takenBoardsCount ?? 0) + '\nToday Deposits,14850\nToday Withdrawals,6200';
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-      a.download = 'zina-bingo-report.csv';
-      a.click();
-      toast('CSV ወርዷል');
-    }
-
-    function renderTickets() {
-      const box = document.getElementById('ticketsBox');
-      if (!box) return;
-      box.innerHTML = EXT.tickets.map(t => `
-        <div class="req-item">
-          <b>${escapeHtml(t.id)} · ${escapeHtml(t.player)}</b> — <span class="badge ${t.status==='open'?'pending':'approved'}">${escapeHtml(t.status)}</span>
-          <div style="margin:6px 0;font-size:13px;">${escapeHtml(t.text)}</div>
-          ${t.status==='open' ? `<button class="btn btn-green" type="button" onclick="closeTicket('${escapeHtml(t.id)}')">Close Ticket</button>` : ''}
-        </div>`).join('');
-    }
-
-    function closeTicket(id) {
-      const t = EXT.tickets.find(x => x.id === id);
-      if (!t) return;
-      t.status = 'closed';
-      saveState();
-      renderTickets();
-      toast('Ticket closed');
-    }
-
-    function toggleBotStatus(on) {
-      EXT.botOnline = on;
-      applyLiveToDom();
-      saveState();
-      notifyAction('Bot status: ' + (on ? 'ONLINE' : 'OFFLINE'));
-    }
-
-    function createBackup() {
-      EXT.backups.unshift({ id: 'BKP-' + String(Date.now()).slice(-5), note: 'Safe backup — all balances & history intact' });
-      saveState();
-      renderBackups();
-      toast('Backup created');
-    }
-
-    function renderBackups() {
-      const box = document.getElementById('backupList');
-      if (!box) return;
-      box.innerHTML = EXT.backups.map(b =>
-        `<div class="req-item"><b>${escapeHtml(b.id)}</b> — <span class="label" style="display:inline;">${escapeHtml(b.note)}</span></div>`
-      ).join('');
-    }
-
-    async function saveSettings() {
-      const body = {
-        telebirr: document.getElementById('cfgTelebirr').value,
-        cbe: document.getElementById('cfgCbe').value,
-        welcomeBonus: Number(document.getElementById('cfgBonus').value),
-        minDeposit: Number(document.getElementById('cfgMinDep').value),
-        minWithdraw: Number(document.getElementById('cfgMinWdr').value)
-      };
-      const r = await fetch('/api/studio/settings', {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify(body)
-      });
-      if (r.ok) {
-        EXT.audit.unshift({ user: 'Admin', action: 'SETTINGS', amount: '-', reason: 'Updated payment & game settings' });
-        saveState();
-        renderAudit();
-        alert('✅ ቅንብሮች ተቀምጠዋል!');
-        loadAll();
+    function toggleBoard(boardId) {
+      if (state.phase !== 'lobby') {
+        return showToast('በLOBBY ወቅት ብቻ መምረጥ ይቻላል');
       }
-    }
-
-    async function adjustBalance() {
-      const userId = document.getElementById('balUserId').value.trim();
-      const delta = Number(document.getElementById('balDelta').value);
-      const reason = (document.getElementById('balReason')?.value || 'Admin balance adjustment').trim();
-      const r = await fetch('/api/studio/balance', {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ userId, delta })
-      });
-      const d = await r.json();
-      if (r.ok) {
-        EXT.audit.unshift({ user: userId, action: 'BALANCE_ADJ', amount: (delta >= 0 ? '+' : '') + delta + ' ብር', reason });
-        saveState();
-        renderAudit();
-        alert('✅ ሂሳብ ተዘምኗል! አዲስ Main Balance: ' + d.user.main + ' ብር');
-        document.getElementById('balUserId').value = '';
-        document.getElementById('balDelta').value = '';
-        if (document.getElementById('balReason')) document.getElementById('balReason').value = '';
+      if ((state.mine || []).includes(boardId)) {
+        socket.emit('board:unpick', { board: boardId });
       } else {
-        alert('❌ ' + (d.error || 'ስህተት'));
+        socket.emit('board:pick', { board: boardId });
       }
     }
 
-    async function decideReq(id, action) {
-      const r = await fetch('/api/studio/requests/' + encodeURIComponent(id) + '/' + action, {
-        method: 'POST',
-        headers: headers()
-      });
-      const d = await r.json();
-      if (r.ok) {
-        EXT.audit.unshift({ user: id, action: 'REQ_' + action.toUpperCase(), amount: '-', reason: 'Processed request ' + id });
-        saveState();
-        loadAll();
+    socket.on('connect', () => {
+      socket.emit('room:join', { user: playerInfo, stake: state.stake });
+    });
+
+    socket.on('room:state', (payload) => {
+      if (payload.phase === 'lobby') {
+        state.winCellsByBoard = {};
+        document.getElementById('winBanner').style.display = 'none';
+      }
+      state.phase = payload.phase || state.phase;
+      state.t = payload.t ?? state.t;
+      state.stake = payload.stake ?? state.stake;
+      state.pool = payload.pool ?? state.pool;
+      state.gcode = payload.gcode ?? state.gcode;
+      if (payload.booked) state.booked = payload.booked;
+      if (Array.isArray(payload.mine)) {
+        state.mine = payload.mine;
+        for (const bId of Object.keys(state.pickedGrids)) {
+          if (!state.mine.includes(Number(bId))) delete state.pickedGrids[bId];
+        }
+      }
+      if (Array.isArray(payload.called)) state.called = payload.called;
+      if (payload.wallet) updateWallet(payload.wallet);
+      renderStatus();
+      renderBoardsGrid();
+      renderMyBoards();
+    });
+
+    socket.on('board:picked', ({ board, grid }) => {
+      state.pickedGrids[board] = grid;
+      if (!state.mine.includes(board)) state.mine.push(board);
+      renderBoardsGrid();
+      renderMyBoards();
+    });
+
+    socket.on('board:taken', ({ booked }) => {
+      if (booked) state.booked = booked;
+      renderBoardsGrid();
+    });
+
+    socket.on('board:released', ({ board, booked }) => {
+      delete state.pickedGrids[board];
+      state.mine = (state.mine || []).filter(id => id !== board);
+      if (booked) state.booked = booked;
+      renderBoardsGrid();
+      renderMyBoards();
+    });
+
+    socket.on('board:rejected', ({ reason }) => {
+      if (reason === 'max_boards') showToast('ከ2 ካርቴላ በላይ መምረጥ አይቻልም');
+      else if (reason === 'taken') showToast('ይህ ካርቴላ ተይዟል');
+      else showToast('አሁን መምረጥ አይቻልም');
+    });
+
+    socket.on('game:start', ({ pool, gcode }) => {
+      state.phase = 'play';
+      state.pool = pool ?? state.pool;
+      state.gcode = gcode ?? state.gcode;
+      state.called = [];
+      state.winCellsByBoard = {};
+      document.getElementById('winBanner').style.display = 'none';
+      renderStatus();
+      renderMyBoards();
+    });
+
+    socket.on('game:call', ({ called }) => {
+      if (Array.isArray(called)) state.called = called;
+      renderStatus();
+      renderMyBoards();
+    });
+
+    socket.on('game:win', (payload) => {
+      state.phase = 'win';
+      state.t = payload.t ?? 8;
+      if (Array.isArray(payload.called)) state.called = payload.called;
+      const winners = Array.isArray(payload.winners) ? payload.winners : [];
+      state.winCellsByBoard = {};
+      for (const w of winners) {
+        if (w.board && Array.isArray(w.cells)) {
+          state.winCellsByBoard[w.board] = w.cells;
+        }
+      }
+      const banner = document.getElementById('winBanner');
+      if (winners.length > 0) {
+        const names = winners.map(w => `${w.name} (ካርቴላ #${w.board} · ${w.pattern})`).join(', ');
+        banner.innerHTML = `🏆 አሸናፊ: ${names} — ሽልማት: <b>${payload.prize} ብር</b>`;
       } else {
-        alert('❌ ' + (d.error || 'ስህተት'));
+        banner.textContent = payload.message || 'በዚህ ዙር አሸናፊ አልተገኘም።';
       }
-    }
+      banner.style.display = 'block';
+      renderStatus();
+      renderMyBoards();
+    });
 
-    renderLayout();
-    loadAll();
-    setInterval(loadAll, 4000);
+    socket.on('wallet:update', (w) => {
+      updateWallet(w);
+    });
+
+    renderStatus();
+    renderBoardsGrid();
   </script>
 </body>
 </html>
