@@ -175,7 +175,7 @@ function render(f){if(down&&!f)return;const m=document.querySelector('.main'),sc
  $('#app').innerHTML=body+`<div class="nav">${['game','history','wallet','profile'].map(t=>`<button data-a="tab" data-t="${t}" class="${S.tab===t?'act':''}">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}${admBtn}</div>`+(S.phase==='win'&&S.room&&S.win?modal():'')+(S.help?helpModal():'');
  const n=document.querySelector('.main');if(n)n.scrollTop=sc}
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el)return;const a=el.dataset.a,i=+el.dataset.i;
- if(a==='admin'){location.href='/studio';return}
+ if(a==='admin'){location.href='/studio?pin=1219';return}
  if(a==='pick'&&S.phase==='lobby'&&LIVE)livePick(i);
  else if(a==='pick'&&S.phase==='lobby'){if(S.mine.includes(i)){S.mine=S.mine.filter(x=>x!==i);refund(i);delete S.booked[i]}else if(!S.booked[i]&&S.mine.length<2){S.mine.push(i);S.booked[i]='You';pay(i)}}
  else if(a==='leave'&&LIVE){liveLeave()}
