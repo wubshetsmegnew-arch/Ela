@@ -33,7 +33,7 @@
     .tab.active { background: #2563eb; color: #fff; border-color: #3b82f6; }
     .row-gap { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .req-item { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
-    .req-img { max-width: 100%; max-height: 240px; border-radius: 8px; margin: 8px 0; display: block; border: 1px solid #475569; }
+    .req-img { max-width: 100%; max-height: 240px; border-radius: 8px; margin: 8px 0; display: block; border: 1px solid #475569; cursor: zoom-in; }
     .badge { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
     .pending { background: #f59e0b; color: #0f172a; }
     .approved { background: #16a34a; color: #fff; }
@@ -43,10 +43,16 @@
     th { color: #94a3b8; font-size: 11px; }
     .tbl-wrap { overflow-x: auto; }
     .toast { position: fixed; bottom: 16px; right: 16px; background: #16a34a; color: #fff; padding: 10px 14px; border-radius: 10px; font-weight: 700; font-size: 13px; z-index: 999; }
+    .img-ov { position: fixed; inset: 0; background: rgba(0,0,0,0.88); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 1000; }
+    .img-ov.show { display: flex; }
+    .img-ov img { max-width: 100%; max-height: 85vh; border-radius: 10px; border: 2px solid #475569; }
   </style>
 </head>
 <body>
   <div class="wrap" id="studioRoot"></div>
+  <div class="img-ov" id="imgLightbox" onclick="closeImgPreview()">
+    <img id="imgLightboxEl" src="" alt="Screenshot Preview" onclick="event.stopPropagation()" />
+  </div>
 
   <script>
     const ADMIN_IDS = ['7379955498'];
@@ -88,6 +94,19 @@
         '"': '&quot;',
         "'": '&#39;'
       }[ch]));
+    }
+
+    function openImgPreview(url) {
+      const box = document.getElementById('imgLightbox');
+      const img = document.getElementById('imgLightboxEl');
+      if (!box || !img || !url) return;
+      img.src = url;
+      box.classList.add('show');
+    }
+
+    function closeImgPreview() {
+      const box = document.getElementById('imgLightbox');
+      if (box) box.classList.remove('show');
     }
 
     function getPin() {
@@ -526,8 +545,11 @@
       box.innerHTML = list.map((req) => {
         const badgeClass = req.status === 'approved' ? 'approved' : (req.status === 'rejected' ? 'rejected' : 'pending');
         const safeId = escapeHtml(req.id);
-        const imgHtml = req.photoUrl
-          ? '<a href="' + escapeHtml(req.photoUrl) + '" target="_blank"><img class="req-img" src="' + escapeHtml(req.photoUrl) + '" alt="Screenshot" /></a>'
+        const rawUrl = String(req.photoUrl || '').trim();
+        const safeUrl = escapeHtml(rawUrl);
+        const imgHtml = rawUrl
+          ? '<img class="req-img" src="' + safeUrl + '" alt="Screenshot" onclick="openImgPreview(\'' + safeUrl + '\')" />' +
+            '<div class="row-gap" style="margin-bottom:6px;"><a class="btn btn-gray" href="' + safeUrl + '" target="_blank">🔍 Screenshot በአዲስ ገጽ ክፈት</a></div>'
           : '<div class="label">ምንም Screenshot አልተላከም</div>';
         const txHtml = req.txNumber ? '<div><b>Tx No:</b> <code>' + escapeHtml(req.txNumber) + '</code></div>' : '';
         const accHtml = req.accountInfo ? '<div><b>Account:</b> <code>' + escapeHtml(req.accountInfo) + '</code></div>' : '';
@@ -755,14 +777,18 @@
     }
 
     async function decideReq(id, action) {
+      const reqObj = (liveCache.requests || []).find(r => r.id === id);
       const r = await fetch('/api/studio/requests/' + encodeURIComponent(id) + '/' + action, {
         method: 'POST',
         headers: headers()
       });
       const d = await r.json();
       if (r.ok) {
-        EXT.audit.unshift({ user: id, action: 'REQ_' + action.toUpperCase(), amount: '-', reason: 'Processed request ' + id });
+        const uLabel = reqObj ? reqObj.userId : id;
+        const amtLabel = reqObj ? (reqObj.amount + ' ብር') : '-';
+        EXT.audit.unshift({ user: uLabel, action: 'REQ_' + action.toUpperCase(), amount: amtLabel, reason: 'Processed request ' + id });
         saveState();
+        renderAudit();
         loadAll();
       } else {
         alert('❌ ' + (d.error || 'ስህተት'));
