@@ -157,7 +157,8 @@ function payModal(){
     ${isDep?`
       <label style="font-size:12px;color:var(--mu);display:block;margin-top:8px">Transaction No (የግብይት ቁጥር):</label>
       <input id="pay_tx" class="inp" type="text" placeholder="ለምሳሌ FT26332XXXX" value="${m.tx||''}">
-      <div style="font-size:11px;color:var(--ye);margin-top:8px">ለScreenshot መላክ በTelegram Bot ላይ "💰 Deposit" ይጠቀሙ ወይም እዚህ ጥያቄ ይላኩ።</div>
+      <label style="font-size:12px;color:var(--mu);display:block;margin-top:8px">Screenshot (የክፍያ ፎቶ):</label>
+      <input id="pay_pic" class="inp" type="file" accept="image/*" style="padding:7px;font-size:12px">
     `:`
       <label style="font-size:12px;color:var(--mu);display:block;margin-top:8px">የመቀበያ ስልክ / አካውንት:</label>
       <input id="pay_acc" class="inp" type="text" placeholder="ለምሳሌ 0911223344 (CBE / Telebirr)" value="${m.acc||''}">
@@ -205,19 +206,35 @@ function render(f){
 }
 
 document.addEventListener('click',e=>{
- if(e.target.id==='pay_cancel'||e.target.id==='pay_ov'){
+ const cancelBtn=e.target.closest('#pay_cancel');
+ if(cancelBtn||e.target.id==='pay_ov'){
   S.payBox=null;render(1);return;
  }
- if(e.target.id==='pay_send'){
-  const t=e.target.dataset.t;
+ const sendBtn=e.target.closest('#pay_send');
+ if(sendBtn){
+  const t=sendBtn.dataset.t;
   const amt=+($('#pay_amt')&&$('#pay_amt').value);
   if(!amt||amt<=0){S.payBox.err='እባክዎ ትክክለኛ የብር መጠን ያስገቡ።';S.payBox.ok='';render(1);return}
   if(t==='deposit'){
    const tx=($('#pay_tx')&&$('#pay_tx').value||'').trim();
+   const fileInput=$('#pay_pic');
+   const file=fileInput&&fileInput.files&&fileInput.files[0];
    if(tx.length<3){S.payBox.err='እባክዎ Transaction No ያስገቡ።';S.payBox.ok='';render(1);return}
-   addTx('Deposit req ('+tx+')',amt);
-   emit('wallet:deposit_req',{amount:amt,txNumber:tx,user:ME});
-   S.payBox=null;S.wtab='his';S.tab='wallet';render(1);return;
+   const sendDeposit=(photoData)=>{
+    addTx('Deposit req ('+tx+')',amt);
+    emit('wallet:deposit_req',{amount:amt,txNumber:tx,photoData:photoData||'',user:ME});
+    S.payBox=null;S.wtab='his';S.tab='wallet';render(1);
+   };
+   if(file){
+    if(file.size>4*1024*1024){S.payBox.err='የፎቶ መጠን ከ4MB አይብለጥ።';S.payBox.ok='';render(1);return}
+    const reader=new FileReader();
+    reader.onload=()=>sendDeposit(reader.result||'');
+    reader.onerror=()=>sendDeposit('');
+    reader.readAsDataURL(file);
+   }else{
+    sendDeposit('');
+   }
+   return;
   }else{
    const acc=($('#pay_acc')&&$('#pay_acc').value||'').trim();
    if(!acc){S.payBox.err='እባክዎ የመቀበያ ስልክ/አካውንት ያስገቡ።';S.payBox.ok='';render(1);return}
@@ -236,7 +253,7 @@ document.addEventListener('click',e=>{
  if(a==='admin'){location.href='/studio?pin=1219';return}
  else if(a==='open_dep'){S.payBox={type:'deposit',amount:'',tx:'',err:'',ok:''};render(1);return}
  else if(a==='open_wdr'){S.payBox={type:'withdraw',amount:'',acc:'',err:'',ok:''};render(1);return}
- else if(a==='reload'){if(LIVE&&S.room)liveJoin(S.room)}
+ else if(a==='reload'){if(LIVE){emit('wallet:get',{user:ME});if(S.room)liveJoin(S.room)}}
  else if(a==='pick'&&S.phase==='lobby'&&LIVE)livePick(i);
  else if(a==='pick'&&S.phase==='lobby'){
   if(S.mine.includes(i)){S.mine=S.mine.filter(x=>x!==i);refund(i);delete S.booked[i]}
@@ -251,7 +268,7 @@ document.addEventListener('click',e=>{
  else if(a==='auto'){S.auto=!S.auto;if(LIVE)emit(EV.auto,{room:roomKey(),auto:S.auto});if(S.auto&&S.phase==='play')S.mine.forEach(id=>S.called.forEach(n=>S.marks[id].add(n)));if(S.auto&&S.phase==='play'){if(LIVE)S.mine.forEach(liveBingo);else evalWin()}}
  else if(a==='sound')S.sound=!S.sound;
  else if(a==='cell'&&!S.auto&&S.phase==='play'&&S.called.includes(+el.dataset.n)&&S.marks[i]){S.marks[i].add(+el.dataset.n);if(LIVE){emit(EV.mark,{room:roomKey(),board:i,n:+el.dataset.n});liveBingo(i)}else evalWin()}
- else if(a==='tab')S.tab=el.dataset.t;
+ else if(a==='tab'){S.tab=el.dataset.t;if(S.tab==='wallet')emit('wallet:get',{user:ME});}
  else if(a==='wtab')S.wtab=el.dataset.t;
  else if(a==='eye')S.hide=!S.hide;
  else if(a==='help')S.help=true;
@@ -346,7 +363,7 @@ function showWin(d,local){
 function liveInit(){
   if(!window.io||SERVER_URL.includes('PASTE'))return;
   socket=io(SERVER_URL,{transports:['websocket','polling'],auth:{userId:ME.id,name:ME.name,initData:ME.initData}});
-  socket.on('connect',()=>{LIVE=true;const keep=S.wasConnected&&(S.phase==='play'||(S.holdUntil&&Date.now()<S.holdUntil));
+  socket.on('connect',()=>{LIVE=true;emit('wallet:get',{user:ME});const keep=S.wasConnected&&(S.phase==='play'||(S.holdUntil&&Date.now()<S.holdUntil));
     if(!keep){S.holdUntil=0;S.queued=null;S.played=null;S.mine=[];S.booked={};S.paid={};S.marks={};S.called=[];S.phase='lobby';S.win=null;S.claimed={}}
     if(!S.wasConnected){S.wasConnected=1}
     if(S.room)liveJoin(S.room);render(1)});
@@ -356,7 +373,7 @@ function liveInit(){
   socket.on(EV.taken,d=>{S.booked[d.board]=d.name||'Player';render()});
   socket.on(EV.freed,d=>{if(!S.mine.includes(+d.board))delete S.booked[d.board];render()});
   socket.on(EV.rejected,d=>{const b=+d.board;S.mine=S.mine.filter(x=>x!==b);delete S.paid[b];delete S.booked[b];if(d.reason==='insufficient')S.lowNeed=S.stake;render(1)});
-  socket.on(EV.wallet,w=>{if(!w||!w.userId||String(w.userId)===ME.id)applyWallet(w);render(1)});
+  socket.on(EV.wallet,w=>{if(!w||!w.userId||String(w.userId)===String(ME.id)){applyWallet(w);render(1)}});
   socket.on(EV.card,d=>{if(d&&d.rows)setCards({[d.board]:d.rows});render()});
   socket.on(EV.start,d=>{const hold=S.holdUntil&&Date.now()<S.holdUntil;if(S.phase==='play'&&d.gcode&&d.gcode===S.gcode)return;if(!hold){S.claimed={};S.marks={};if(S.phase==='play')S.phase='lobby'}applyState({...d,phase:'play',called:[]});if(!hold){S.played=[...S.mine];S.left=false}render(1)});
   socket.on(EV.call,d=>{if(S.holdUntil&&Date.now()<S.holdUntil)return;S.called=d.called||[...S.called,d.n];if(S.auto)S.mine.forEach(id=>S.marks[id]&&S.marks[id].add(d.n));beep();S.mine.forEach(liveBingo);render(1)});
