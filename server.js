@@ -118,12 +118,47 @@ function getOrCreateUser(userId, info = {}) {
     }
     saveStore();
   } else {
-    if (info.firstName) store.users[key].firstName = info.firstName;
+    if (info.firstName && info.firstName !== 'Guest') store.users[key].firstName = info.firstName;
     if (info.username) store.users[key].username = info.username;
     if (!store.users[key].status) store.users[key].status = 'active';
     if (!Array.isArray(store.users[key].history)) store.users[key].history = [];
+    if (store.users[key].withd == null) store.users[key].withd = 0;
   }
   return store.users[key];
+}
+
+function walletPayload(u) {
+  return {
+    userId: String(u.id),
+    main: Number(u.main || 0),
+    bonus: Number(u.bonus || 0),
+    dep: Number(u.dep || 0),
+    withd: Number(u.withd || 0)
+  };
+}
+
+function deductStake(user, amount) {
+  const amt = Number(amount || 0);
+  const total = Number(((user.main || 0) + (user.bonus || 0)).toFixed(2));
+  if (total < amt) return null;
+  let usedMain = 0;
+  let usedBonus = 0;
+  if (user.main >= amt) {
+    usedMain = amt;
+    user.main = Number((user.main - amt).toFixed(2));
+  } else {
+    usedMain = Number((user.main || 0).toFixed(2));
+    usedBonus = Number((amt - usedMain).toFixed(2));
+    user.main = 0;
+    user.bonus = Number(Math.max(0, (user.bonus || 0) - usedBonus).toFixed(2));
+  }
+  return { usedMain, usedBonus };
+}
+
+function refundStake(user, paidInfo) {
+  if (!paidInfo) return;
+  user.main = Number(((user.main || 0) + (paidInfo.usedMain || 0)).toFixed(2));
+  user.bonus = Number(((user.bonus || 0) + (paidInfo.usedBonus || 0)).toFixed(2));
 }
 
 function getWallet(key) {
@@ -186,6 +221,7 @@ let gameState = {
 
 let lobbyTimer = null;
 let drawTimer = null;
+let nextRoundTimer = null;
 
 function mapPhaseForClient(phase) {
   if (phase === 'LOBBY') return 'lobby';
@@ -227,8 +263,7 @@ function getWinningCells(grid, calledSet) {
     if ([0, 1, 2, 3, 4].every((c) => isMarked(r, c))) {
       return {
         pattern: `Horizontal (Row ${r + 1})`,
-        line: { type: 'row', index: r },
-        cells: [0, 1, 2, 3, 4].map((c) => [r, c])
+        line: [0, 1, 2, 3, 4].map((c) => [r, c])
       };
     }
   }
@@ -237,8 +272,7 @@ function getWinningCells(grid, calledSet) {
     if ([0, 1, 2, 3, 4].every((r) => isMarked(r, c))) {
       return {
         pattern: `Vertical (Col ${c + 1})`,
-        line: { type: 'col', index: c },
-        cells: [0, 1, 2, 3, 4].map((r) => [r, c])
+        line: [0, 1, 2, 3, 4].map((r) => [r, c])
       };
     }
   }
@@ -246,24 +280,21 @@ function getWinningCells(grid, calledSet) {
   if ([0, 1, 2, 3, 4].every((i) => isMarked(i, i))) {
     return {
       pattern: 'Diagonal (Top-Left to Bottom-Right)',
-      line: { type: 'diag', index: 0 },
-      cells: [0, 1, 2, 3, 4].map((i) => [i, i])
+      line: [0, 1, 2, 3, 4].map((i) => [i, i])
     };
   }
 
   if ([0, 1, 2, 3, 4].every((i) => isMarked(i, 4 - i))) {
     return {
       pattern: 'Diagonal (Top-Right to Bottom-Left)',
-      line: { type: 'diag', index: 1 },
-      cells: [0, 1, 2, 3, 4].map((i) => [i, 4 - i])
+      line: [0, 1, 2, 3, 4].map((i) => [i, 4 - i])
     };
   }
 
   if (isMarked(0, 0) && isMarked(0, 4) && isMarked(4, 0) && isMarked(4, 4)) {
     return {
       pattern: '4-Corners',
-      line: { type: 'corners', index: 0 },
-      cells: [[0, 0], [0, 4], [4, 0], [4, 4]]
+      line: [[0, 0], [0, 4], [4, 0], [4, 4]]
     };
   }
 
@@ -290,11 +321,12 @@ function emitRoomStateToSocket(socket) {
     gcode: gameState.gameCode,
     pool: calculatePrizePool(),
     players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size,
-    wallet: { main: u.main, bonus: u.bonus, dep: u.dep }
+    wallet: walletPayload(u)
   });
 }
 
 function evaluateWinners() {
+  if (gameState.phase !== 'PLAYING') return;
   const calledSet = new Set(gameState.calledNumbers);
   const foundWinners = [];
 
@@ -308,8 +340,7 @@ function evaluateWinners() {
         board: boardId,
         grid: player.board.grid,
         pattern: winInfo.pattern,
-        line: winInfo.line,
-        cells: winInfo.cells
+        line: winInfo.line
       });
     }
   }
@@ -317,6 +348,7 @@ function evaluateWinners() {
   if (foundWinners.length > 0) {
     clearInterval(drawTimer);
     drawTimer = null;
+    clearTimeout(nextRoundTimer);
     gameState.phase = 'FINISHED';
 
     const totalPrize = calculatePrizePool();
@@ -330,7 +362,6 @@ function evaluateWinners() {
       userId: w.userId,
       pattern: w.pattern,
       line: w.line,
-      cells: w.cells,
       prize: splitAmount
     }));
 
@@ -345,11 +376,7 @@ function evaluateWinners() {
         board: w.board,
         pattern: w.pattern
       });
-      io.to(w.socketId).emit('wallet:update', {
-        main: user.main,
-        bonus: user.bonus,
-        dep: user.dep
-      });
+      io.to(w.socketId).emit('wallet:update', walletPayload(user));
     }
     saveStore();
 
@@ -363,13 +390,20 @@ function evaluateWinners() {
       t: winSeconds
     });
 
-    setTimeout(() => {
+    nextRoundTimer = setTimeout(() => {
       startLobby();
     }, winSeconds * 1000);
   }
 }
 
 function startDrawing() {
+  clearInterval(lobbyTimer);
+  clearInterval(drawTimer);
+  clearTimeout(nextRoundTimer);
+  lobbyTimer = null;
+  drawTimer = null;
+  nextRoundTimer = null;
+
   gameState.phase = 'PLAYING';
   gameState.winners = [];
   gameState.prizePool = calculatePrizePool();
@@ -383,6 +417,12 @@ function startDrawing() {
   });
 
   drawTimer = setInterval(() => {
+    if (gameState.phase !== 'PLAYING') {
+      clearInterval(drawTimer);
+      drawTimer = null;
+      return;
+    }
+
     if (gameState.availableNumbers.length === 0) {
       clearInterval(drawTimer);
       drawTimer = null;
@@ -397,7 +437,7 @@ function startDrawing() {
         t: 6,
         message: 'All 75 numbers called with no winner.'
       });
-      setTimeout(() => startLobby(), 6000);
+      nextRoundTimer = setTimeout(() => startLobby(), 6000);
       return;
     }
 
@@ -416,8 +456,10 @@ function startDrawing() {
 function startLobby() {
   clearInterval(lobbyTimer);
   clearInterval(drawTimer);
+  clearTimeout(nextRoundTimer);
   lobbyTimer = null;
   drawTimer = null;
+  nextRoundTimer = null;
 
   gameState.phase = 'LOBBY';
   gameState.countdown = LOBBY_SECONDS;
@@ -641,6 +683,7 @@ function formatHistoryText(user) {
     if (h.type === 'welcome_bonus') return `• 🎁 ቦነስ: +${h.amount} ብር (${d})`;
     if (h.type === 'deposit_approved') return `• 💰 Deposit (Approved): +${h.amount} ብር (${d})`;
     if (h.type === 'withdraw_approved') return `• 💸 Withdraw (Approved): -${h.amount} ብር (${d})`;
+    if (h.type === 'withdraw_request') return `• 💸 Withdraw Req: -${h.amount} ብር (${d})`;
     if (h.type === 'win') return `• 🏆 ድል (${h.pattern}): +${h.amount} ብር (${d})`;
     if (h.type === 'admin_add') return `• 🛡️ Admin Adjust: ${h.amount >= 0 ? '+' : ''}${h.amount} ብር (${d})`;
     return `• ℹ️ ${h.note || h.type}: ${h.amount ?? ''} (${d})`;
@@ -668,6 +711,7 @@ function approveRequestById(reqId) {
       reqId
     });
     saveStore();
+    io.emit('wallet:update', walletPayload(targetUser));
 
     tgApi('sendMessage', {
       chat_id: reqObj.userId,
@@ -682,11 +726,14 @@ function approveRequestById(reqId) {
   }
 
   if (reqObj.type === 'withdraw') {
-    if (targetUser.main < reqObj.amount) {
+    const deductAlreadyHeld = Boolean(reqObj.amountHeld);
+    if (!deductAlreadyHeld && targetUser.main < reqObj.amount) {
       return { ok: false, error: 'በቂ Main Balance የለውም!' };
     }
-    targetUser.main = Number((targetUser.main - reqObj.amount).toFixed(2));
-    targetUser.withd = Number((targetUser.withd + reqObj.amount).toFixed(2));
+    if (!deductAlreadyHeld) {
+      targetUser.main = Number((targetUser.main - reqObj.amount).toFixed(2));
+    }
+    targetUser.withd = Number(((targetUser.withd || 0) + reqObj.amount).toFixed(2));
     reqObj.status = 'approved';
     addHistory(targetUser, {
       type: 'withdraw_approved',
@@ -695,6 +742,7 @@ function approveRequestById(reqId) {
       accountInfo: reqObj.accountInfo
     });
     saveStore();
+    io.emit('wallet:update', walletPayload(targetUser));
 
     tgApi('sendMessage', {
       chat_id: reqObj.userId,
@@ -718,6 +766,9 @@ function rejectRequestById(reqId) {
   }
 
   const targetUser = getOrCreateUser(reqObj.userId, { firstName: reqObj.userName });
+  if (reqObj.type === 'withdraw' && reqObj.amountHeld) {
+    targetUser.main = Number((targetUser.main + reqObj.amount).toFixed(2));
+  }
   reqObj.status = 'rejected';
   addHistory(targetUser, {
     type: `${reqObj.type}_rejected`,
@@ -725,6 +776,7 @@ function rejectRequestById(reqId) {
     note: `${reqObj.type} rejected`
   });
   saveStore();
+  io.emit('wallet:update', walletPayload(targetUser));
 
   tgApi('sendMessage', {
     chat_id: reqObj.userId,
@@ -1045,6 +1097,7 @@ async function handleBotMessage(msg) {
           note: 'Admin balance adjustment'
         });
         saveStore();
+        io.emit('wallet:update', walletPayload(targetUser));
         adminSessions.delete(user.id);
 
         await tgApi('sendMessage', {
@@ -1430,6 +1483,7 @@ app.post('/api/studio/balance', requireStudioPin, (req, res) => {
     note: 'Studio balance adjustment'
   });
   saveStore();
+  io.emit('wallet:update', walletPayload(targetUser));
 
   tgApi('sendMessage', {
     chat_id: targetId,
@@ -1465,8 +1519,10 @@ app.post('/api/studio/game-control', requireStudioPin, (req, res) => {
   } else if (action === 'pause') {
     clearInterval(lobbyTimer);
     clearInterval(drawTimer);
+    clearTimeout(nextRoundTimer);
     lobbyTimer = null;
     drawTimer = null;
+    nextRoundTimer = null;
     gameState.phase = 'PAUSED';
   }
   res.json({
@@ -1499,25 +1555,40 @@ app.use(express.static(__dirname));
 
 io.on('connection', (socket) => {
   socket.on('room:join', (payload = {}) => {
-    if (payload.stake) {
+    if (payload.stake && gameState.phase === 'LOBBY' && gameState.takenBoards.size === 0) {
       gameState.stake = Number(payload.stake) || gameState.stake;
     }
     if (payload.user) {
       socket.data.userId = payload.user.id ? String(payload.user.id) : socket.id;
       socket.data.username = payload.user.name || 'Player';
+      getOrCreateUser(socket.data.userId, { firstName: socket.data.username });
     }
     emitRoomStateToSocket(socket);
   });
 
   socket.on('room:leave', () => {
+    const key = getSocketKey(socket);
+    const user = getOrCreateUser(key, { firstName: socket.data.username || 'Player' });
     let changed = false;
+    let refunded = false;
+
     for (const [boardId, info] of gameState.takenBoards.entries()) {
       if (info.socketId === socket.id && gameState.phase === 'LOBBY') {
+        if (info.paidInfo) {
+          refundStake(user, info.paidInfo);
+          refunded = true;
+        }
         gameState.takenBoards.delete(boardId);
-        io.emit('board:released', { board: boardId });
+        io.emit('board:released', { board: boardId, booked: getBookedMap() });
         changed = true;
       }
     }
+
+    if (refunded) {
+      saveStore();
+      socket.emit('wallet:update', walletPayload(user));
+    }
+
     if (changed) {
       io.emit('room:state', {
         phase: mapPhaseForClient(gameState.phase),
@@ -1534,10 +1605,20 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('board:pick', ({ board } = {}) => {
-    const boardId = Number(board);
+  socket.on('board:pick', (payload = {}) => {
+    const boardId = Number(payload.board);
+    if (payload.user) {
+      socket.data.userId = payload.user.id ? String(payload.user.id) : socket.data.userId || socket.id;
+      socket.data.username = payload.user.name || socket.data.username || 'Player';
+    }
     const username = socket.data.username || 'Player';
-    const userId = socket.data.userId || socket.id;
+    const userId = getSocketKey(socket);
+    const user = getOrCreateUser(userId, { firstName: username });
+
+    if (user.status && user.status !== 'active') {
+      socket.emit('board:rejected', { board: boardId, reason: 'restricted' });
+      return;
+    }
 
     if (gameState.phase !== 'LOBBY') {
       socket.emit('board:rejected', { board: boardId, reason: 'in_progress' });
@@ -1558,13 +1639,22 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const paidInfo = deductStake(user, gameState.stake);
+    if (!paidInfo) {
+      socket.emit('board:rejected', { board: boardId, reason: 'insufficient', need: gameState.stake });
+      socket.emit('wallet:update', walletPayload(user));
+      return;
+    }
+
     gameState.takenBoards.set(boardId, {
       boardId,
       board: boardTemplates.get(boardId),
       socketId: socket.id,
       userId,
-      username
+      username,
+      paidInfo
     });
+    saveStore();
 
     io.emit('board:taken', {
       board: boardId,
@@ -1577,42 +1667,145 @@ io.on('connection', (socket) => {
       board: boardId,
       grid: boardTemplates.get(boardId)
     });
+    socket.emit('wallet:update', walletPayload(user));
   });
 
-  socket.on('board:unpick', ({ board } = {}) => {
-    const boardId = Number(board);
+  const releaseBoardHandler = (payload = {}) => {
+    const boardId = Number(payload.board);
     if (gameState.phase !== 'LOBBY') return;
 
     const entry = gameState.takenBoards.get(boardId);
     if (entry && entry.socketId === socket.id) {
+      const user = getOrCreateUser(entry.userId || getSocketKey(socket), { firstName: entry.username });
+      refundStake(user, entry.paidInfo);
       gameState.takenBoards.delete(boardId);
+      saveStore();
+
       io.emit('board:released', {
         board: boardId,
         booked: getBookedMap()
       });
+      socket.emit('wallet:update', walletPayload(user));
     }
+  };
+
+  socket.on('board:release', releaseBoardHandler);
+  socket.on('board:unpick', releaseBoardHandler);
+
+  socket.on('wallet:deposit_req', (payload = {}) => {
+    const uInfo = payload.user || {};
+    const userId = String(uInfo.id || getSocketKey(socket));
+    const userName = uInfo.name || socket.data.username || 'Player';
+    const amount = Number(payload.amount);
+    const txNumber = String(payload.txNumber || '').trim();
+
+    if (!Number.isFinite(amount) || amount <= 0 || txNumber.length < 3) return;
+    getOrCreateUser(userId, { firstName: userName });
+
+    const reqId = `DEP_${Date.now()}_${userId}`;
+    store.requests[reqId] = {
+      id: reqId,
+      type: 'deposit',
+      userId,
+      userName,
+      amount: Number(amount.toFixed(2)),
+      txNumber,
+      photoUrl: '',
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    saveStore();
+
+    tgApi('sendMessage', {
+      chat_id: ADMIN_ID,
+      text:
+        `💰 *ከMini App የDeposit ጥያቄ!*\n\n` +
+        `• Request ID: \`${reqId}\`\n` +
+        `• ተጫዋች: *${userName}* (\`${userId}\`)\n` +
+        `• መጠን: *${amount.toFixed(2)} ብር*\n` +
+        `• Transaction No: \`${txNumber}\`\n` +
+        `• Studio: ${WEBAPP_URL}/studio?pin=${ADMIN_PIN}`,
+      parse_mode: 'Markdown'
+    });
+  });
+
+  socket.on('wallet:withdraw_req', (payload = {}) => {
+    const uInfo = payload.user || {};
+    const userId = String(uInfo.id || getSocketKey(socket));
+    const userName = uInfo.name || socket.data.username || 'Player';
+    const amount = Number(payload.amount);
+    const accountInfo = String(payload.accountInfo || '').trim();
+
+    if (!Number.isFinite(amount) || amount <= 0 || !accountInfo) return;
+    const user = getOrCreateUser(userId, { firstName: userName });
+    if (user.main < amount) {
+      socket.emit('wallet:update', walletPayload(user));
+      return;
+    }
+
+    user.main = Number((user.main - amount).toFixed(2));
+    const reqId = `WDR_${Date.now()}_${userId}`;
+    store.requests[reqId] = {
+      id: reqId,
+      type: 'withdraw',
+      userId,
+      userName,
+      amount: Number(amount.toFixed(2)),
+      accountInfo,
+      amountHeld: true,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    addHistory(user, {
+      type: 'withdraw_request',
+      amount: Number(amount.toFixed(2)),
+      reqId,
+      accountInfo
+    });
+    saveStore();
+    socket.emit('wallet:update', walletPayload(user));
+
+    tgApi('sendMessage', {
+      chat_id: ADMIN_ID,
+      text:
+        `💸 *ከMini App የWithdraw ጥያቄ!*\n\n` +
+        `• Request ID: \`${reqId}\`\n` +
+        `• ተጫዋች: *${userName}* (\`${userId}\`)\n` +
+        `• የሚወጣ መጠን: *${amount.toFixed(2)} ብር*\n` +
+        `• መቀበያ አካውንት: \`${accountInfo}\`\n` +
+        `• Studio: ${WEBAPP_URL}/studio?pin=${ADMIN_PIN}`,
+      parse_mode: 'Markdown'
+    });
   });
 
   socket.on('disconnect', () => {
     let changed = false;
     for (const [boardId, entry] of gameState.takenBoards.entries()) {
       if (entry.socketId === socket.id) {
+        if (gameState.phase === 'LOBBY' && entry.paidInfo) {
+          const user = getOrCreateUser(entry.userId || getSocketKey(socket), { firstName: entry.username });
+          refundStake(user, entry.paidInfo);
+        }
         gameState.takenBoards.delete(boardId);
         changed = true;
       }
     }
-    if (changed && gameState.phase === 'LOBBY') {
-      io.emit('state:sync', {
-        phase: gameState.phase,
-        countdown: gameState.countdown,
-        round: gameState.roundNumber,
-        booked: getBookedMap(),
-        called: gameState.calledNumbers,
-        gid: gameState.gameId,
-        gcode: gameState.gameCode,
-        pool: calculatePrizePool(),
-        players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size
-      });
+    if (changed) {
+      saveStore();
+      if (gameState.phase === 'LOBBY') {
+        io.emit('room:state', {
+          phase: 'lobby',
+          t: gameState.countdown,
+          stake: gameState.stake,
+          rn: gameState.roundNumber,
+          booked: getBookedMap(),
+          called: [],
+          gid: gameState.gameId,
+          gcode: gameState.gameCode,
+          pool: calculatePrizePool(),
+          players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size
+        });
+      }
     }
   });
 });
