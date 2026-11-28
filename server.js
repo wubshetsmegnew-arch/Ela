@@ -95,46 +95,87 @@ function addHistory(user, entry) {
 
 function getOrCreateUser(userId, info = {}) {
   const key = String(userId);
+  const defaultBonus = Number(store.settings.welcomeBonus) || 0;
+
   if (!store.users[key]) {
-    const bonus = Number(store.settings.welcomeBonus) || 0;
     store.users[key] = {
       id: key,
       firstName: info.firstName || 'Player',
       username: info.username || '',
       main: 0,
-      bonus,
+      bonus: defaultBonus,
       dep: 0,
       withd: 0,
       status: 'active',
-      welcomeBonusGiven: bonus > 0,
+      welcomeBonusGiven: defaultBonus > 0,
       history: []
     };
-    if (bonus > 0) {
+    if (defaultBonus > 0) {
       addHistory(store.users[key], {
         type: 'welcome_bonus',
-        amount: bonus,
+        amount: defaultBonus,
         note: 'የጀማሪ ቦነስ (Welcome Bonus)'
       });
     }
     saveStore();
   } else {
-    if (info.firstName && info.firstName !== 'Guest') store.users[key].firstName = info.firstName;
-    if (info.username) store.users[key].username = info.username;
-    if (!store.users[key].status) store.users[key].status = 'active';
-    if (!Array.isArray(store.users[key].history)) store.users[key].history = [];
-    if (store.users[key].withd == null) store.users[key].withd = 0;
+    const existing = store.users[key];
+    if (info.firstName && info.firstName !== 'Guest') existing.firstName = info.firstName;
+    if (info.username) existing.username = info.username;
+    if (!existing.status) existing.status = 'active';
+    if (!Array.isArray(existing.history)) existing.history = [];
+    if (existing.main == null || !Number.isFinite(Number(existing.main))) existing.main = 0;
+    if (existing.bonus == null || !Number.isFinite(Number(existing.bonus))) existing.bonus = defaultBonus;
+    if (existing.dep == null || !Number.isFinite(Number(existing.dep))) existing.dep = 0;
+    if (existing.withd == null || !Number.isFinite(Number(existing.withd))) existing.withd = 0;
   }
   return store.users[key];
 }
 
+function getUserRequests(userId) {
+  const uid = String(userId);
+  return Object.values(store.requests || {})
+    .filter((r) => String(r.userId) === uid)
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+}
+
 function walletPayload(u) {
+  const uid = String(u.id);
   return {
-    userId: String(u.id),
-    main: Number(u.main || 0),
-    bonus: Number(u.bonus || 0),
-    dep: Number(u.dep || 0),
-    withd: Number(u.withd || 0)
+    userId: uid,
+    main: Number(Number(u.main || 0).toFixed(2)),
+    bonus: Number(Number(u.bonus || 0).toFixed(2)),
+    balance: Number(Number(u.main || 0).toFixed(2)),
+    dep: Number(Number(u.dep || 0).toFixed(2)),
+    withd: Number(Number(u.withd || 0).toFixed(2)),
+    settings: {
+      telebirr: store.settings.telebirr,
+      cbe: store.settings.cbe,
+      welcomeBonus: Number(store.settings.welcomeBonus || 0),
+      minDeposit: Number(store.settings.minDeposit || 20),
+      minWithdraw: Number(store.settings.minWithdraw || 50)
+    },
+    history: Array.isArray(u.history) ? u.history : [],
+    requests: getUserRequests(uid)
   };
+}
+
+function emitWalletToUser(userId, targetSocket = null) {
+  const uid = String(userId);
+  const u = getOrCreateUser(uid);
+  const payload = walletPayload(u);
+
+  if (targetSocket) {
+    targetSocket.emit('wallet:update', payload);
+    targetSocket.emit('wallet:data', payload);
+  }
+
+  for (const [, sock] of io.sockets.sockets) {
+    if (String(sock.data.userId || '') === uid) {
+      sock.emit('wallet:update', payload);
+      sock.emit('wallet:data', payload);
+    }
+  }
 }
 
 function deductStake(user, amount) {
@@ -376,7 +417,7 @@ function evaluateWinners() {
         board: w.board,
         pattern: w.pattern
       });
-      io.to(w.socketId).emit('wallet:update', walletPayload(user));
+      emitWalletToUser(wKey);
     }
     saveStore();
 
@@ -597,7 +638,8 @@ function getMainMenuKeyboard(userId) {
   }
   return {
     keyboard: rows,
-    resize_keyboard: true
+    resize_keyboard: true,
+    is_persistent: true
   };
 }
 
@@ -637,7 +679,16 @@ async function sendAdminPanel(chatId) {
   });
 }
 
-async function sendJoinPrompt(chatId, textPrefix = '') {
+async function sendPersistentKeyboardOnly(chatId, userId, text = '🎮 Zina Bingo Menu') {
+  await tgApi('sendMessage', {
+    chat_id: chatId,
+    text,
+    parse_mode: 'Markdown',
+    reply_markup: getMainMenuKeyboard(userId)
+  });
+}
+
+async function sendJoinPrompt(chatId, userId, textPrefix = '') {
   const text =
     `${textPrefix ? textPrefix + '\n\n' : ''}` +
     `📢 *Zina Bingo*\n\n` +
@@ -655,6 +706,8 @@ async function sendJoinPrompt(chatId, textPrefix = '') {
       ]
     }
   });
+
+  await sendPersistentKeyboardOnly(chatId, userId, '👇 ከታች ያሉት ቁልፎች ሁሌም ይገኛሉ፦');
 }
 
 async function sendMainMenu(chatId, userId, firstName = 'Player') {
@@ -685,12 +738,7 @@ async function sendMainMenu(chatId, userId, firstName = 'Player') {
     }
   });
 
-  await tgApi('sendMessage', {
-    chat_id: chatId,
-    text: `ከታች ካሉት ቁልፎች አንዱን ይምረጡ፦`,
-    parse_mode: 'Markdown',
-    reply_markup: getMainMenuKeyboard(userId)
-  });
+  await sendPersistentKeyboardOnly(chatId, userId, 'ከታች ካሉት ቁልፎች አንዱን ይምረጡ፦');
 }
 
 function formatHistoryText(user) {
@@ -700,9 +748,12 @@ function formatHistoryText(user) {
   const lines = user.history.slice(0, 10).map((h) => {
     const d = h.time ? h.time.slice(0, 16).replace('T', ' ') : '';
     if (h.type === 'welcome_bonus') return `• 🎁 ቦነስ: +${h.amount} ብር (${d})`;
+    if (h.type === 'deposit_request') return `• ⏳ Deposit Req: +${h.amount} ብር (${d})`;
     if (h.type === 'deposit_approved') return `• 💰 Deposit (Approved): +${h.amount} ብር (${d})`;
+    if (h.type === 'deposit_rejected') return `• ❌ Deposit (Rejected): ${h.amount} ብር (${d})`;
     if (h.type === 'withdraw_approved') return `• 💸 Withdraw (Approved): -${h.amount} ብር (${d})`;
     if (h.type === 'withdraw_request') return `• 💸 Withdraw Req: -${h.amount} ብር (${d})`;
+    if (h.type === 'withdraw_rejected') return `• ❌ Withdraw (Rejected): +${h.amount} ብር (${d})`;
     if (h.type === 'win') return `• 🏆 ድል (${h.pattern}): +${h.amount} ብር (${d})`;
     if (h.type === 'admin_add') return `• 🛡️ Admin Adjust: ${h.amount >= 0 ? '+' : ''}${h.amount} ብር (${d})`;
     return `• ℹ️ ${h.note || h.type}: ${h.amount ?? ''} (${d})`;
@@ -733,7 +784,7 @@ function approveRequestById(reqId) {
       reqId
     });
     saveStore();
-    io.emit('wallet:update', walletPayload(targetUser));
+    emitWalletToUser(uid);
 
     tgApi('sendMessage', {
       chat_id: uid,
@@ -766,7 +817,7 @@ function approveRequestById(reqId) {
       accountInfo: reqObj.accountInfo
     });
     saveStore();
-    io.emit('wallet:update', walletPayload(targetUser));
+    emitWalletToUser(uid);
 
     tgApi('sendMessage', {
       chat_id: uid,
@@ -803,7 +854,7 @@ function rejectRequestById(reqId) {
     note: `${reqObj.type} rejected`
   });
   saveStore();
-  io.emit('wallet:update', walletPayload(targetUser));
+  emitWalletToUser(uid);
 
   tgApi('sendMessage', {
     chat_id: uid,
@@ -821,16 +872,16 @@ async function handleBotMessage(msg) {
   const photos = Array.isArray(msg.photo) ? msg.photo : [];
   if (!chatId || !user || (!text && photos.length === 0)) return;
 
-  const member = await isChannelMember(user.id);
-  if (!member) {
-    await sendJoinPrompt(chatId);
-    return;
-  }
-
   const u = getOrCreateUser(user.id, {
     firstName: user.first_name || 'Player',
     username: user.username || ''
   });
+
+  const member = await isChannelMember(user.id);
+  if (!member) {
+    await sendJoinPrompt(chatId, user.id);
+    return;
+  }
 
   const session = adminSessions.get(user.id);
   if (session && !text.startsWith('/')) {
@@ -840,7 +891,8 @@ async function handleBotMessage(msg) {
         await tgApi('sendMessage', {
           chat_id: chatId,
           text: `❌ እባክዎ ትክክለኛ የገንዘብ መጠን (ቢያንስ *${store.settings.minDeposit} ብር*) በቁጥር ያስገቡ።`,
-          parse_mode: 'Markdown'
+          parse_mode: 'Markdown',
+          reply_markup: getMainMenuKeyboard(user.id)
         });
         return;
       }
@@ -855,7 +907,8 @@ async function handleBotMessage(msg) {
         text:
           `✅ መጠን: *${amt.toFixed(2)} ብር* ተመዝግቧል።\n\n` +
           `አሁን የክፍያውን **Transaction No** (የግብይት መለያ ቁጥር) ይጻፉ፦`,
-        parse_mode: 'Markdown'
+        parse_mode: 'Markdown',
+        reply_markup: getMainMenuKeyboard(user.id)
       });
       return;
     }
@@ -866,7 +919,8 @@ async function handleBotMessage(msg) {
         await tgApi('sendMessage', {
           chat_id: chatId,
           text: '❌ እባክዎ ትክክለኛ **Transaction No** ይጻፉ።',
-          parse_mode: 'Markdown'
+          parse_mode: 'Markdown',
+          reply_markup: getMainMenuKeyboard(user.id)
         });
         return;
       }
@@ -882,7 +936,8 @@ async function handleBotMessage(msg) {
         text:
           `✅ Transaction No: \`${txNumber}\` ተመዝግቧል።\n\n` +
           `አሁን የክፍያውን **Screenshot (ፎቶ)** ወደዚህ ይላኩ፦`,
-        parse_mode: 'Markdown'
+        parse_mode: 'Markdown',
+        reply_markup: getMainMenuKeyboard(user.id)
       });
       return;
     }
@@ -892,7 +947,8 @@ async function handleBotMessage(msg) {
         await tgApi('sendMessage', {
           chat_id: chatId,
           text: '❌ እባክዎ የክፍያውን **Screenshot (ፎቶ)** ብቻ ይላኩ።',
-          parse_mode: 'Markdown'
+          parse_mode: 'Markdown',
+          reply_markup: getMainMenuKeyboard(user.id)
         });
         return;
       }
@@ -927,7 +983,14 @@ async function handleBotMessage(msg) {
         status: 'pending',
         createdAt: new Date().toISOString()
       };
+      addHistory(u, {
+        type: 'deposit_request',
+        amount: Number(session.tempAmount),
+        txNumber: session.txNumber,
+        reqId
+      });
       saveStore();
+      emitWalletToUser(user.id);
       adminSessions.delete(user.id);
 
       await tgApi('sendMessage', {
@@ -973,7 +1036,8 @@ async function handleBotMessage(msg) {
         await tgApi('sendMessage', {
           chat_id: chatId,
           text: `❌ ዝቅተኛው የማውጫ መጠን *${store.settings.minWithdraw} ብር* ነው። እባክዎ መጠን እና አካውንት ያስገቡ (ለምሳሌ፡ \`100 0911223344\`)።`,
-          parse_mode: 'Markdown'
+          parse_mode: 'Markdown',
+          reply_markup: getMainMenuKeyboard(user.id)
         });
         return;
       }
@@ -981,7 +1045,8 @@ async function handleBotMessage(msg) {
         await tgApi('sendMessage', {
           chat_id: chatId,
           text: `❌ እባክዎ የገንዘብ መቀበያ ስልክ ቁጥር ወይም አካውንት አብረው ያስገቡ (ለምሳሌ፡ \`100 0911223344\`)።`,
-          parse_mode: 'Markdown'
+          parse_mode: 'Markdown',
+          reply_markup: getMainMenuKeyboard(user.id)
         });
         return;
       }
@@ -989,7 +1054,8 @@ async function handleBotMessage(msg) {
         await tgApi('sendMessage', {
           chat_id: chatId,
           text: `❌ በቂ *Main Balance* የለዎትም! ያለዎት Main Balance: *${u.main.toFixed(2)} ብር* ነው (Bonus Balance በቀጥታ ወጪ አይሆንም)።`,
-          parse_mode: 'Markdown'
+          parse_mode: 'Markdown',
+          reply_markup: getMainMenuKeyboard(user.id)
         });
         return;
       }
@@ -1014,7 +1080,7 @@ async function handleBotMessage(msg) {
         accountInfo
       });
       saveStore();
-      io.emit('wallet:update', walletPayload(u));
+      emitWalletToUser(user.id);
       adminSessions.delete(user.id);
 
       await tgApi('sendMessage', {
@@ -1061,7 +1127,8 @@ async function handleBotMessage(msg) {
         await tgApi('sendMessage', {
           chat_id: chatId,
           text: `✅ ቴሌብር አካውንት ተቀይሯል፦ \`${text}\``,
-          parse_mode: 'Markdown'
+          parse_mode: 'Markdown',
+          reply_markup: getMainMenuKeyboard(user.id)
         });
         await sendAdminPanel(chatId);
         return;
@@ -1074,7 +1141,8 @@ async function handleBotMessage(msg) {
         await tgApi('sendMessage', {
           chat_id: chatId,
           text: `✅ ሲቢኢ አካውንት ተቀይሯል፦ \`${text}\``,
-          parse_mode: 'Markdown'
+          parse_mode: 'Markdown',
+          reply_markup: getMainMenuKeyboard(user.id)
         });
         await sendAdminPanel(chatId);
         return;
@@ -1086,7 +1154,8 @@ async function handleBotMessage(msg) {
           await tgApi('sendMessage', {
             chat_id: chatId,
             text: '❌ እባክዎ ትክክለኛ ቁጥር ያስገቡ (ለምሳሌ፡ `10`)።',
-            parse_mode: 'Markdown'
+            parse_mode: 'Markdown',
+            reply_markup: getMainMenuKeyboard(user.id)
           });
           return;
         }
@@ -1096,7 +1165,8 @@ async function handleBotMessage(msg) {
         await tgApi('sendMessage', {
           chat_id: chatId,
           text: `✅ የጀማሪ ቦነስ ወደ *${bonusVal} ብር* ተቀይሯል።`,
-          parse_mode: 'Markdown'
+          parse_mode: 'Markdown',
+          reply_markup: getMainMenuKeyboard(user.id)
         });
         await sendAdminPanel(chatId);
         return;
@@ -1111,7 +1181,8 @@ async function handleBotMessage(msg) {
           await tgApi('sendMessage', {
             chat_id: chatId,
             text: '❌ ቅርጸት፡ `<UserID> <Amount>` (ለምሳሌ፡ `123456789 50` ወይም `123456789 -20`)።',
-            parse_mode: 'Markdown'
+            parse_mode: 'Markdown',
+            reply_markup: getMainMenuKeyboard(user.id)
           });
           return;
         }
@@ -1122,7 +1193,8 @@ async function handleBotMessage(msg) {
           await tgApi('sendMessage', {
             chat_id: chatId,
             text: `❌ ከዜሮ በታች ሊሆን አይችልም! የተጫዋቹ Main Balance: *${targetUser.main.toFixed(2)} ብር* ነው።`,
-            parse_mode: 'Markdown'
+            parse_mode: 'Markdown',
+            reply_markup: getMainMenuKeyboard(user.id)
           });
           return;
         }
@@ -1134,13 +1206,14 @@ async function handleBotMessage(msg) {
           note: 'Admin balance adjustment'
         });
         saveStore();
-        io.emit('wallet:update', walletPayload(targetUser));
+        emitWalletToUser(targetId);
         adminSessions.delete(user.id);
 
         await tgApi('sendMessage', {
           chat_id: chatId,
           text: `✅ የተጠቃሚ \`${targetId}\` አዲስ Main Balance: *${targetUser.main.toFixed(2)} ብር*።`,
-          parse_mode: 'Markdown'
+          parse_mode: 'Markdown',
+          reply_markup: getMainMenuKeyboard(user.id)
         });
 
         await tgApi('sendMessage', {
@@ -1163,7 +1236,8 @@ async function handleBotMessage(msg) {
     if (!isAdmin(user.id)) {
       await tgApi('sendMessage', {
         chat_id: chatId,
-        text: '⛔ ይህ ክፍል ለአስተዳዳሪ (Admin) ብቻ ነው።'
+        text: '⛔ ይህ ክፍል ለአስተዳዳሪ (Admin) ብቻ ነው።',
+        reply_markup: getMainMenuKeyboard(user.id)
       });
       return;
     }
@@ -1275,6 +1349,11 @@ async function handleBotCallback(cb) {
   const data = cb.data || '';
   if (!user || !chatId) return;
 
+  getOrCreateUser(user.id, {
+    firstName: user.first_name || 'Player',
+    username: user.username || ''
+  });
+
   if (data === 'verify_channel') {
     const member = await isChannelMember(user.id);
     if (member) {
@@ -1289,7 +1368,7 @@ async function handleBotCallback(cb) {
         text: '❌ አሁንም ቻናሉን አልተቀላቀሉም። እባክዎ መጀመሪያ ይቀላቀሉ።',
         show_alert: true
       });
-      await sendJoinPrompt(chatId);
+      await sendJoinPrompt(chatId, user.id);
     }
     return;
   }
@@ -1310,7 +1389,8 @@ async function handleBotCallback(cb) {
       await tgApi('sendMessage', {
         chat_id: chatId,
         text: '📱 አዲሱን የTelebirr ቁጥር እና ስም ይጻፉ (ለምሳሌ፡ `0911000000 - Zina Bingo`)፦',
-        parse_mode: 'Markdown'
+        parse_mode: 'Markdown',
+        reply_markup: getMainMenuKeyboard(user.id)
       });
       return;
     }
@@ -1321,7 +1401,8 @@ async function handleBotCallback(cb) {
       await tgApi('sendMessage', {
         chat_id: chatId,
         text: '🏦 አዲሱን የCBE አካውንት ቁጥር እና ስም ይጻፉ (ለምሳሌ፡ `1000123456789 - Zina Bingo`)፦',
-        parse_mode: 'Markdown'
+        parse_mode: 'Markdown',
+        reply_markup: getMainMenuKeyboard(user.id)
       });
       return;
     }
@@ -1332,7 +1413,8 @@ async function handleBotCallback(cb) {
       await tgApi('sendMessage', {
         chat_id: chatId,
         text: '🎁 ለአዲስ ጀማሪ የሚሰጠውን የቦነስ መጠን በቁጥር ይጻፉ (ለምሳሌ፡ `10`)፦',
-        parse_mode: 'Markdown'
+        parse_mode: 'Markdown',
+        reply_markup: getMainMenuKeyboard(user.id)
       });
       return;
     }
@@ -1343,7 +1425,8 @@ async function handleBotCallback(cb) {
       await tgApi('sendMessage', {
         chat_id: chatId,
         text: '➕ የተጫዋቹን User ID እና ብር መጠን ይጻፉ\nምሳሌ፦ `123456789 50` (ወይም ለመቀነስ `123456789 -20`)፦',
-        parse_mode: 'Markdown'
+        parse_mode: 'Markdown',
+        reply_markup: getMainMenuKeyboard(user.id)
       });
       return;
     }
@@ -1387,7 +1470,8 @@ async function handleBotCallback(cb) {
       text: isApprove
         ? `✅ ጥያቄ \`${reqId}\` Approved ተደርጓል። የተጫዋቹ Main Balance: *${resObj.user.main.toFixed(2)} ብር*።`
         : `❌ ጥያቄ \`${reqId}\` Rejected ተደርጓል።`,
-      parse_mode: 'Markdown'
+      parse_mode: 'Markdown',
+      reply_markup: getMainMenuKeyboard(user.id)
     });
   }
 }
@@ -1408,6 +1492,15 @@ async function startBotPolling() {
       if (data?.ok && Array.isArray(data.result)) {
         for (const update of data.result) {
           offset = update.update_id + 1;
+          const incomingUser = update.message?.from || update.callback_query?.from || update.my_chat_member?.from;
+          const incomingChatId = update.message?.chat?.id || update.callback_query?.message?.chat?.id || update.my_chat_member?.chat?.id;
+          if (incomingUser && incomingChatId) {
+            getOrCreateUser(incomingUser.id, {
+              firstName: incomingUser.first_name || 'Player',
+              username: incomingUser.username || ''
+            });
+          }
+
           if (update.message) {
             await handleBotMessage(update.message);
           } else if (update.callback_query) {
@@ -1451,6 +1544,13 @@ app.get('/status', (req, res) => {
     takenBoardsCount: gameState.takenBoards.size,
     totalBoards: TOTAL_BOARDS
   });
+});
+
+app.get('/api/wallet/:userId', (req, res) => {
+  const uid = String(req.params.userId || '').trim();
+  if (!uid) return res.status(400).json({ ok: false, error: 'Missing userId' });
+  const u = getOrCreateUser(uid);
+  return res.json({ ok: true, wallet: walletPayload(u) });
 });
 
 app.get('/api/studio/data', requireStudioPin, (req, res) => {
@@ -1520,7 +1620,7 @@ app.post('/api/studio/balance', requireStudioPin, (req, res) => {
     note: 'Studio balance adjustment'
   });
   saveStore();
-  io.emit('wallet:update', walletPayload(targetUser));
+  emitWalletToUser(targetId);
 
   tgApi('sendMessage', {
     chat_id: targetId,
@@ -1593,10 +1693,14 @@ app.use(express.static(__dirname));
 io.on('connection', (socket) => {
   socket.on('wallet:get', (payload = {}) => {
     const uid = String((payload.user && payload.user.id) || payload.userId || getSocketKey(socket));
-    const u = getOrCreateUser(uid, {
+    if (payload.user && payload.user.id) {
+      socket.data.userId = String(payload.user.id);
+      if (payload.user.name) socket.data.username = payload.user.name;
+    }
+    getOrCreateUser(uid, {
       firstName: (payload.user && payload.user.name) || socket.data.username || 'Player'
     });
-    socket.emit('wallet:update', walletPayload(u));
+    emitWalletToUser(uid, socket);
   });
 
   socket.on('room:join', (payload = {}) => {
@@ -1631,7 +1735,7 @@ io.on('connection', (socket) => {
 
     if (refunded) {
       saveStore();
-      socket.emit('wallet:update', walletPayload(user));
+      emitWalletToUser(key, socket);
     }
 
     if (changed) {
@@ -1687,7 +1791,7 @@ io.on('connection', (socket) => {
     const paidInfo = deductStake(user, gameState.stake);
     if (!paidInfo) {
       socket.emit('board:rejected', { board: boardId, reason: 'insufficient', need: gameState.stake });
-      socket.emit('wallet:update', walletPayload(user));
+      emitWalletToUser(userId, socket);
       return;
     }
 
@@ -1712,7 +1816,7 @@ io.on('connection', (socket) => {
       board: boardId,
       grid: boardTemplates.get(boardId)
     });
-    socket.emit('wallet:update', walletPayload(user));
+    emitWalletToUser(userId, socket);
   });
 
   const releaseBoardHandler = (payload = {}) => {
@@ -1721,7 +1825,8 @@ io.on('connection', (socket) => {
 
     const entry = gameState.takenBoards.get(boardId);
     if (entry && entry.socketId === socket.id) {
-      const user = getOrCreateUser(entry.userId || getSocketKey(socket), { firstName: entry.username });
+      const uid = entry.userId || getSocketKey(socket);
+      const user = getOrCreateUser(uid, { firstName: entry.username });
       refundStake(user, entry.paidInfo);
       gameState.takenBoards.delete(boardId);
       saveStore();
@@ -1730,7 +1835,7 @@ io.on('connection', (socket) => {
         board: boardId,
         booked: getBookedMap()
       });
-      socket.emit('wallet:update', walletPayload(user));
+      emitWalletToUser(uid, socket);
     }
   };
 
@@ -1739,17 +1844,22 @@ io.on('connection', (socket) => {
 
   socket.on('wallet:deposit_req', (payload = {}) => {
     const uInfo = payload.user || {};
-    const userId = String(uInfo.id || getSocketKey(socket));
+    const userId = String(uInfo.id || payload.userId || getSocketKey(socket));
     const userName = uInfo.name || socket.data.username || 'Player';
     const amount = Number(payload.amount);
     const txNumber = String(payload.txNumber || '').trim();
     const photoData = String(payload.photoData || '').trim();
 
-    if (!Number.isFinite(amount) || amount <= 0 || txNumber.length < 3) {
-      socket.emit('wallet:req_error', { type: 'deposit', message: 'እባክዎ ትክክለኛ መጠን እና Transaction No ያስገቡ።' });
+    const user = getOrCreateUser(userId, { firstName: userName });
+
+    if (!Number.isFinite(amount) || amount < Number(store.settings.minDeposit) || txNumber.length < 3) {
+      socket.emit('wallet:req_error', {
+        type: 'deposit',
+        message: `ቢያንስ ${store.settings.minDeposit} ብር እና ትክክለኛ Transaction No ያስገቡ።`
+      });
+      emitWalletToUser(userId, socket);
       return;
     }
-    getOrCreateUser(userId, { firstName: userName });
 
     const reqId = `DEP_${Date.now()}_${userId}`;
     let photoUrl = '';
@@ -1781,7 +1891,14 @@ io.on('connection', (socket) => {
       status: 'pending',
       createdAt: new Date().toISOString()
     };
+    addHistory(user, {
+      type: 'deposit_request',
+      amount: Number(amount.toFixed(2)),
+      txNumber,
+      reqId
+    });
     saveStore();
+    emitWalletToUser(userId, socket);
 
     socket.emit('wallet:req_submitted', {
       type: 'deposit',
@@ -1814,22 +1931,28 @@ io.on('connection', (socket) => {
 
   socket.on('wallet:withdraw_req', (payload = {}) => {
     const uInfo = payload.user || {};
-    const userId = String(uInfo.id || getSocketKey(socket));
+    const userId = String(uInfo.id || payload.userId || getSocketKey(socket));
     const userName = uInfo.name || socket.data.username || 'Player';
     const amount = Number(payload.amount);
     const accountInfo = String(payload.accountInfo || '').trim();
 
-    if (!Number.isFinite(amount) || amount <= 0 || !accountInfo) {
-      socket.emit('wallet:req_error', { type: 'withdraw', message: 'እባክዎ መጠን እና አካውንት በትክክል ያስገቡ።' });
+    const user = getOrCreateUser(userId, { firstName: userName });
+
+    if (!Number.isFinite(amount) || amount < Number(store.settings.minWithdraw) || !accountInfo) {
+      socket.emit('wallet:req_error', {
+        type: 'withdraw',
+        message: `ዝቅተኛው ማውጫ ${store.settings.minWithdraw} ብር ነው። መጠን እና አካውንት ያስገቡ።`
+      });
+      emitWalletToUser(userId, socket);
       return;
     }
-    const user = getOrCreateUser(userId, { firstName: userName });
+
     if (user.main < amount) {
       socket.emit('wallet:req_error', {
         type: 'withdraw',
         message: `በቂ Main Balance የለዎትም! ያለዎት Main Balance: ${user.main.toFixed(2)} ብር ነው።`
       });
-      socket.emit('wallet:update', walletPayload(user));
+      emitWalletToUser(userId, socket);
       return;
     }
 
@@ -1853,7 +1976,8 @@ io.on('connection', (socket) => {
       accountInfo
     });
     saveStore();
-    socket.emit('wallet:update', walletPayload(user));
+    emitWalletToUser(userId, socket);
+
     socket.emit('wallet:req_submitted', {
       type: 'withdraw',
       reqId,
