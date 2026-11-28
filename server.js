@@ -95,16 +95,38 @@ function loadStore() {
   }
 }
 
+let saveQueue = Promise.resolve();
+
+function writeStoreNow(snapshotStr) {
+  const tmpFile = `${DATA_FILE}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tmpFile, snapshotStr, 'utf8');
+  fs.renameSync(tmpFile, DATA_FILE);
+  fs.writeFileSync(BACKUP_FILE, snapshotStr, 'utf8');
+}
+
 function saveStore() {
+  let snapshotStr;
   try {
-    const serialized = JSON.stringify(store, null, 2);
-    const tmpFile = `${DATA_FILE}.tmp`;
-    fs.writeFileSync(tmpFile, serialized);
-    fs.renameSync(tmpFile, DATA_FILE);
-    fs.writeFileSync(BACKUP_FILE, serialized);
+    snapshotStr = JSON.stringify(store, null, 2);
   } catch (err) {
-    console.error('Failed to save store:', err.message);
+    console.error('Failed to serialize store:', err.message);
+    return Promise.resolve();
   }
+
+  saveQueue = saveQueue
+    .then(() => {
+      writeStoreNow(snapshotStr);
+    })
+    .catch((err) => {
+      console.error('Failed to save store:', err.message);
+      try {
+        writeStoreNow(snapshotStr);
+      } catch (retryErr) {
+        console.error('Retry save store failed:', retryErr.message);
+      }
+    });
+
+  return saveQueue;
 }
 
 loadStore();
@@ -442,7 +464,7 @@ function evaluateWinners() {
     for (const w of foundWinners) {
       const wKey = String(w.userId || w.socketId);
       const user = getOrCreateUser(wKey, { firstName: w.name });
-      user.main = Number((user.main + splitAmount).toFixed(2));
+      user.main = Number(((user.main || 0) + splitAmount).toFixed(2));
       addHistory(user, {
         type: 'win',
         amount: splitAmount,
@@ -573,7 +595,7 @@ function startLobby() {
   }, 1000);
 }
 
-function tgApi(method, body = {}, timeoutMs = 30000) {
+function tgApi(method, body = {}, timeoutMs = 12000) {
   return new Promise((resolve) => {
     if (!BOT_TOKEN) return resolve(null);
     const payload = JSON.stringify(body);
@@ -823,8 +845,8 @@ function approveRequestById(reqId) {
 
   if (reqObj.type === 'deposit') {
     const addAmt = Number(reqObj.amount || 0);
-    targetUser.main = Number(((targetUser.main || 0) + addAmt).toFixed(2));
-    targetUser.dep = Number(((targetUser.dep || 0) + addAmt).toFixed(2));
+    targetUser.main = Number(((Number(targetUser.main) || 0) + addAmt).toFixed(2));
+    targetUser.dep = Number(((Number(targetUser.dep) || 0) + addAmt).toFixed(2));
     store.users[uid] = targetUser;
     reqObj.status = 'approved';
     addHistory(targetUser, {
@@ -857,7 +879,7 @@ function approveRequestById(reqId) {
     if (!deductAlreadyHeld) {
       targetUser.main = Number((targetUser.main - wAmt).toFixed(2));
     }
-    targetUser.withd = Number(((targetUser.withd || 0) + wAmt).toFixed(2));
+    targetUser.withd = Number(((Number(targetUser.withd) || 0) + wAmt).toFixed(2));
     store.users[uid] = targetUser;
     reqObj.status = 'approved';
     addHistory(targetUser, {
@@ -893,8 +915,8 @@ function rejectRequestById(reqId) {
   const uid = String(reqObj.userId);
   const targetUser = getOrCreateUser(uid, { firstName: reqObj.userName });
   if (reqObj.type === 'withdraw' && reqObj.amountHeld) {
-    targetUser.main = Number((targetUser.main + reqObj.amount).toFixed(2));
-    targetUser.withd = Number(Math.max(0, (targetUser.withd || 0) - reqObj.amount).toFixed(2));
+    targetUser.main = Number(((Number(targetUser.main) || 0) + Number(reqObj.amount || 0)).toFixed(2));
+    targetUser.withd = Number(Math.max(0, (Number(targetUser.withd) || 0) - Number(reqObj.amount || 0)).toFixed(2));
   }
   store.users[uid] = targetUser;
   reqObj.status = 'rejected';
@@ -1044,6 +1066,11 @@ async function handleBotMessage(msg) {
         }
       }
 
+      const freshUser = getOrCreateUser(user.id, {
+        firstName: user.first_name || 'Player',
+        username: user.username || ''
+      });
+
       store.requests[reqId] = {
         id: reqId,
         type: 'deposit',
@@ -1055,7 +1082,7 @@ async function handleBotMessage(msg) {
         status: 'pending',
         createdAt: new Date().toISOString()
       };
-      addHistory(u, {
+      addHistory(freshUser, {
         type: 'deposit_request',
         amount: Number(session.tempAmount),
         txNumber: session.txNumber,
@@ -1103,6 +1130,10 @@ async function handleBotMessage(msg) {
       const parts = text.split(/\s+/);
       const amt = Number(parts[0]);
       const accountInfo = parts.slice(1).join(' ').trim();
+      const freshUser = getOrCreateUser(user.id, {
+        firstName: user.first_name || 'Player',
+        username: user.username || ''
+      });
 
       if (!Number.isFinite(amt) || amt < Number(store.settings.minWithdraw)) {
         await tgApi('sendMessage', {
@@ -1122,17 +1153,17 @@ async function handleBotMessage(msg) {
         });
         return;
       }
-      if (u.main < amt) {
+      if (freshUser.main < amt) {
         await tgApi('sendMessage', {
           chat_id: chatId,
-          text: `❌ በቂ *Main Balance* የለዎትም! ያለዎት Main Balance: *${u.main.toFixed(2)} ብር* ነው (Bonus Balance በቀጥታ ወጪ አይሆንም)።`,
+          text: `❌ በቂ *Main Balance* የለዎትም! ያለዎት Main Balance: *${freshUser.main.toFixed(2)} ብር* ነው (Bonus Balance በቀጥታ ወጪ አይሆንም)።`,
           parse_mode: 'Markdown',
           reply_markup: getMainMenuKeyboard(user.id)
         });
         return;
       }
 
-      u.main = Number((u.main - amt).toFixed(2));
+      freshUser.main = Number((freshUser.main - amt).toFixed(2));
       const reqId = `WDR_${Date.now()}_${user.id}`;
       store.requests[reqId] = {
         id: reqId,
@@ -1145,7 +1176,7 @@ async function handleBotMessage(msg) {
         status: 'pending',
         createdAt: new Date().toISOString()
       };
-      addHistory(u, {
+      addHistory(freshUser, {
         type: 'withdraw_request',
         amount: Number(amt.toFixed(2)),
         reqId,
@@ -1162,7 +1193,7 @@ async function handleBotMessage(msg) {
           `• Request ID: \`${reqId}\`\n` +
           `• መጠን: *${amt.toFixed(2)} ብር*\n` +
           `• አካውንት: \`${accountInfo}\`\n` +
-          `• ቀሪ Main Balance: *${u.main.toFixed(2)} ብር*\n` +
+          `• ቀሪ Main Balance: *${freshUser.main.toFixed(2)} ብር*\n` +
           `• ሁኔታ: *Pending (በመጠባበቅ ላይ)*`,
         parse_mode: 'Markdown',
         reply_markup: getMainMenuKeyboard(user.id)
@@ -1174,7 +1205,7 @@ async function handleBotMessage(msg) {
           `💸 *አዲስ የWithdraw ጥያቄ!*\n\n` +
           `• Request ID: \`${reqId}\`\n` +
           `• ተጫዋች: *${user.first_name || 'Player'}* (\`${user.id}\`)\n` +
-          `• ቀሪ Main Balance: *${u.main.toFixed(2)} ብር*\n` +
+          `• ቀሪ Main Balance: *${freshUser.main.toFixed(2)} ብር*\n` +
           `• የሚወጣ መጠን: *${amt.toFixed(2)} ብር*\n` +
           `• መቀበያ አካውንት: \`${accountInfo}\`\n` +
           `• Studio: ${WEBAPP_URL}/studio?pin=${ADMIN_PIN}`,
@@ -1260,7 +1291,7 @@ async function handleBotMessage(msg) {
         }
 
         const targetUser = getOrCreateUser(targetId);
-        targetUser.bonus = Number(((targetUser.bonus || 0) + bonusDelta).toFixed(2));
+        targetUser.bonus = Number(((Number(targetUser.bonus) || 0) + bonusDelta).toFixed(2));
         addHistory(targetUser, {
           type: 'admin_bonus',
           amount: bonusDelta,
@@ -1302,11 +1333,11 @@ async function handleBotMessage(msg) {
         }
 
         const targetUser = getOrCreateUser(targetId);
-        const nextMain = Number((targetUser.main + delta).toFixed(2));
+        const nextMain = Number(((Number(targetUser.main) || 0) + delta).toFixed(2));
         if (nextMain < 0) {
           await tgApi('sendMessage', {
             chat_id: chatId,
-            text: `❌ ከዜሮ በታች ሊሆን አይችልም! የተጫዋቹ Main Balance: *${targetUser.main.toFixed(2)} ብር* ነው።`,
+            text: `❌ ከዜሮ በታች ሊሆን አይችልም! የተጫዋቹ Main Balance: *${Number(targetUser.main || 0).toFixed(2)} ብር* ነው።`,
             parse_mode: 'Markdown',
             reply_markup: getMainMenuKeyboard(user.id)
           });
@@ -1356,15 +1387,17 @@ async function handleBotMessage(msg) {
 
   if (text === '💳 Balance') {
     const freshU = store.users[String(user.id)] || u;
-    const totalBal = Number(((freshU.main || 0) + (freshU.bonus || 0)).toFixed(2));
+    const mainVal = Number(freshU.main || 0);
+    const bonusVal = Number(freshU.bonus || 0);
+    const totalBal = Number((mainVal + bonusVal).toFixed(2));
     await tgApi('sendMessage', {
       chat_id: chatId,
       text:
         `💳 *የZina Bingo ቀሪ ሂሳብዎ*\n\n` +
         `👤 ስም: *${freshU.firstName || user.first_name || 'Player'}*\n` +
         `🆔 ID: \`${user.id}\`\n` +
-        `💰 Main Balance: *${Number(freshU.main || 0).toFixed(2)} ብር*\n` +
-        `🎁 Bonus: *${Number(freshU.bonus || 0).toFixed(2)} ብር*\n` +
+        `💰 Main Balance: *${mainVal.toFixed(2)} ብር*\n` +
+        `🎁 Bonus: *${bonusVal.toFixed(2)} ብር*\n` +
         `📊 አጠቃላይ (Main + Bonus): *${totalBal.toFixed(2)} ብር*`,
       parse_mode: 'Markdown',
       reply_markup: getMainMenuKeyboard(user.id)
@@ -1373,9 +1406,10 @@ async function handleBotMessage(msg) {
   }
 
   if (text === '📜 History') {
+    const freshU = store.users[String(user.id)] || u;
     await tgApi('sendMessage', {
       chat_id: chatId,
-      text: formatHistoryText(u),
+      text: formatHistoryText(freshU),
       parse_mode: 'Markdown',
       reply_markup: getMainMenuKeyboard(user.id)
     });
@@ -1399,13 +1433,14 @@ async function handleBotMessage(msg) {
   }
 
   if (text === '💸 Withdraw') {
+    const freshU = store.users[String(user.id)] || u;
     adminSessions.set(user.id, { mode: 'await_withdraw_request' });
     await tgApi('sendMessage', {
       chat_id: chatId,
       text:
         `💸 *ገንዘብ ማውጫ (Withdraw) — Zina Bingo*\n\n` +
-        `• *Main Balance:* *${u.main.toFixed(2)} ብር*\n` +
-        `• *Bonus Balance:* *${u.bonus.toFixed(2)} ብር* (በቀጥታ ወጪ አይሆንም)\n` +
+        `• *Main Balance:* *${Number(freshU.main || 0).toFixed(2)} ብር*\n` +
+        `• *Bonus Balance:* *${Number(freshU.bonus || 0).toFixed(2)} ብር* (በቀጥታ ወጪ አይሆንም)\n` +
         `• *ዝቅተኛ ማውጫ:* *${store.settings.minWithdraw} ብር*\n\n` +
         `የሚያወጡትን መጠን እና የመቀበያ ስልክ/አካውንት በአንድ መስመር ይጻፉ\n` +
         `ምሳሌ፦ \`100 0911223344\``,
@@ -1600,7 +1635,7 @@ async function handleBotCallback(cb) {
     await tgApi('sendMessage', {
       chat_id: chatId,
       text: isApprove
-        ? `✅ ጥያቄ \`${reqId}\` Approved ተደርጓል። የተጫዋቹ Main Balance: *${resObj.user.main.toFixed(2)} ብር*።`
+        ? `✅ ጥያቄ \`${reqId}\` Approved ተደርጓል። የተጫዋቹ Main Balance: *${Number(resObj.user.main || 0).toFixed(2)} ብር*።`
         : `❌ ጥያቄ \`${reqId}\` Rejected ተደርጓል።`,
       parse_mode: 'Markdown',
       reply_markup: getMainMenuKeyboard(user.id)
@@ -1791,8 +1826,8 @@ app.post('/api/studio/balance', requireStudioPin, (req, res) => {
     return res.status(400).json({ ok: false, error: 'User ID እና Amount ያስገቡ።' });
   }
   const targetUser = getOrCreateUser(targetId);
-  const nextMain = Number(((targetUser.main || 0) + (Number.isFinite(delta) ? delta : 0)).toFixed(2));
-  const nextBonus = Number(((targetUser.bonus || 0) + (Number.isFinite(bonusDelta) ? bonusDelta : 0)).toFixed(2));
+  const nextMain = Number(((Number(targetUser.main) || 0) + (Number.isFinite(delta) ? delta : 0)).toFixed(2));
+  const nextBonus = Number(((Number(targetUser.bonus) || 0) + (Number.isFinite(bonusDelta) ? bonusDelta : 0)).toFixed(2));
   if (nextMain < 0 || nextBonus < 0) {
     return res.status(400).json({ ok: false, error: 'ሂሳብ ከዜሮ በታች ሊሆን አይችልም።' });
   }
