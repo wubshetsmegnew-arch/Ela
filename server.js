@@ -1483,6 +1483,19 @@ async function startBotPolling() {
   }
 
   await tgApi('deleteWebhook', { drop_pending_updates: false });
+  await tgApi('setMyCommands', {
+    commands: [
+      { command: 'start', description: 'ዋና ማውጫ / Main Menu' },
+      { command: 'admin', description: 'Admin Panel' }
+    ]
+  });
+  await tgApi('setChatMenuButton', {
+    menu_button: {
+      type: 'web_app',
+      text: '🎮 Play Game',
+      web_app: { url: WEBAPP_URL }
+    }
+  });
   console.log('Telegram bot polling started (IPv4).');
 
   let offset = 0;
@@ -1492,13 +1505,29 @@ async function startBotPolling() {
       if (data?.ok && Array.isArray(data.result)) {
         for (const update of data.result) {
           offset = update.update_id + 1;
-          const incomingUser = update.message?.from || update.callback_query?.from || update.my_chat_member?.from;
-          const incomingChatId = update.message?.chat?.id || update.callback_query?.message?.chat?.id || update.my_chat_member?.chat?.id;
+          const incomingUser =
+            update.message?.from ||
+            update.callback_query?.from ||
+            update.my_chat_member?.from ||
+            update.chat_member?.from;
+          const incomingChatId =
+            update.message?.chat?.id ||
+            update.callback_query?.message?.chat?.id ||
+            update.my_chat_member?.chat?.id ||
+            update.chat_member?.chat?.id;
+
           if (incomingUser && incomingChatId) {
             getOrCreateUser(incomingUser.id, {
               firstName: incomingUser.first_name || 'Player',
               username: incomingUser.username || ''
             });
+          }
+
+          if (update.my_chat_member && incomingChatId && incomingUser) {
+            const newSt = update.my_chat_member.new_chat_member?.status;
+            if (['member', 'administrator'].includes(newSt)) {
+              await sendMainMenu(incomingChatId, incomingUser.id, incomingUser.first_name || 'Player');
+            }
           }
 
           if (update.message) {
