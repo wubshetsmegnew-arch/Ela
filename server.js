@@ -11,7 +11,7 @@ const crypto = require('crypto');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) {
@@ -698,15 +698,18 @@ function approveRequestById(reqId) {
     return { ok: false, error: `ይህ ጥያቄ ቀድሞውኑ ${reqObj.status.toUpperCase()} ተደርጓል።` };
   }
 
-  const targetUser = getOrCreateUser(reqObj.userId, { firstName: reqObj.userName });
+  const uid = String(reqObj.userId);
+  const targetUser = getOrCreateUser(uid, { firstName: reqObj.userName });
 
   if (reqObj.type === 'deposit') {
-    targetUser.main = Number((targetUser.main + reqObj.amount).toFixed(2));
-    targetUser.dep = Number((targetUser.dep + reqObj.amount).toFixed(2));
+    const addAmt = Number(reqObj.amount || 0);
+    targetUser.main = Number(((targetUser.main || 0) + addAmt).toFixed(2));
+    targetUser.dep = Number(((targetUser.dep || 0) + addAmt).toFixed(2));
+    store.users[uid] = targetUser;
     reqObj.status = 'approved';
     addHistory(targetUser, {
       type: 'deposit_approved',
-      amount: reqObj.amount,
+      amount: addAmt,
       txNumber: reqObj.txNumber || '',
       reqId
     });
@@ -714,9 +717,9 @@ function approveRequestById(reqId) {
     io.emit('wallet:update', walletPayload(targetUser));
 
     tgApi('sendMessage', {
-      chat_id: reqObj.userId,
+      chat_id: uid,
       text:
-        `✅ *ገንዘብዎ ገብቷል!* *${reqObj.amount.toFixed(2)} ብር* በMain Balance ላይ ተጨምሯል።\n` +
+        `✅ *ገንዘብዎ ገብቷል!* *${addAmt.toFixed(2)} ብር* በMain Balance ላይ ተጨምሯል።\n` +
         (reqObj.txNumber ? `🧾 Tx No: \`${reqObj.txNumber}\`\n` : '') +
         `💳 አዲስ Main Balance: *${targetUser.main.toFixed(2)} ብር*`,
       parse_mode: 'Markdown'
@@ -726,18 +729,20 @@ function approveRequestById(reqId) {
   }
 
   if (reqObj.type === 'withdraw') {
+    const wAmt = Number(reqObj.amount || 0);
     const deductAlreadyHeld = Boolean(reqObj.amountHeld);
-    if (!deductAlreadyHeld && targetUser.main < reqObj.amount) {
+    if (!deductAlreadyHeld && targetUser.main < wAmt) {
       return { ok: false, error: 'በቂ Main Balance የለውም!' };
     }
     if (!deductAlreadyHeld) {
-      targetUser.main = Number((targetUser.main - reqObj.amount).toFixed(2));
+      targetUser.main = Number((targetUser.main - wAmt).toFixed(2));
     }
-    targetUser.withd = Number(((targetUser.withd || 0) + reqObj.amount).toFixed(2));
+    targetUser.withd = Number(((targetUser.withd || 0) + wAmt).toFixed(2));
+    store.users[uid] = targetUser;
     reqObj.status = 'approved';
     addHistory(targetUser, {
       type: 'withdraw_approved',
-      amount: reqObj.amount,
+      amount: wAmt,
       reqId,
       accountInfo: reqObj.accountInfo
     });
@@ -745,9 +750,9 @@ function approveRequestById(reqId) {
     io.emit('wallet:update', walletPayload(targetUser));
 
     tgApi('sendMessage', {
-      chat_id: reqObj.userId,
+      chat_id: uid,
       text:
-        `✅ የ *${reqObj.amount.toFixed(2)} ብር* Withdraw ጥያቄዎ ተፈጽሟል።\n` +
+        `✅ የ *${wAmt.toFixed(2)} ብር* Withdraw ጥያቄዎ ተፈጽሟል።\n` +
         `💳 ቀሪ Main Balance: *${targetUser.main.toFixed(2)} ብር*`,
       parse_mode: 'Markdown'
     });
@@ -765,10 +770,12 @@ function rejectRequestById(reqId) {
     return { ok: false, error: `ይህ ጥያቄ ቀድሞውኑ ${reqObj.status.toUpperCase()} ተደርጓል።` };
   }
 
-  const targetUser = getOrCreateUser(reqObj.userId, { firstName: reqObj.userName });
+  const uid = String(reqObj.userId);
+  const targetUser = getOrCreateUser(uid, { firstName: reqObj.userName });
   if (reqObj.type === 'withdraw' && reqObj.amountHeld) {
     targetUser.main = Number((targetUser.main + reqObj.amount).toFixed(2));
   }
+  store.users[uid] = targetUser;
   reqObj.status = 'rejected';
   addHistory(targetUser, {
     type: `${reqObj.type}_rejected`,
@@ -779,7 +786,7 @@ function rejectRequestById(reqId) {
   io.emit('wallet:update', walletPayload(targetUser));
 
   tgApi('sendMessage', {
-    chat_id: reqObj.userId,
+    chat_id: uid,
     text: `❌ የእርስዎ የ *${reqObj.type.toUpperCase()}* (\`${reqId}\`፣ *${reqObj.amount} ብር*) ጥያቄ ተቀባይነት አላገኘም። ዝርዝር ካስፈለገዎት ${SUPPORT_USERNAME} ያነጋግሩ።`,
     parse_mode: 'Markdown'
   });
@@ -1554,6 +1561,14 @@ app.post('/api/studio/requests/:id/reject', requireStudioPin, (req, res) => {
 app.use(express.static(__dirname));
 
 io.on('connection', (socket) => {
+  socket.on('wallet:get', (payload = {}) => {
+    const uid = String((payload.user && payload.user.id) || payload.userId || getSocketKey(socket));
+    const u = getOrCreateUser(uid, {
+      firstName: (payload.user && payload.user.name) || socket.data.username || 'Player'
+    });
+    socket.emit('wallet:update', walletPayload(u));
+  });
+
   socket.on('room:join', (payload = {}) => {
     if (payload.stake && gameState.phase === 'LOBBY' && gameState.takenBoards.size === 0) {
       gameState.stake = Number(payload.stake) || gameState.stake;
@@ -1698,11 +1713,30 @@ io.on('connection', (socket) => {
     const userName = uInfo.name || socket.data.username || 'Player';
     const amount = Number(payload.amount);
     const txNumber = String(payload.txNumber || '').trim();
+    const photoData = String(payload.photoData || '').trim();
 
     if (!Number.isFinite(amount) || amount <= 0 || txNumber.length < 3) return;
     getOrCreateUser(userId, { firstName: userName });
 
     const reqId = `DEP_${Date.now()}_${userId}`;
+    let photoUrl = '';
+
+    const match = photoData.match(/^data:image\/(png|jpe?g|webp|gif);base64,(.+)$/i);
+    if (match) {
+      const ext = match[1].toLowerCase() === 'jpeg' ? 'jpg' : match[1].toLowerCase();
+      const buf = Buffer.from(match[2], 'base64');
+      if (buf.length > 0 && buf.length <= 5 * 1024 * 1024) {
+        const fileName = `${reqId}.${ext}`;
+        const fullPath = path.join(UPLOADS_DIR, fileName);
+        try {
+          fs.writeFileSync(fullPath, buf);
+          photoUrl = `/uploads/${fileName}`;
+        } catch (err) {
+          console.error('MiniApp screenshot save error:', err.message);
+        }
+      }
+    }
+
     store.requests[reqId] = {
       id: reqId,
       type: 'deposit',
@@ -1710,7 +1744,7 @@ io.on('connection', (socket) => {
       userName,
       amount: Number(amount.toFixed(2)),
       txNumber,
-      photoUrl: '',
+      photoUrl,
       status: 'pending',
       createdAt: new Date().toISOString()
     };
@@ -1724,6 +1758,7 @@ io.on('connection', (socket) => {
         `• ተጫዋች: *${userName}* (\`${userId}\`)\n` +
         `• መጠን: *${amount.toFixed(2)} ብር*\n` +
         `• Transaction No: \`${txNumber}\`\n` +
+        `• Screenshot: ${photoUrl ? 'ተልኳል ✅' : 'የለም'}\n` +
         `• Studio: ${WEBAPP_URL}/studio?pin=${ADMIN_PIN}`,
       parse_mode: 'Markdown'
     });
