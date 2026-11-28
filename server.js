@@ -871,6 +871,17 @@ function rejectRequestById(reqId) {
   return { ok: true, request: reqObj, user: targetUser };
 }
 
+const MENU_BUTTONS = new Set([
+  '💰 Deposit',
+  '💸 Withdraw',
+  '💳 Balance',
+  '📜 History',
+  '📞 Support',
+  '📊 Instructions',
+  '🎁 Invite Friends',
+  '🛡️ Admin Panel'
+]);
+
 async function handleBotMessage(msg) {
   const chatId = msg.chat?.id;
   const user = msg.from;
@@ -889,8 +900,18 @@ async function handleBotMessage(msg) {
     return;
   }
 
+  if (text === '/start' || text.startsWith('/start ')) {
+    adminSessions.delete(user.id);
+    await sendMainMenu(chatId, user.id, user.first_name || 'Player');
+    return;
+  }
+
+  if (MENU_BUTTONS.has(text)) {
+    adminSessions.delete(user.id);
+  }
+
   const session = adminSessions.get(user.id);
-  if (session && !text.startsWith('/')) {
+  if (session && !text.startsWith('/') && !MENU_BUTTONS.has(text)) {
     if (session.mode === 'await_deposit_amount') {
       const amt = Number(text);
       if (!Number.isFinite(amt) || amt < Number(store.settings.minDeposit)) {
@@ -1273,11 +1294,6 @@ async function handleBotMessage(msg) {
         return;
       }
     }
-  }
-
-  if (text === '/start' || text.startsWith('/start ')) {
-    await sendMainMenu(chatId, user.id, user.first_name || 'Player');
-    return;
   }
 
   if (text === '/admin' || text === '🛡️ Admin Panel') {
