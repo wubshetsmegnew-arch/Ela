@@ -640,7 +640,8 @@ async function sendAdminPanel(chatId) {
 async function sendJoinPrompt(chatId, textPrefix = '') {
   const text =
     `${textPrefix ? textPrefix + '\n\n' : ''}` +
-    `📢 *Zina Bingo* ጨዋታን ለመጠቀም እባክዎ መጀመሪያ ይፋዊ ቻናላችንን (*${CHANNEL_USERNAME}*) ይቀላቀሉ።\n` +
+    `📢 *Zina Bingo*\n\n` +
+    `አዳዲስ መልዕክቶች፣ ማስታወቂያዎች እና ዜናዎች ለማግኘት ቴሌግራም ቻናላችንን (*${CHANNEL_USERNAME}*) ይቀላቀሉ።\n` +
     `ከተቀላቀሉ በኋላ *"✅ ተቀላቅያለሁ"* የሚለውን ቁልፍ ይንኩ።`;
 
   await tgApi('sendMessage', {
@@ -649,26 +650,44 @@ async function sendJoinPrompt(chatId, textPrefix = '') {
     parse_mode: 'Markdown',
     reply_markup: {
       inline_keyboard: [
-        [{ text: '📢 ቻናል ይክፈቱ (Join Channel)', url: CHANNEL_URL }],
-        [{ text: '✅ ተቀላቅያለሁ (Verify)', callback_data: 'verify_channel' }]
+        [{ text: '📢 ቻናል ይክፈቱ', url: CHANNEL_URL }],
+        [{ text: '✅ ተቀላቅያለሁ', callback_data: 'verify_channel' }]
       ]
     }
   });
 }
 
 async function sendMainMenu(chatId, userId, firstName = 'Player') {
-  const u = getOrCreateUser(userId, { firstName });
-  const bonusLine = u.welcomeBonusGiven
-    ? `🎁 የጀማሪ ቦነስ *${store.settings.welcomeBonus} ብር* በBonus Balance ተሰጥቷል።\n`
-    : '';
-  const text =
-    `🎉 *እንኳን ወደ Zina Bingo በደህና መጡ፣ ${firstName}!*\n\n` +
-    bonusLine +
-    `ከታች ካሉት ቁልፎች አንዱን በመምረጥ ይጀምሩ፦`;
+  getOrCreateUser(userId, { firstName });
 
   await tgApi('sendMessage', {
     chat_id: chatId,
-    text,
+    text: `Wellcome 👋 *${firstName}*`,
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🎮 Play Game', web_app: { url: WEBAPP_URL } }]
+      ]
+    }
+  });
+
+  await tgApi('sendMessage', {
+    chat_id: chatId,
+    text:
+      `📢 *Zina Bingo*\n\n` +
+      `አዳዲስ መልዕክቶች፣ ማስታወቂያዎች እና ዜናዎች ለማግኘት ቴሌግራም ቻናላችንን ይቀላቀሉ።\n` +
+      `👉 ቻናሉን አሁን ይክፈቱ (${CHANNEL_USERNAME})`,
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '📢 ቻናል ይክፈቱ', url: CHANNEL_URL }]
+      ]
+    }
+  });
+
+  await tgApi('sendMessage', {
+    chat_id: chatId,
+    text: `ከታች ካሉት ቁልፎች አንዱን ይምረጡ፦`,
     parse_mode: 'Markdown',
     reply_markup: getMainMenuKeyboard(userId)
   });
@@ -774,6 +793,7 @@ function rejectRequestById(reqId) {
   const targetUser = getOrCreateUser(uid, { firstName: reqObj.userName });
   if (reqObj.type === 'withdraw' && reqObj.amountHeld) {
     targetUser.main = Number((targetUser.main + reqObj.amount).toFixed(2));
+    targetUser.withd = Number(Math.max(0, (targetUser.withd || 0) - reqObj.amount).toFixed(2));
   }
   store.users[uid] = targetUser;
   reqObj.status = 'rejected';
@@ -974,6 +994,7 @@ async function handleBotMessage(msg) {
         return;
       }
 
+      u.main = Number((u.main - amt).toFixed(2));
       const reqId = `WDR_${Date.now()}_${user.id}`;
       store.requests[reqId] = {
         id: reqId,
@@ -982,10 +1003,18 @@ async function handleBotMessage(msg) {
         userName: user.first_name || 'Player',
         amount: Number(amt.toFixed(2)),
         accountInfo,
+        amountHeld: true,
         status: 'pending',
         createdAt: new Date().toISOString()
       };
+      addHistory(u, {
+        type: 'withdraw_request',
+        amount: Number(amt.toFixed(2)),
+        reqId,
+        accountInfo
+      });
       saveStore();
+      io.emit('wallet:update', walletPayload(u));
       adminSessions.delete(user.id);
 
       await tgApi('sendMessage', {
@@ -995,6 +1024,7 @@ async function handleBotMessage(msg) {
           `• Request ID: \`${reqId}\`\n` +
           `• መጠን: *${amt.toFixed(2)} ብር*\n` +
           `• አካውንት: \`${accountInfo}\`\n` +
+          `• ቀሪ Main Balance: *${u.main.toFixed(2)} ብር*\n` +
           `• ሁኔታ: *Pending (በመጠባበቅ ላይ)*`,
         parse_mode: 'Markdown',
         reply_markup: getMainMenuKeyboard(user.id)
@@ -1006,7 +1036,7 @@ async function handleBotMessage(msg) {
           `💸 *አዲስ የWithdraw ጥያቄ!*\n\n` +
           `• Request ID: \`${reqId}\`\n` +
           `• ተጫዋች: *${user.first_name || 'Player'}* (\`${user.id}\`)\n` +
-          `• Main Balance: *${u.main.toFixed(2)} ብር*\n` +
+          `• ቀሪ Main Balance: *${u.main.toFixed(2)} ብር*\n` +
           `• የሚወጣ መጠን: *${amt.toFixed(2)} ብር*\n` +
           `• መቀበያ አካውንት: \`${accountInfo}\`\n` +
           `• Studio: ${WEBAPP_URL}/studio?pin=${ADMIN_PIN}`,
@@ -1715,7 +1745,10 @@ io.on('connection', (socket) => {
     const txNumber = String(payload.txNumber || '').trim();
     const photoData = String(payload.photoData || '').trim();
 
-    if (!Number.isFinite(amount) || amount <= 0 || txNumber.length < 3) return;
+    if (!Number.isFinite(amount) || amount <= 0 || txNumber.length < 3) {
+      socket.emit('wallet:req_error', { type: 'deposit', message: 'እባክዎ ትክክለኛ መጠን እና Transaction No ያስገቡ።' });
+      return;
+    }
     getOrCreateUser(userId, { firstName: userName });
 
     const reqId = `DEP_${Date.now()}_${userId}`;
@@ -1750,6 +1783,13 @@ io.on('connection', (socket) => {
     };
     saveStore();
 
+    socket.emit('wallet:req_submitted', {
+      type: 'deposit',
+      reqId,
+      amount: Number(amount.toFixed(2)),
+      txNumber
+    });
+
     tgApi('sendMessage', {
       chat_id: ADMIN_ID,
       text:
@@ -1760,7 +1800,15 @@ io.on('connection', (socket) => {
         `• Transaction No: \`${txNumber}\`\n` +
         `• Screenshot: ${photoUrl ? 'ተልኳል ✅' : 'የለም'}\n` +
         `• Studio: ${WEBAPP_URL}/studio?pin=${ADMIN_PIN}`,
-      parse_mode: 'Markdown'
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '✅ Approve Deposit', callback_data: `req_app_${reqId}` },
+            { text: '❌ Reject', callback_data: `req_rej_${reqId}` }
+          ]
+        ]
+      }
     });
   });
 
@@ -1771,9 +1819,16 @@ io.on('connection', (socket) => {
     const amount = Number(payload.amount);
     const accountInfo = String(payload.accountInfo || '').trim();
 
-    if (!Number.isFinite(amount) || amount <= 0 || !accountInfo) return;
+    if (!Number.isFinite(amount) || amount <= 0 || !accountInfo) {
+      socket.emit('wallet:req_error', { type: 'withdraw', message: 'እባክዎ መጠን እና አካውንት በትክክል ያስገቡ።' });
+      return;
+    }
     const user = getOrCreateUser(userId, { firstName: userName });
     if (user.main < amount) {
+      socket.emit('wallet:req_error', {
+        type: 'withdraw',
+        message: `በቂ Main Balance የለዎትም! ያለዎት Main Balance: ${user.main.toFixed(2)} ብር ነው።`
+      });
       socket.emit('wallet:update', walletPayload(user));
       return;
     }
@@ -1799,6 +1854,12 @@ io.on('connection', (socket) => {
     });
     saveStore();
     socket.emit('wallet:update', walletPayload(user));
+    socket.emit('wallet:req_submitted', {
+      type: 'withdraw',
+      reqId,
+      amount: Number(amount.toFixed(2)),
+      accountInfo
+    });
 
     tgApi('sendMessage', {
       chat_id: ADMIN_ID,
@@ -1806,10 +1867,19 @@ io.on('connection', (socket) => {
         `💸 *ከMini App የWithdraw ጥያቄ!*\n\n` +
         `• Request ID: \`${reqId}\`\n` +
         `• ተጫዋች: *${userName}* (\`${userId}\`)\n` +
+        `• ቀሪ Main Balance: *${user.main.toFixed(2)} ብር*\n` +
         `• የሚወጣ መጠን: *${amount.toFixed(2)} ብር*\n` +
         `• መቀበያ አካውንት: \`${accountInfo}\`\n` +
         `• Studio: ${WEBAPP_URL}/studio?pin=${ADMIN_PIN}`,
-      parse_mode: 'Markdown'
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '✅ Approve Withdraw', callback_data: `req_app_${reqId}` },
+            { text: '❌ Reject', callback_data: `req_rej_${reqId}` }
+          ]
+        ]
+      }
     });
   });
 
