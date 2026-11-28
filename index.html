@@ -327,7 +327,7 @@ document.addEventListener('click',e=>{
  else if(a==='auto'){S.auto=!S.auto;if(LIVE)emit(EV.auto,{room:roomKey(),auto:S.auto});if(S.auto&&S.phase==='play')S.mine.forEach(id=>S.called.forEach(n=>S.marks[id].add(n)));if(S.auto&&S.phase==='play'){if(LIVE)S.mine.forEach(liveBingo);else evalWin()}}
  else if(a==='sound')S.sound=!S.sound;
  else if(a==='cell'&&!S.auto&&S.phase==='play'&&S.called.includes(+el.dataset.n)&&S.marks[i]){S.marks[i].add(+el.dataset.n);if(LIVE){emit(EV.mark,{room:roomKey(),board:i,n:+el.dataset.n});liveBingo(i)}else evalWin()}
- else if(a==='tab')S.tab=el.dataset.t;
+ else if(a==='tab'){S.tab=el.dataset.t;if(LIVE)fetchLiveWallet()}
  else if(a==='wtab')S.wtab=el.dataset.t;
  else if(a==='eye')S.hide=!S.hide;
  else if(a==='help')S.help=true;
@@ -344,7 +344,7 @@ const EV={
   state:'room:state', taken:'board:taken', freed:'board:released', rejected:'board:rejected',
   start:'game:start', call:'game:call', win:'game:win', wallet:'wallet:update'
 };
-let LIVE=false,socket=null;
+let LIVE=false,socket=null,LAST_WALLET_TS=0;
 const TG=window.Telegram&&window.Telegram.WebApp;
 try{if(TG){TG.ready();TG.expand();TG.setHeaderColor&&TG.setHeaderColor('#090D16');TG.setBackgroundColor&&TG.setBackgroundColor('#090D16')}}catch(e){}
 function guestId(){try{let g=localStorage.getItem('bingo_guest');if(!g){g='guest-'+Math.random().toString(36).slice(2,8);localStorage.setItem('bingo_guest',g)}return g}catch(e){return 'guest-'+Math.random().toString(36).slice(2,8)}}
@@ -353,8 +353,8 @@ const ME={id:tu?String(tu.id):guestId(),name:tu?[tu.first_name,tu.last_name].fil
 const roomKey=()=>S.room?S.room.s+'-'+S.room.n:null;
 const emit=(ev,d)=>{try{if(socket&&socket.connected)socket.emit(ev,d)}catch(e){}};
 const isMine=x=>S.mine.includes(+x.board)||(x.userId!=null&&String(x.userId)===ME.id);
-function liveJoin(r){emit(EV.join,{room:r.s+'-'+r.n,stake:r.s,user:ME})}
-function liveLeave(){if(S.phase==='lobby'||S.left){emit(EV.leave,{room:roomKey()});S.mine=[];S.paid={};S.room=null;S.lowNeed=0}else S.left=true}
+function liveJoin(r){emit(EV.join,{room:r.s+'-'+r.n,stake:r.s,user:ME});fetchLiveWallet()}
+function liveLeave(){if(S.phase==='lobby'||S.left){emit(EV.leave,{room:roomKey()});S.mine=[];S.paid={};S.room=null;S.lowNeed=0;fetchLiveWallet()}else S.left=true}
 function livePick(i){
   const rk=roomKey();
   if(S.mine.includes(i)){
@@ -393,8 +393,12 @@ function mapServerHistory(h){
   if(h.type==='admin_bonus')return{l:'Admin Bonus',a:amt,ts};
   return{l:h.note||h.type||'Activity',a:amt,ts};
 }
-function applyWallet(w){
+function applyWallet(w,opts){
   if(!w)return;
+  const fromRoomState=!!(opts&&opts.fromRoomState);
+  const hasExplicitBal=(w.main!=null||w.bonus!=null);
+  if(!hasExplicitBal&&!w.settings&&!Array.isArray(w.history))return;
+  if(fromRoomState&&!hasExplicitBal)return;
   if(w.main!=null)S.wallet=Number(w.main)||0;
   if(w.bonus!=null)S.bonus=Number(w.bonus)||0;
   if(w.dep!=null)S.dep=Number(w.dep)||0;
@@ -404,10 +408,11 @@ function applyWallet(w){
     const mapped=w.history.map(mapServerHistory).filter(Boolean);
     if(mapped.length)S.tx=mapped;
   }
+  LAST_WALLET_TS=Date.now();
 }
 function fetchLiveWallet(){
   if(!ME.id||!SERVER_URL)return;
-  fetch(SERVER_URL.replace(/\/$/,'')+'/api/wallet/'+encodeURIComponent(String(ME.id)))
+  fetch(SERVER_URL.replace(/\/$/,'')+'/api/wallet/'+encodeURIComponent(String(ME.id))+'?t='+Date.now(),{cache:'no-store'})
     .then(r=>r.ok?r.json():null)
     .then(data=>{
       if(data&&data.ok&&data.wallet){
@@ -423,17 +428,23 @@ function endHold(){S.holdUntil=0;const q=S.queued;S.queued=null;if(q){applyState
 function applyState(d){
   const prev=S.phase;d=Object.assign({},d);
   if(S.holdUntil&&Date.now()<S.holdUntil){
-    if(d.wallet)applyWallet(d.wallet);if(d.cards)setCards(d.cards);
+    if(d.wallet&&(!d.wallet.userId||String(d.wallet.userId)===String(ME.id)))applyWallet(d.wallet,{fromRoomState:true});
+    if(d.cards)setCards(d.cards);
     if(d.phase!=='win')S.queued=Object.assign(S.queued||{},d);
     return;
   }
   if(d.phase==='win')delete d.phase;
-  if(prev==='play'&&d.phase&&d.phase!=='play'&&S.called.length<75){if(d.wallet)applyWallet(d.wallet);if(d.cards)setCards(d.cards);return}
+  if(prev==='play'&&d.phase&&d.phase!=='play'&&S.called.length<75){
+    if(d.wallet&&(!d.wallet.userId||String(d.wallet.userId)===String(ME.id)))applyWallet(d.wallet,{fromRoomState:true});
+    if(d.cards)setCards(d.cards);return;
+  }
   if(prev==='play')delete d.t;
   if(d.phase)S.phase=d.phase;if(d.t!=null)S.t=d.t;if(d.stake)S.stake=d.stake;
   if(d.booked)S.booked=d.booked;if(d.mine)S.mine=d.mine.map(Number);if(d.paid)S.paid=d.paid;
   if(d.called&&!(prev==='play'&&d.called.length<S.called.length))S.called=d.called;if(d.gid!=null)S.gid=d.gid;if(d.gcode!==undefined||d.gid!=null)S.gcode=d.gcode||'';
-  if(d.pool!=null)S.pool=d.pool;if(d.players!=null)S.players=d.players;if(d.wallet)applyWallet(d.wallet);if(d.cards)setCards(d.cards);
+  if(d.pool!=null)S.pool=d.pool;if(d.players!=null)S.players=d.players;
+  if(d.wallet&&(!d.wallet.userId||String(d.wallet.userId)===String(ME.id)))applyWallet(d.wallet,{fromRoomState:true});
+  if(d.cards)setCards(d.cards);
   S.mine.forEach(id=>{if(S.paid[id]==null)S.paid[id]=1});
   if(S.phase==='lobby'){S.marks={};S.win=null;S.left=false;S.called=[];S.claimed={};if(prev!=='lobby'){S.played=null;S.holdUntil=0;if(d.mine===undefined){S.mine=[];S.paid={}}}}else if(S.phase==='play')initMarks()
 }
@@ -456,11 +467,12 @@ function showWin(d,local){
   else{S.phase='win';S.t=8;S.holdUntil=Date.now()+8000;S.queued=null;S.called=called;S.win=win;
     const my=S.played!=null?S.played:S.mine;if(my.length&&!ent)S.hist.unshift({gid:S.gcode,ts:Date.now(),stake:S.stake,prize,win:mh.length>0,my:[...my],wb:w.map(x=>x.board),wc:w.length})}
   if(mh.length&&!win.counted){S.won++;win.counted=1;addTx('Game win ('+(S.gcode||'')+')',prize*mh.length)}
-  if(d.wallet)applyWallet(d.wallet);
+  if(d.wallet&&(!d.wallet.userId||String(d.wallet.userId)===String(ME.id)))applyWallet(d.wallet);
   render(1)
 }
 function liveInit(){
   fetchLiveWallet();
+  setInterval(()=>{if(LIVE)fetchLiveWallet()},6000);
   if(!window.io||SERVER_URL.includes('PASTE'))return;
   socket=io(SERVER_URL,{transports:['websocket','polling'],auth:{userId:ME.id,name:ME.name,initData:ME.initData}});
   socket.on('connect',()=>{LIVE=true;emit('wallet:get',{user:ME});fetchLiveWallet();const keep=S.wasConnected&&(S.phase==='play'||(S.holdUntil&&Date.now()<S.holdUntil));
@@ -472,7 +484,7 @@ function liveInit(){
   socket.on(EV.state,d=>{applyState(d);render()});
   socket.on(EV.taken,d=>{S.booked[d.board]=d.name||'Player';render()});
   socket.on(EV.freed,d=>{if(!S.mine.includes(+d.board))delete S.booked[d.board];render()});
-  socket.on(EV.rejected,d=>{const b=+d.board;S.mine=S.mine.filter(x=>x!==b);delete S.paid[b];delete S.booked[b];if(d.reason==='insufficient')S.lowNeed=S.stake;render(1)});
+  socket.on(EV.rejected,d=>{const b=+d.board;S.mine=S.mine.filter(x=>x!==b);delete S.paid[b];delete S.booked[b];if(d.reason==='insufficient')S.lowNeed=S.stake;fetchLiveWallet();render(1)});
   const onWalletMsg=w=>{if(!w||!w.userId||String(w.userId)===String(ME.id)){applyWallet(w);render(1)}};
   socket.on(EV.wallet,onWalletMsg);
   socket.on('wallet:data',onWalletMsg);
