@@ -105,6 +105,7 @@ function getOrCreateUser(userId, info = {}) {
       bonus,
       dep: 0,
       withd: 0,
+      status: 'active',
       welcomeBonusGiven: bonus > 0,
       history: []
     };
@@ -119,6 +120,7 @@ function getOrCreateUser(userId, info = {}) {
   } else {
     if (info.firstName) store.users[key].firstName = info.firstName;
     if (info.username) store.users[key].username = info.username;
+    if (!store.users[key].status) store.users[key].status = 'active';
     if (!Array.isArray(store.users[key].history)) store.users[key].history = [];
   }
   return store.users[key];
@@ -583,7 +585,7 @@ async function sendAdminPanel(chatId) {
     `• *Welcome Bonus:* *${store.settings.welcomeBonus} ብር*\n` +
     `• *Min Deposit:* *${store.settings.minDeposit} ብር*\n` +
     `• *Min Withdraw:* *${store.settings.minWithdraw} ብር*\n` +
-    `• *Web Studio:* ${WEBAPP_URL}/studio`;
+    `• *Web Studio:* ${WEBAPP_URL}/studio?pin=${ADMIN_PIN}`;
 
   await tgApi('sendMessage', {
     chat_id: chatId,
@@ -869,7 +871,7 @@ async function handleBotMessage(msg) {
           `• ተጫዋች: *${user.first_name || 'Player'}* (\`${user.id}\`)\n` +
           `• መጠን: *${Number(session.tempAmount).toFixed(2)} ብር*\n` +
           `• Transaction No: \`${session.txNumber}\`\n` +
-          `• Studio: ${WEBAPP_URL}/studio`,
+          `• Studio: ${WEBAPP_URL}/studio?pin=${ADMIN_PIN}`,
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
@@ -948,7 +950,7 @@ async function handleBotMessage(msg) {
           `• Main Balance: *${u.main.toFixed(2)} ብር*\n` +
           `• የሚወጣ መጠን: *${amt.toFixed(2)} ብር*\n` +
           `• መቀበያ አካውንት: \`${accountInfo}\`\n` +
-          `• Studio: ${WEBAPP_URL}/studio`,
+          `• Studio: ${WEBAPP_URL}/studio?pin=${ADMIN_PIN}`,
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
@@ -1365,6 +1367,15 @@ app.get('/api/studio/data', requireStudioPin, (req, res) => {
   const requestsList = Object.values(store.requests).sort(
     (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
   );
+  const usersList = Object.values(store.users).map((u) => ({
+    id: u.id,
+    name: u.firstName || 'Player',
+    username: u.username ? (u.username.startsWith('@') ? u.username : '@' + u.username) : '@player',
+    main: Number(u.main || 0),
+    bonus: Number(u.bonus || 0),
+    balance: Number(u.main || 0),
+    status: u.status || 'active'
+  }));
   res.json({
     ok: true,
     live: {
@@ -1372,13 +1383,15 @@ app.get('/api/studio/data', requireStudioPin, (req, res) => {
       countdown: gameState.countdown,
       gameId: gameState.gameId,
       gameCode: gameState.gameCode,
+      stake: gameState.stake,
       takenBoardsCount: gameState.takenBoards.size,
       totalBoards: TOTAL_BOARDS,
       prizePool: calculatePrizePool()
     },
     settings: store.settings,
     requests: requestsList,
-    usersCount: Object.keys(store.users).length
+    users: usersList,
+    usersCount: usersList.length
   });
 });
 
@@ -1425,6 +1438,49 @@ app.post('/api/studio/balance', requireStudioPin, (req, res) => {
   });
 
   res.json({ ok: true, user: targetUser });
+});
+
+app.post('/api/studio/player-status', requireStudioPin, (req, res) => {
+  const targetId = String(req.body?.userId || '').trim();
+  const status = String(req.body?.status || '').trim();
+  if (!targetId || !['active', 'frozen', 'banned'].includes(status)) {
+    return res.status(400).json({ ok: false, error: 'Invalid user or status.' });
+  }
+  const targetUser = getOrCreateUser(targetId);
+  targetUser.status = status;
+  saveStore();
+  res.json({ ok: true, user: targetUser });
+});
+
+app.post('/api/studio/game-control', requireStudioPin, (req, res) => {
+  const action = String(req.body?.action || '').trim();
+  const stake = Number(req.body?.stake);
+  if (Number.isFinite(stake) && stake >= 1) {
+    gameState.stake = stake;
+  }
+  if (action === 'start' || action === 'restart') {
+    startLobby();
+  } else if (action === 'play_now') {
+    startDrawing();
+  } else if (action === 'pause') {
+    clearInterval(lobbyTimer);
+    clearInterval(drawTimer);
+    lobbyTimer = null;
+    drawTimer = null;
+    gameState.phase = 'PAUSED';
+  }
+  res.json({
+    ok: true,
+    live: {
+      phase: gameState.phase,
+      countdown: gameState.countdown,
+      gameId: gameState.gameId,
+      gameCode: gameState.gameCode,
+      stake: gameState.stake,
+      takenBoardsCount: gameState.takenBoards.size,
+      prizePool: calculatePrizePool()
+    }
+  });
 });
 
 app.post('/api/studio/requests/:id/approve', requireStudioPin, (req, res) => {
