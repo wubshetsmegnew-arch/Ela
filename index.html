@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Zina Bingo</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Noto+Sans+Ethiopic:wght@600;800&display=swap" rel="stylesheet">
 <style>
@@ -57,8 +57,8 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 .am{background:var(--sl);border-radius:12px;padding:16px 10px;text-align:center;font-family:'Noto Sans Ethiopic',sans-serif;font-weight:800;font-size:15px;line-height:1.5;color:var(--ye)}
 .foot{display:flex;gap:8px;padding:8px 10px}
 .foot .btn{flex:1}
-.ov{position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:flex-start;justify-content:center;padding:12px;overflow-y:auto;z-index:9}
-.modal{background:var(--bg);border:2px solid var(--gr);box-shadow:0 0 40px rgba(34,229,139,0.4);border-radius:18px;padding:14px;width:100%;max-width:360px;text-align:center;margin:auto}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;padding:12px;overflow-y:auto;z-index:20}
+.modal{position:relative;background:var(--bg);border:2px solid var(--gr);box-shadow:0 0 40px rgba(34,229,139,0.35);border-radius:18px;padding:14px;width:100%;max-width:360px;text-align:center;margin:auto;transform:none}
 .modal h1{margin:0;font-size:42px;font-weight:800;letter-spacing:2px;background:linear-gradient(90deg,var(--B),var(--I),var(--N),var(--G),var(--O));-webkit-background-clip:text;background-clip:text;color:transparent;animation:pop .6s ease-out}
 @keyframes pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
 .row{display:flex;justify-content:space-between;padding:10px 4px;border-bottom:1px solid var(--sl2);font-size:14px}
@@ -86,7 +86,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 .msg-err{margin-top:8px;padding:8px 10px;border-radius:8px;background:#3B1115;border:1px solid #EF4444;color:#FCA5A5;font-size:12px;line-height:1.4}
 .msg-ok{margin-top:8px;padding:8px 10px;border-radius:8px;background:#093322;border:1px solid var(--gr);color:var(--gr);font-size:12px;line-height:1.4}
 .pay-info{background:var(--sl);border:1px solid var(--sl2);border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:12px;line-height:1.5;color:#CBD5E1}
-.toast-msg{position:fixed;left:50%;bottom:74px;transform:translateX(-50%);background:#0E9F63;color:#fff;padding:9px 14px;border-radius:10px;font-size:13px;font-weight:800;z-index:25;box-shadow:0 6px 20px rgba(0,0,0,0.65);max-width:90vw;text-align:center}
+.toast-msg{position:fixed;left:50%;bottom:74px;transform:translateX(-50%);background:#0E9F63;color:#fff;padding:9px 14px;border-radius:10px;font-size:13px;font-weight:800;z-index:30;box-shadow:0 6px 20px rgba(0,0,0,0.65);max-width:90vw;text-align:center}
 @media(prefers-reduced-motion:reduce){.modal h1,.rf .ic.spin{animation:none}}
 </style>
 <script>
@@ -136,7 +136,7 @@ function evalWin(){if(S.phase!=='play')return;const cs=new Set(S.called),hits=[]
  for(const k in S.booked){const id=+k,mine=S.mine.includes(id);if(!mine&&S.called.length<MINCALLS)continue;const set=mine?S.marks[id]:cs,c=card(id),p=winLine(c,set,cs);if(p&&p.c.every(([x,y])=>c[x][y]===0||(S.called.includes(c[x][y])&&set.has(c[x][y]))))hits.push({id,ln:p.c,pt:p.t,mine})}
  if(hits.length){const h=hits.find(x=>x.mine)||hits[Math.floor(Math.random()*hits.length)],name=h.mine?ME.name+' (You)':S.booked[h.id],prize=Math.floor(S.pool/hits.length),mh=hits.filter(x=>x.mine);S.phase='win';S.t=8;S.holdUntil=Date.now()+8000;S.win={...h,name,prize,called:[...S.called],wc:hits.length,pool:S.pool,co:hits.map(x=>({id:x.id,name:x.mine?'You':S.booked[x.id]}))};if(mh.length){S.wallet=Number((S.wallet+prize*mh.length).toFixed(2));S.won++;addTx('Game prize ('+S.gcode+')',prize*mh.length)}if(S.mine.length)S.hist.unshift({gid:S.gcode,ts:Date.now(),stake:S.stake,prize,win:mh.length>0,my:[...S.mine],wb:hits.map(x=>x.id),wc:hits.length})}}
 function newRound(){S.round++;S.phase='lobby';S.t=30;S.booked={};S.paid={};S.mine=[];S.marks={};S.called=[];S.win=null;S.left=false;S.lowNeed=0}
-function tick(){if(S.payBox)return;if(LIVE){if(S.holdUntil){const r=Math.max(0,Math.ceil((S.holdUntil-Date.now())/1000));if(r!==S.t){S.t=r;render(1)}if(Date.now()>=S.holdUntil)endHold()}return}S.h=(S.h||0)+1;const sec=S.h%2===0;
+function tick(){if(LIVE){if(S.holdUntil){const r=Math.max(0,Math.ceil((S.holdUntil-Date.now())/1000));if(r!==S.t){S.t=r;render(1)}if(Date.now()>=S.holdUntil)endHold()}return}S.h=(S.h||0)+1;const sec=S.h%2===0;
  if(S.phase==='lobby'){if(!sec)return;S.t--;botBook(1+Math.floor(Math.random()*4));if(S.t<=0)start()}
  else if(S.phase==='play'){S.tick++;if(!(S.tick>=6&&(S.tick-6)%5===0))return;call()}
  else{const now=Date.now();if(!S.holdUntil)S.holdUntil=now+S.t*1000;if(now>=S.holdUntil){S.holdUntil=0;newRound()}else{const r=Math.ceil((S.holdUntil-now)/1000);if(r===S.t)return;S.t=r}}
@@ -161,11 +161,10 @@ function arena(){const cs=new Set(S.called),lc=S.called.at(-1),l3=S.called.slice
  <div class="tg"><button type="button" data-a="sound" class="${S.sound?'on':''}">Sound ${S.sound?'ON':'OFF'}</button><button type="button" data-a="auto" class="${S.auto?'on':''}">Auto ${S.auto?'ON':'OFF'}</button></div>${cards}</div></div></div>
  <div class="foot"><button type="button" class="btn red" data-a="leave">Leave</button><button type="button" class="btn" data-a="refresh">Refresh</button><button type="button" class="btn ${S.auto?'on':''}" data-a="auto">Automatic</button></div>`}
 function modal(){const w=S.win;return `<div class="ov"><div class="modal"><h1>BINGO!</h1><p style="font-size:16px;margin:6px 0 10px"><span style="color:var(--gr)">${w.name}</span> has won the game</p><div style="color:var(--ye);font-size:13px;margin:-4px 0 8px">${PNAME[w.pt]||'BINGO!'}</div><div class="card"><div class="t"><span>Board № ${w.id}</span><span>Prize ${fmt(w.prize)}</span></div>${cardHtml(w.id,null,'win',w.ln)}</div>${w.wc>1?`<div class="split">እኩል ተካፍለዋል · Split equally<br>${fmt(w.pool)} ÷ ${w.wc} = <b>${fmt(w.prize)}</b> each<small>${w.co.slice(0,6).map(x=>x.name+' (№'+x.id+')').join(', ')}${w.co.length>6?' …':''}</small></div>`:`<div class="split">${w.pending?'Prize (up to) ':'Prize '}<b>${fmt(w.prize)}</b></div>`}<p style="color:var(--mu);font-size:13px;margin:6px 0 0">${w.pending?'Verifying with server…':`Next round in <b style="color:#fff;font-size:17px">${S.t}s</b>`}</p><div class="wcn">Winner Cartela: ${w.co.slice(0,6).map(x=>'#'+x.id).join(', ')}${w.co.length>6?' …':''}</div></div></div>`}
-function payModal(){
-  const m=S.payBox;if(!m)return '';
+function payModalInnerHtml(m){
   const isDep=m.type==='deposit';
   const cfg=S.payCfg||{};
-  return `<div class="ov" id="pay_ov"><div class="modal hp" id="pay_box">
+  return `
     <h2 style="margin:0 0 6px;font-size:19px">${isDep?'💰 Deposit (ገንዘብ ማስገቢያ)':'💸 Withdraw (ገንዘብ ማውጫ)'}</h2>
     <div class="pay-info">
       ${isDep
@@ -173,24 +172,47 @@ function payModal(){
         :`<div>💰 <b>Main Balance:</b> <span style="color:var(--gr)">${fmt(S.wallet)}</span> · <b>Bonus:</b> ${fmt(S.bonus)}</div><div>💵 <b>ዝቅተኛ Withdraw:</b> ${cfg.minWithdraw||50} ብር</div>`
       }
     </div>
-    <label style="font-size:12px;color:var(--mu)">መጠን (ብር):</label>
+    <label style="font-size:12px;color:var(--mu);display:block;text-align:left">መጠን (ብር):</label>
     <input id="pay_amt" class="inp" type="number" min="1" step="any" placeholder="${isDep?'ለምሳሌ 50':'ለምሳሌ 100'}" value="${m.amount||''}">
     ${isDep?`
-      <label style="font-size:12px;color:var(--mu);display:block;margin-top:6px">Transaction No (የግብይት ቁጥር):</label>
+      <label style="font-size:12px;color:var(--mu);display:block;text-align:left;margin-top:6px">Transaction No (የግብይት ቁጥር):</label>
       <input id="pay_tx" class="inp" type="text" placeholder="ለምሳሌ FT26332XXXX" value="${m.tx||''}">
-      <label style="font-size:12px;color:var(--mu);display:block;margin-top:6px">Screenshot (የክፍያ ፎቶ):</label>
+      <label style="font-size:12px;color:var(--mu);display:block;text-align:left;margin-top:6px">Screenshot (የክፍያ ፎቶ):</label>
       <input id="pay_pic" class="inp" type="file" accept="image/*" style="padding:6px;font-size:12px">
     `:`
-      <label style="font-size:12px;color:var(--mu);display:block;margin-top:6px">የመቀበያ ስልክ / አካውንት:</label>
+      <label style="font-size:12px;color:var(--mu);display:block;text-align:left;margin-top:6px">የመቀበያ ስልክ / አካውንት:</label>
       <input id="pay_acc" class="inp" type="text" placeholder="ለምሳሌ 0911223344 (CBE / Telebirr)" value="${m.acc||''}">
     `}
-    ${m.err?`<div class="msg-err">${m.err}</div>`:''}
-    ${m.ok?`<div class="msg-ok">${m.ok}</div>`:''}
+    <div id="pay_fb">${m.err?`<div class="msg-err">${m.err}</div>`:''}${m.ok?`<div class="msg-ok">${m.ok}</div>`:''}</div>
     <div class="bar" style="margin-top:10px">
       <button type="button" class="btn grn" style="flex:1" id="pay_send" data-t="${m.type}">ጥያቄ ላክ</button>
       <button type="button" class="btn red" id="pay_cancel">ዝጋ</button>
     </div>
-  </div></div>`;
+  `;
+}
+function syncPayModal(){
+  const m=S.payBox;
+  let ov=document.getElementById('pay_ov');
+  if(!m){
+    if(ov)ov.remove();
+    return;
+  }
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='pay_ov';
+    ov.className='ov';
+    const box=document.createElement('div');
+    box.id='pay_box';
+    box.className='modal hp';
+    box.innerHTML=payModalInnerHtml(m);
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+    return;
+  }
+  const fb=document.getElementById('pay_fb');
+  if(fb){
+    fb.innerHTML=(m.err?`<div class="msg-err">${m.err}</div>`:'')+(m.ok?`<div class="msg-ok">${m.ok}</div>`:'');
+  }
 }
 function welcome(){return `<div class="main"><div class="hero"><small>Welcome to</small><h1>${APP}</h1><p>75-ball multiplayer bingo</p></div>
 <div class="bar" style="justify-content:space-between;margin:12px 0"><div class="pill" style="flex-direction:row;align-items:center;gap:8px"><span style="font-size:18px">👛</span><b>${S.hide?'••••••':fmt(tot())}</b></div><div class="bar" style="gap:6px"><button type="button" class="btn grn" data-a="open_dep">💰 Deposit</button><button type="button" class="btn" data-a="eye">${S.hide?'👁 Show':'🙈 Hide'}</button><button type="button" class="btn" data-a="help">? መመሪያ</button></div></div>
@@ -220,19 +242,27 @@ function canSeeAdmin(){
   return ADMIN_IDS.includes(String(ME.id))||q.get('admin')==='1'||sessionStorage.getItem('zina_adm_ok')==='1';
 }
 function render(f){
-  if((down||S.payBox)&&!f)return;
+  if(down&&!f)return;
   const m=document.querySelector('.main'),sc=m?m.scrollTop:0;
   const body=S.tab!=='game'?panel2():!S.room?welcome():(S.phase!=='lobby'&&!S.left)?arena():lobby();
   const admBtn=canSeeAdmin()?`<button type="button" data-a="admin" class="adm-btn">Admin</button>`:'';
   const toastEl=S.banner?`<div class="toast-msg">${S.banner}</div>`:'';
-  $('#app').innerHTML=body+`<div class="nav">${['game','history','wallet','profile'].map(t=>`<button type="button" data-a="tab" data-t="${t}" class="${S.tab===t?'act':''}">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}${admBtn}</div>`+(S.phase==='win'&&S.room&&S.win?modal():'')+(S.help?helpModal():'')+payModal()+toastEl;
+  $('#app').innerHTML=body+`<div class="nav">${['game','history','wallet','profile'].map(t=>`<button type="button" data-a="tab" data-t="${t}" class="${S.tab===t?'act':''}">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}${admBtn}</div>`+(S.phase==='win'&&S.room&&S.win?modal():'')+(S.help?helpModal():'')+toastEl;
   const n=document.querySelector('.main');if(n)n.scrollTop=sc;
+  syncPayModal();
 }
+
+document.addEventListener('input',e=>{
+  if(!S.payBox)return;
+  if(e.target.id==='pay_amt'){S.payBox.amount=e.target.value;S.payBox.err='';syncPayModal();}
+  else if(e.target.id==='pay_tx'){S.payBox.tx=e.target.value;S.payBox.err='';syncPayModal();}
+  else if(e.target.id==='pay_acc'){S.payBox.acc=e.target.value;S.payBox.err='';syncPayModal();}
+});
 
 document.addEventListener('click',e=>{
  const cancelBtn=e.target.closest('#pay_cancel');
- if(cancelBtn||e.target.id==='pay_ov'){
-  S.payBox=null;render(1);return;
+ if(cancelBtn){
+  S.payBox=null;syncPayModal();return;
  }
  const sendBtn=e.target.closest('#pay_send');
  if(sendBtn){
@@ -240,21 +270,21 @@ document.addEventListener('click',e=>{
   const amt=+($('#pay_amt')&&$('#pay_amt').value);
   const minD=+(S.payCfg&&S.payCfg.minDeposit||20);
   const minW=+(S.payCfg&&S.payCfg.minWithdraw||50);
-  if(!amt||amt<=0){S.payBox.err='እባክዎ ትክክለኛ የብር መጠን ያስገቡ።';S.payBox.ok='';render(1);return}
+  if(!amt||amt<=0){S.payBox.err='እባክዎ ትክክለኛ የብር መጠን ያስገቡ።';S.payBox.ok='';syncPayModal();return}
   if(t==='deposit'){
    const tx=($('#pay_tx')&&$('#pay_tx').value||'').trim();
    const fileInput=$('#pay_pic');
    const file=fileInput&&fileInput.files&&fileInput.files[0];
-   if(amt<minD){S.payBox.err='ዝቅተኛው የDeposit መጠን '+minD+' ብር ነው።';S.payBox.ok='';render(1);return}
-   if(tx.length<3){S.payBox.err='እባክዎ Transaction No ያስገቡ።';S.payBox.ok='';render(1);return}
-   if(!file){S.payBox.err='እባክዎ የክፍያ Screenshot (ፎቶ) ይምረጡ።';S.payBox.ok='';render(1);return}
+   if(amt<minD){S.payBox.err='ዝቅተኛው የDeposit መጠን '+minD+' ብር ነው።';S.payBox.ok='';syncPayModal();return}
+   if(tx.length<3){S.payBox.err='እባክዎ Transaction No ያስገቡ።';S.payBox.ok='';syncPayModal();return}
+   if(!file){S.payBox.err='እባክዎ የክፍያ Screenshot (ፎቶ) ይምረጡ።';S.payBox.ok='';syncPayModal();return}
    const sendDeposit=(photoData)=>{
     addTx('Deposit req ('+tx+')',amt);
     emit('wallet:deposit_req',{amount:amt,txNumber:tx,photoData:photoData||'',user:ME});
-    S.payBox=null;S.wtab='his';S.tab='wallet';showBanner('✅ የDeposit ጥያቄ ተልኳል');return;
+    S.payBox=null;S.wtab='his';S.tab='wallet';render(1);showBanner('✅ የDeposit ጥያቄ ተልኳል');
    };
    if(file){
-    if(file.size>4*1024*1024){S.payBox.err='የፎቶ መጠን ከ4MB አይብለጥ።';S.payBox.ok='';render(1);return}
+    if(file.size>4*1024*1024){S.payBox.err='የፎቶ መጠን ከ4MB አይብለጥ።';S.payBox.ok='';syncPayModal();return}
     const reader=new FileReader();
     reader.onload=()=>sendDeposit(reader.result||'');
     reader.onerror=()=>sendDeposit('');
@@ -265,14 +295,14 @@ document.addEventListener('click',e=>{
    return;
   }else{
    const acc=($('#pay_acc')&&$('#pay_acc').value||'').trim();
-   if(amt<minW){S.payBox.err='ዝቅተኛው የWithdraw መጠን '+minW+' ብር ነው።';S.payBox.ok='';render(1);return}
-   if(!acc){S.payBox.err='እባክዎ የመቀበያ ስልክ/አካውንት ያስገቡ።';S.payBox.ok='';render(1);return}
-   if(S.wallet<amt){S.payBox.err='በቂ Main Balance የለዎትም! ያለዎት Main Balance: '+fmt(S.wallet);S.payBox.ok='';render(1);return}
+   if(amt<minW){S.payBox.err='ዝቅተኛው የWithdraw መጠን '+minW+' ብር ነው።';S.payBox.ok='';syncPayModal();return}
+   if(!acc){S.payBox.err='እባክዎ የመቀበያ ስልክ/አካውንት ያስገቡ።';S.payBox.ok='';syncPayModal();return}
+   if(S.wallet<amt){S.payBox.err='በቂ Main Balance የለዎትም! ያለዎት Main Balance: '+fmt(S.wallet);S.payBox.ok='';syncPayModal();return}
    S.wallet=Number((S.wallet-amt).toFixed(2));
    S.withd=Number((S.withd+amt).toFixed(2));
    addTx('Withdraw ('+acc+')',-amt);
    emit('wallet:withdraw_req',{amount:amt,accountInfo:acc,user:ME});
-   S.payBox=null;S.wtab='his';S.tab='wallet';showBanner('✅ የWithdraw ጥያቄ ተልኳል');return;
+   S.payBox=null;S.wtab='his';S.tab='wallet';render(1);showBanner('✅ የWithdraw ጥያቄ ተልኳል');return;
   }
  }
  if(e.target.closest('#pay_box'))return;
@@ -280,9 +310,9 @@ document.addEventListener('click',e=>{
 
  const el=e.target.closest('[data-a]');if(!el)return;const a=el.dataset.a,i=+el.dataset.i;
  if(a==='admin'){location.href='/studio?pin=1219';return}
- else if(a==='open_dep'){S.payBox={type:'deposit',amount:'',tx:'',err:'',ok:''};render(1);return}
- else if(a==='open_wdr'){S.payBox={type:'withdraw',amount:'',acc:'',err:'',ok:''};render(1);return}
- else if(a==='reload'){if(LIVE){emit('wallet:get',{user:ME});if(S.room)liveJoin(S.room)}showBanner('⟳ ታድሷል');}
+ else if(a==='open_dep'){S.payBox={type:'deposit',amount:'',tx:'',err:'',ok:''};syncPayModal();return}
+ else if(a==='open_wdr'){S.payBox={type:'withdraw',amount:'',acc:'',err:'',ok:''};syncPayModal();return}
+ else if(a==='reload'){if(LIVE){emit('wallet:get',{user:ME});if(S.room)liveJoin(S.room)}showBanner('⟳ ታድሷል');return}
  else if(a==='pick'&&S.phase==='lobby'&&LIVE)livePick(i);
  else if(a==='pick'&&S.phase==='lobby'){
   if(S.mine.includes(i)){S.mine=S.mine.filter(x=>x!==i);refund(i);delete S.booked[i]}
