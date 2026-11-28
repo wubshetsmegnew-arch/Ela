@@ -80,6 +80,8 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 .top{flex-wrap:nowrap;gap:5px}.top .btn{padding:9px 10px;font-size:13px}.top .pill{padding:6px 8px}.top .timer{padding:6px 9px;font-size:18px}
 .rf{margin-left:auto;display:flex;align-items:center;gap:5px;background:linear-gradient(135deg,#FACC15,#F59E0B);color:#1a1100;box-shadow:0 0 14px #FACC1566;white-space:nowrap}.rf:active{transform:scale(.94)}.rf .ic{display:inline-block;font-size:16px;font-weight:800}.rf .ic.spin{animation:sp .6s linear}@keyframes sp{to{transform:rotate(360deg)}}
 .inp{width:100%;background:var(--sl);color:#fff;border:1px solid var(--sl2);border-radius:10px;padding:10px;font:inherit;font-size:14px;margin-top:6px}
+.msg-err{margin-top:8px;padding:8px;border-radius:8px;background:#3B1115;color:#FCA5A5;font-size:12px}
+.msg-ok{margin-top:8px;padding:8px;border-radius:8px;background:#093322;color:var(--gr);font-size:12px}
 @media(prefers-reduced-motion:reduce){.modal h1,.rf .ic.spin{animation:none}}
 </style><script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -104,8 +106,7 @@ const APP='Zina Bingo';
 const fmt=n=>'Br '+(+n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}),tot=()=>Math.max(0,(+S.wallet||0)+(+S.bonus||0)),rid=()=>Math.random().toString(36).slice(2,10).toUpperCase();
 function addTx(l,a){S.tx.unshift({l,a:+a||0,ts:Date.now()});if(S.tx.length>40)S.tx.length=40}
 function pay(id){if(tot()<S.stake){S.paid[id]=0;return false}if(S.wallet>=S.stake)S.wallet=Number((S.wallet-S.stake).toFixed(2));else{S.bonus=Number((S.bonus-(S.stake-S.wallet)).toFixed(2));S.wallet=0}S.paid[id]=1;addTx('Board stake №'+id,-S.stake);return true}
-function settle(){if(S.phase==='lobby')S.mine.forEach(id=>{if(!S.paid[id])pay(id)})}
-const low=need=>`<div class="low"><b>⚠ ባላንስ በቂ አይደለም · Insufficient balance</b><small>Need ${fmt(need)} · ያለዎት: ${fmt(tot())}. እባክዎ መጀመሪያ Deposit ያድርጉ።</small><div class="bar" style="margin-top:8px"><button class="btn grn" data-a="open_dep">💰 Deposit</button><button class="btn" data-a="tab" data-t="wallet">Wallet</button></div></div>`;
+const low=need=>`<div class="low"><b>⚠ ባላንስ በቂ አይደለም · Insufficient balance</b><small>Need ${fmt(need)} · ያለዎት: ${fmt(tot())}. እባክዎ መጀመሪያ Deposit ያድርጉ።</small><div class="bar" style="margin-top:8px"><button type="button" class="btn grn" data-a="open_dep">💰 Deposit</button><button type="button" class="btn" data-a="tab" data-t="wallet">Wallet</button></div></div>`;
 function refund(id){if(S.paid[id]){S.wallet=Number((S.wallet+S.stake).toFixed(2));addTx('Board refund №'+id,S.stake)}delete S.paid[id]}
 let down=0;document.addEventListener('pointerdown',()=>down=1);['pointerup','pointercancel'].forEach(t=>document.addEventListener(t,()=>setTimeout(()=>down=0,60)));
 const mini=(l,v)=>`<div class="mini"><small>${l}</small><b>${fmt(v)}</b></div>`;
@@ -120,7 +121,7 @@ function evalWin(){if(S.phase!=='play')return;const cs=new Set(S.called),hits=[]
  for(const k in S.booked){const id=+k,mine=S.mine.includes(id);if(!mine&&S.called.length<MINCALLS)continue;const set=mine?S.marks[id]:cs,c=card(id),p=winLine(c,set,cs);if(p&&p.c.every(([x,y])=>c[x][y]===0||(S.called.includes(c[x][y])&&set.has(c[x][y]))))hits.push({id,ln:p.c,pt:p.t,mine})}
  if(hits.length){const h=hits.find(x=>x.mine)||hits[Math.floor(Math.random()*hits.length)],name=h.mine?ME.name+' (You)':S.booked[h.id],prize=Math.floor(S.pool/hits.length),mh=hits.filter(x=>x.mine);S.phase='win';S.t=8;S.holdUntil=Date.now()+8000;S.win={...h,name,prize,called:[...S.called],wc:hits.length,pool:S.pool,co:hits.map(x=>({id:x.id,name:x.mine?'You':S.booked[x.id]}))};if(mh.length){S.wallet=Number((S.wallet+prize*mh.length).toFixed(2));S.won++;addTx('Game prize ('+S.gcode+')',prize*mh.length)}if(S.mine.length)S.hist.unshift({gid:S.gcode,ts:Date.now(),stake:S.stake,prize,win:mh.length>0,my:[...S.mine],wb:hits.map(x=>x.id),wc:hits.length})}}
 function newRound(){S.round++;S.phase='lobby';S.t=30;S.booked={};S.paid={};S.mine=[];S.marks={};S.called=[];S.win=null;S.left=false;S.lowNeed=0}
-function tick(){if(LIVE){if(S.holdUntil){const r=Math.max(0,Math.ceil((S.holdUntil-Date.now())/1000));if(r!==S.t){S.t=r;render(1)}if(Date.now()>=S.holdUntil)endHold()}return}S.h=(S.h||0)+1;const sec=S.h%2===0;
+function tick(){if(S.payBox)return;if(LIVE){if(S.holdUntil){const r=Math.max(0,Math.ceil((S.holdUntil-Date.now())/1000));if(r!==S.t){S.t=r;render(1)}if(Date.now()>=S.holdUntil)endHold()}return}S.h=(S.h||0)+1;const sec=S.h%2===0;
  if(S.phase==='lobby'){if(!sec)return;S.t--;botBook(1+Math.floor(Math.random()*4));if(S.t<=0)start()}
  else if(S.phase==='play'){S.tick++;if(!(S.tick>=6&&(S.tick-6)%5===0))return;call()}
  else{const now=Date.now();if(!S.holdUntil)S.holdUntil=now+S.t*1000;if(now>=S.holdUntil){S.holdUntil=0;newRound()}else{const r=Math.ceil((S.holdUntil-now)/1000);if(r===S.t)return;S.t=r}}
@@ -128,8 +129,8 @@ function tick(){if(LIVE){if(S.holdUntil){const r=Math.max(0,Math.ceil((S.holdUnt
 const ball=(n,s)=>`<div class="ball" style="--c:${CL[ltr(n)]};--s:${s}px"><i>${ltr(n)}</i><b>${n}</b></div>`;
 const hdr=()=>[...L].map(x=>`<div class="h" style="background:${CL[x]}">${x}</div>`).join('');
 function lobby(){const g=[];for(let i=1;i<=600;i++){const b=S.booked[i],m=S.mine.includes(i);g.push(`<div class="num ${m?'me':b?'bot':''} ${S.phase!=='lobby'?'lock':''}" data-a="pick" data-i="${i}">${i}</div>`)}
- const live=S.phase!=='lobby'?`<div class="ban"><span>Game in progress</span><button class="btn grn" data-a="watch">Watch live</button></div>`:'';
- return `<div class="main"><div class="bar top"><button class="btn red" data-a="leave">Leave</button><div class="timer">${S.phase==='lobby'?S.t+'s':'—'}</div><div class="pill"><small>My Wallet</small><b>${fmt(tot())}</b></div><div class="pill"><small>Stake</small><b>${S.stake}</b></div><button class="btn rf" data-a="refresh"><span class="ic">⟳</span>Refresh</button></div>
+ const live=S.phase!=='lobby'?`<div class="ban"><span>Game in progress</span><button type="button" class="btn grn" data-a="watch">Watch live</button></div>`:'';
+ return `<div class="main"><div class="bar top"><button type="button" class="btn red" data-a="leave">Leave</button><div class="timer">${S.phase==='lobby'?S.t+'s':'—'}</div><div class="pill"><small>My Wallet</small><b>${fmt(tot())}</b></div><div class="pill"><small>Stake</small><b>${S.stake}</b></div><button type="button" class="btn rf" data-a="refresh"><span class="ic">⟳</span>Refresh</button></div>
  <div class="bar" style="margin-top:8px"><div class="pill"><small>Boards</small><b>${S.mine.length}/2</b></div><div class="pill"><small>My Balance</small><b>${fmt(tot())}</b></div><div class="pill"><b>${S.room?S.room.s:S.stake} № ${S.room?S.room.n:S.rn}</b></div></div>${S.lowNeed?low(S.lowNeed):''}${live}<div class="grid">${g.join('')}</div>${S.mine.length?`<div class="pv" style="grid-template-columns:repeat(${S.mine.length},1fr)">${S.mine.map(id=>`<div class="card" style="margin:0"><div class="t"><span>Cartela № ${id}</span></div>${cardHtml(id,new Set([0]))}</div>`).join('')}</div>`:''}</div>`}
 function cardHtml(id,set,mode,wl){const c=card(id);let h='';for(let r=0;r<5;r++)for(let k=0;k<5;k++){const n=c[k][r],cl=S.called.includes(n),inW=wl&&wl.some(([x,y])=>x===k&&y===r);let cls='';
  if(mode==='win')cls=inW?'win':n===0?'fr':S.win.called.includes(n)?'yl':'';
@@ -142,15 +143,15 @@ function arena(){const cs=new Set(S.called),lc=S.called.at(-1),l3=S.called.slice
  const cards=S.mine.length?`<div class="cards n${S.mine.length}">`+S.mine.map(id=>`<div class="card"><div class="t"><span>Board № ${id}</span><span>${S.auto?'Auto':'Tap to mark'}</span></div>${cardHtml(id,S.marks[id])}</div>`).join('')+'</div>':`<div class="am">እባክዎ ይህ ጨዋታ እስከሚጨርስ ይጠብቁ</div>`;
  return `<div class="main"><div class="strip"><div><small>Game</small>${S.gcode?`<span style="font-size:10px">${S.gcode}</span>`:S.gid}</div><div><small>Balance</small><span style="color:var(--gr)">${Math.floor(tot())}</span></div><div><small>Derash</small>${S.pool}</div><div><small>Players</small>${playersCount()}</div><div><small>Stake</small>${S.stake}</div><div><small>Called</small>${S.called.length}</div></div>
  <div class="arena"><div class="mb">${mb}</div><div><div class="cur">${lc?ball(lc,64):'<div class="ball" style="--c:#334;--s:64px"><b>…</b></div>'}<div class="last">${l3.map(n=>`<span class="rc" style="--c:${CL[ltr(n)]}">${ltr(n)}${n}</span>`).join('')}</div></div>
- <div class="tg"><button data-a="sound" class="${S.sound?'on':''}">Sound ${S.sound?'ON':'OFF'}</button><button data-a="auto" class="${S.auto?'on':''}">Auto ${S.auto?'ON':'OFF'}</button></div>${cards}</div></div></div>
- <div class="foot"><button class="btn red" data-a="leave">Leave</button><button class="btn" data-a="refresh">Refresh</button><button class="btn ${S.auto?'on':''}" data-a="auto">Automatic</button></div>`}
+ <div class="tg"><button type="button" data-a="sound" class="${S.sound?'on':''}">Sound ${S.sound?'ON':'OFF'}</button><button type="button" data-a="auto" class="${S.auto?'on':''}">Auto ${S.auto?'ON':'OFF'}</button></div>${cards}</div></div></div>
+ <div class="foot"><button type="button" class="btn red" data-a="leave">Leave</button><button type="button" class="btn" data-a="refresh">Refresh</button><button type="button" class="btn ${S.auto?'on':''}" data-a="auto">Automatic</button></div>`}
 function modal(){const w=S.win;return `<div class="ov"><div class="modal"><h1>BINGO!</h1><p style="font-size:16px;margin:6px 0 10px"><span style="color:var(--gr)">${w.name}</span> has won the game</p><div style="color:var(--ye);font-size:13px;margin:-4px 0 8px">${PNAME[w.pt]||'BINGO!'}</div><div class="card"><div class="t"><span>Board № ${w.id}</span><span>Prize ${fmt(w.prize)}</span></div>${cardHtml(w.id,null,'win',w.ln)}</div>${w.wc>1?`<div class="split">እኩል ተካፍለዋል · Split equally<br>${fmt(w.pool)} ÷ ${w.wc} = <b>${fmt(w.prize)}</b> each<small>${w.co.slice(0,6).map(x=>x.name+' (№'+x.id+')').join(', ')}${w.co.length>6?' …':''}</small></div>`:`<div class="split">${w.pending?'Prize (up to) ':'Prize '}<b>${fmt(w.prize)}</b></div>`}<p style="color:var(--mu);font-size:13px;margin:6px 0 0">${w.pending?'Verifying with server…':`Next round in <b style="color:#fff;font-size:17px">${S.t}s</b>`}</p><div class="wcn">Winner Cartela: ${w.co.slice(0,6).map(x=>'#'+x.id).join(', ')}${w.co.length>6?' …':''}</div></div></div>`}
 function payModal(){
   const m=S.payBox;if(!m)return '';
   const isDep=m.type==='deposit';
-  return `<div class="ov" data-a="close_pay"><div class="modal hp" data-a="noop">
+  return `<div class="ov" id="pay_ov"><div class="modal hp" id="pay_box">
     <h2 style="margin:0 0 8px;font-size:20px">${isDep?'💰 Deposit (ገንዘብ ማስገቢያ)':'💸 Withdraw (ገንዘብ ማውጫ)'}</h2>
-    <div style="font-size:12px;color:var(--mu);margin-bottom:8px">ያለዎት ባላንስ: <b style="color:var(--gr)">${fmt(tot())}</b></div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:8px">ያለዎት ባላንስ: <b style="color:var(--gr)">${fmt(tot())}</b> (Main: ${fmt(S.wallet)})</div>
     <label style="font-size:12px;color:var(--mu)">መጠን (ብር):</label>
     <input id="pay_amt" class="inp" type="number" min="1" step="any" placeholder="${isDep?'ለምሳሌ 50':'ለምሳሌ 100'}" value="${m.amount||''}">
     ${isDep?`
@@ -161,72 +162,80 @@ function payModal(){
       <label style="font-size:12px;color:var(--mu);display:block;margin-top:8px">የመቀበያ ስልክ / አካውንት:</label>
       <input id="pay_acc" class="inp" type="text" placeholder="ለምሳሌ 0911223344 (CBE / Telebirr)" value="${m.acc||''}">
     `}
+    ${m.err?`<div class="msg-err">${m.err}</div>`:''}
+    ${m.ok?`<div class="msg-ok">${m.ok}</div>`:''}
     <div class="bar" style="margin-top:12px">
-      <button class="btn grn" style="flex:1" data-a="submit_pay" data-t="${m.type}">ጥያቄ ላክ</button>
-      <button class="btn red" data-a="close_pay">ዝጋ</button>
+      <button type="button" class="btn grn" style="flex:1" id="pay_send" data-t="${m.type}">ጥያቄ ላክ</button>
+      <button type="button" class="btn red" id="pay_cancel">ዝጋ</button>
     </div>
   </div></div>`;
 }
 function welcome(){return `<div class="main"><div class="hero"><small>Welcome to</small><h1>${APP}</h1><p>75-ball multiplayer bingo</p></div>
-<div class="bar" style="justify-content:space-between;margin:12px 0"><div class="pill" style="flex-direction:row;align-items:center;gap:8px"><span style="font-size:18px">👛</span><b>${S.hide?'••••••':fmt(tot())}</b></div><div class="bar" style="gap:6px"><button class="btn grn" data-a="open_dep">💰 Deposit</button><button class="btn" data-a="eye">${S.hide?'👁 Show':'🙈 Hide'}</button><button class="btn" data-a="help">? መመሪያ</button></div></div>
+<div class="bar" style="justify-content:space-between;margin:12px 0"><div class="pill" style="flex-direction:row;align-items:center;gap:8px"><span style="font-size:18px">👛</span><b>${S.hide?'••••••':fmt(tot())}</b></div><div class="bar" style="gap:6px"><button type="button" class="btn grn" data-a="open_dep">💰 Deposit</button><button type="button" class="btn" data-a="eye">${S.hide?'👁 Show':'🙈 Hide'}</button><button type="button" class="btn" data-a="help">? መመሪያ</button></div></div>
 <h3 class="sec">Choose Your Stake</h3><div style="color:var(--mu);font-size:12px;margin:-4px 0 8px">${S.phase==='lobby'?'Next round starts in '+S.t+'s':'Round in progress · join the next one'}</div>
-<div class="stk">${S.rooms.map((r,i)=>`<button data-a="room" data-i="${i}">Play ${r.s} № ${r.n}</button>`).join('')}</div><button class="btn" data-a="addroom" style="width:100%">＋ Add stake</button></div>`}
+<div class="stk">${S.rooms.map((r,i)=>`<button type="button" data-a="room" data-i="${i}">Play ${r.s} № ${r.n}</button>`).join('')}</div><button type="button" class="btn" data-a="addroom" style="width:100%">＋ Add stake</button></div>`}
 function panel2(){const t=S.tab;let b='';
  if(t==='wallet'){
-  b=`<div class="ph"><div><h2>WALLET</h2><b class="gr">${fmt(tot())}</b></div><button class="btn" data-a="reload">⟳ Reload</button></div>
-  <div class="bar" style="margin:8px 0"><button class="btn grn" style="flex:1" data-a="open_dep">💰 Deposit</button><button class="btn" style="flex:1;background:#B45309" data-a="open_wdr">💸 Withdraw</button></div>
-  <div class="tg"><button data-a="wtab" data-t="bal" class="${S.wtab==='bal'?'on':''}">BALANCES</button><button data-a="wtab" data-t="his" class="${S.wtab==='his'?'on':''}">HISTORY (${S.tx.length})</button></div>`;
+  b=`<div class="ph"><div><h2>WALLET</h2><b class="gr">${fmt(tot())}</b></div><button type="button" class="btn" data-a="reload">⟳ Reload</button></div>
+  <div class="bar" style="margin:8px 0"><button type="button" class="btn grn" style="flex:1" data-a="open_dep">💰 Deposit</button><button type="button" class="btn" style="flex:1;background:#B45309" data-a="open_wdr">💸 Withdraw</button></div>
+  <div class="tg"><button type="button" data-a="wtab" data-t="bal" class="${S.wtab==='bal'?'on':''}">BALANCES</button><button type="button" data-a="wtab" data-t="his" class="${S.wtab==='his'?'on':''}">HISTORY (${S.tx.length})</button></div>`;
   b+=S.wtab==='bal'
    ?`<div class="gcard"><small>TOTAL BALANCE (${ME.name})</small><b>${fmt(tot())}</b></div><div class="tri">${mini('MAIN',S.wallet)}${mini('BONUS',S.bonus)}${mini('WITHDRAWN',S.withd)}</div>`
    :(S.tx.length?S.tx.map(x=>`<div class="row"><span>${x.l}<small style="display:block;color:var(--mu);font-size:10px">${dt(x.ts)}</small></span><span style="color:${x.a>=0?'var(--gr)':'#F87171'}">${x.a>=0?'+':'−'}${fmt(Math.abs(x.a))}</span></div>`).join(''):'<p style="color:var(--mu)">No transactions or withdrawals yet.</p>')
  }
- if(t==='history'){b=`<div class="ph"><h2>GAME HISTORY</h2><button class="btn" data-a="reload">⟳ Reload</button></div><div style="margin-top:10px">${S.hist.length?'':'<p style="color:var(--mu)">No games played yet.</p>'}${S.hist.map(h=>`<div class="hc"><div class="hh"><div><b>Game #${h.gid}</b><small>${dt(h.ts)}</small></div><span class="badge ${h.win?'win':'loss'}">${h.win?'WIN':'LOSS'}</span></div><div class="g2"><div><small>Stake</small><b>${fmt(h.stake)}</b></div><div><small>Prize</small><b style="color:var(--gr)">${fmt(h.prize)}</b></div><div><small>My Boards</small><b>${h.my.map(x=>'#'+x).join(', ')}</b></div><div><small>Winners' Boards</small><b>${h.wb.slice(0,4).map(x=>'#'+x).join(', ')}</b></div><div><small>Winners</small><b>${h.wc}</b></div></div></div>`).join('')}</div>`}
- if(t==='profile'){b=`<h2 style="margin:6px 0">PROFILE</h2><div class="hc"><small style="color:var(--mu)">ACCOUNT</small><div class="bar" style="margin-top:8px;gap:12px"><div class="av">${ME.name[0]||'P'}</div><div><b style="font-size:18px">${ME.name}</b><div style="color:var(--mu);font-size:12px">ID: ${ME.id}</div></div></div></div><div class="gcard"><small>TOTAL BALANCE</small><b>${fmt(tot())}</b></div><div class="tri">${mini('MAIN',S.wallet)}${mini('BONUS',S.bonus)}${mini('WITHDRAWN',S.withd)}</div><div class="hc" style="margin-top:8px"><small style="color:var(--mu)">STATS</small><div class="row"><span>Total Withdrawal</span><span>${fmt(S.withd)}</span></div><div class="row"><span>Games Won</span><span>${S.won}</span></div><div class="row" style="border:0"><span>Total Invites</span><span>0</span></div></div><div class="hc"><small style="color:var(--mu)">SETTINGS</small><div class="row" style="border:0;align-items:center"><span>Sound</span><button class="btn ${S.sound?'on':''}" data-a="sound">${S.sound?'ON':'OFF'}</button></div><div class="row" style="border:0;align-items:center;border-top:1px solid var(--sl2)"><span>መመሪያ / How to Play</span><button class="btn" data-a="help">Open</button></div><div class="row" style="border:0;border-top:1px solid var(--sl2)"><span>Server</span><span style="color:${socket&&socket.connected?'var(--gr)':'var(--mu)'}">${socket&&socket.connected?'● Live':LIVE?'○ Reconnecting…':'○ Offline (simulation)'}</span></div></div>`}
+ if(t==='history'){b=`<div class="ph"><h2>GAME HISTORY</h2><button type="button" class="btn" data-a="reload">⟳ Reload</button></div><div style="margin-top:10px">${S.hist.length?'':'<p style="color:var(--mu)">No games played yet.</p>'}${S.hist.map(h=>`<div class="hc"><div class="hh"><div><b>Game #${h.gid}</b><small>${dt(h.ts)}</small></div><span class="badge ${h.win?'win':'loss'}">${h.win?'WIN':'LOSS'}</span></div><div class="g2"><div><small>Stake</small><b>${fmt(h.stake)}</b></div><div><small>Prize</small><b style="color:var(--gr)">${fmt(h.prize)}</b></div><div><small>My Boards</small><b>${h.my.map(x=>'#'+x).join(', ')}</b></div><div><small>Winners' Boards</small><b>${h.wb.slice(0,4).map(x=>'#'+x).join(', ')}</b></div><div><small>Winners</small><b>${h.wc}</b></div></div></div>`).join('')}</div>`}
+ if(t==='profile'){b=`<h2 style="margin:6px 0">PROFILE</h2><div class="hc"><small style="color:var(--mu)">ACCOUNT</small><div class="bar" style="margin-top:8px;gap:12px"><div class="av">${ME.name[0]||'P'}</div><div><b style="font-size:18px">${ME.name}</b><div style="color:var(--mu);font-size:12px">ID: ${ME.id}</div></div></div></div><div class="gcard"><small>TOTAL BALANCE</small><b>${fmt(tot())}</b></div><div class="tri">${mini('MAIN',S.wallet)}${mini('BONUS',S.bonus)}${mini('WITHDRAWN',S.withd)}</div><div class="hc" style="margin-top:8px"><small style="color:var(--mu)">STATS</small><div class="row"><span>Total Withdrawal</span><span>${fmt(S.withd)}</span></div><div class="row"><span>Games Won</span><span>${S.won}</span></div><div class="row" style="border:0"><span>Total Invites</span><span>0</span></div></div><div class="hc"><small style="color:var(--mu)">SETTINGS</small><div class="row" style="border:0;align-items:center"><span>Sound</span><button type="button" class="btn ${S.sound?'on':''}" data-a="sound">${S.sound?'ON':'OFF'}</button></div><div class="row" style="border:0;align-items:center;border-top:1px solid var(--sl2)"><span>መመሪያ / How to Play</span><button type="button" class="btn" data-a="help">Open</button></div><div class="row" style="border:0;border-top:1px solid var(--sl2)"><span>Server</span><span style="color:${socket&&socket.connected?'var(--gr)':'var(--mu)'}">${socket&&socket.connected?'● Live':LIVE?'○ Reconnecting…':'○ Offline (simulation)'}</span></div></div>`}
  return `<div class="main">${b}</div>`}
 function helpModal(){return `<div class="ov" data-a="closehelp"><div class="modal hp" data-a="noop"><h2 style="margin:0 0 8px;font-size:20px">መመሪያ / How to Play</h2>
 <h3>🃏 መጫወቻ ካርድ</h3><ol><li>ከ1-600 እስከ 2 ካርቴላ መምረጥ ይቻላል</li><li>በቀይ ቀለም የተመረጡ ቁጥሮች በሌላ ተጫዋች መያዛቸውን ያሳያሉ</li><li>ካርቴላውን ሲመርጡ ከታች ቁጥሮቹን ያሳያል</li><li>ሰኮንዱ ዜሮ ሲሆን ቀጥታ ወደ ጨዋታ ያስገባል።</li></ol>
 <h3>🎮 ጨዋታ እንዴት ይካሄዳል</h3><ol><li>ካርቴላዎን ከታች በቀኝ በኩል ያገኙታል</li><li>ከ1-75 ቁጥሮች Randomly ይጠራሉ</li><li>ካርቴላዎ ላይ ያሉትን ቁጥሮች ይንኩ ወይም Automatic ያብሩ።</li></ol>
 <h3>🏆 አሸናፊ የሚሆኑባቸው መንገዶች</h3><ol><li>ወደጎን ወይም ወደታች መስመር፣ ሁለቱም አግዳሚ (ሰያፍ) መስመር፣ ወይም አራቱ ማእዘናት (ኮርነር) ሲሞሉ</li><li>ሁለት ወይም ከዚያ በላይ ተጫዋቾች እኩል ቢያሸንፉ ደራሹ ለአሸናፊዎች እኩል ይካፈላል።</li></ol>
-<button class="btn grn" data-a="closehelp" style="width:100%;margin-top:6px">ዝጋ / Close</button></div></div>`}
+<button type="button" class="btn grn" data-a="closehelp" style="width:100%;margin-top:6px">ዝጋ / Close</button></div></div>`}
 function canSeeAdmin(){
   const q=new URLSearchParams(location.search);
   return ADMIN_IDS.includes(String(ME.id))||q.get('admin')==='1'||sessionStorage.getItem('zina_adm_ok')==='1';
 }
-function render(f){if(down&&!f)return;const m=document.querySelector('.main'),sc=m?m.scrollTop:0;
- const body=S.tab!=='game'?panel2():!S.room?welcome():(S.phase!=='lobby'&&!S.left)?arena():lobby();
- const admBtn=canSeeAdmin()?`<button data-a="admin" class="adm-btn">Admin</button>`:'';
- $('#app').innerHTML=body+`<div class="nav">${['game','history','wallet','profile'].map(t=>`<button data-a="tab" data-t="${t}" class="${S.tab===t?'act':''}">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}${admBtn}</div>`+(S.phase==='win'&&S.room&&S.win?modal():'')+(S.help?helpModal():'')+payModal();
- const n=document.querySelector('.main');if(n)n.scrollTop=sc}
+function render(f){
+  if((down||S.payBox)&&!f)return;
+  const m=document.querySelector('.main'),sc=m?m.scrollTop:0;
+  const body=S.tab!=='game'?panel2():!S.room?welcome():(S.phase!=='lobby'&&!S.left)?arena():lobby();
+  const admBtn=canSeeAdmin()?`<button type="button" data-a="admin" class="adm-btn">Admin</button>`:'';
+  $('#app').innerHTML=body+`<div class="nav">${['game','history','wallet','profile'].map(t=>`<button type="button" data-a="tab" data-t="${t}" class="${S.tab===t?'act':''}">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}${admBtn}</div>`+(S.phase==='win'&&S.room&&S.win?modal():'')+(S.help?helpModal():'')+payModal();
+  const n=document.querySelector('.main');if(n)n.scrollTop=sc;
+}
 
 document.addEventListener('click',e=>{
- if(e.target.closest('[data-a="noop"]'))return;
- const el=e.target.closest('[data-a]');if(!el)return;const a=el.dataset.a,i=+el.dataset.i;
- if(a==='admin'){location.href='/studio?pin=1219';return}
- else if(a==='open_dep'){S.payBox={type:'deposit',amount:'',tx:''}}
- else if(a==='open_wdr'){S.payBox={type:'withdraw',amount:'',acc:''}}
- else if(a==='close_pay'){S.payBox=null}
- else if(a==='submit_pay'){
+ if(e.target.id==='pay_cancel'||e.target.id==='pay_ov'){
+  S.payBox=null;render(1);return;
+ }
+ if(e.target.id==='pay_send'){
+  const t=e.target.dataset.t;
   const amt=+($('#pay_amt')&&$('#pay_amt').value);
-  if(!amt||amt<=0){alert('እባክዎ ትክክለኛ የብር መጠን ያስገቡ።');return}
-  if(el.dataset.t==='deposit'){
+  if(!amt||amt<=0){S.payBox.err='እባክዎ ትክክለኛ የብር መጠን ያስገቡ።';S.payBox.ok='';render(1);return}
+  if(t==='deposit'){
    const tx=($('#pay_tx')&&$('#pay_tx').value||'').trim();
-   if(tx.length<3){alert('እባክዎ Transaction No ያስገቡ።');return}
+   if(tx.length<3){S.payBox.err='እባክዎ Transaction No ያስገቡ።';S.payBox.ok='';render(1);return}
    addTx('Deposit req ('+tx+')',amt);
    emit('wallet:deposit_req',{amount:amt,txNumber:tx,user:ME});
-   S.payBox=null;S.wtab='his';S.tab='wallet';
-   alert('የDeposit ጥያቄዎ ተመዝግቧል። በአስተዳዳሪ ሲጸድቅ ባላንስዎ ይጨምራል።');
+   S.payBox=null;S.wtab='his';S.tab='wallet';render(1);return;
   }else{
    const acc=($('#pay_acc')&&$('#pay_acc').value||'').trim();
-   if(!acc){alert('እባክዎ የመቀበያ ስልክ/አካውንት ያስገቡ።');return}
-   if(S.wallet<amt){alert('በቂ Main Balance የለዎትም! ያለዎት Main Balance: '+fmt(S.wallet));return}
+   if(!acc){S.payBox.err='እባክዎ የመቀበያ ስልክ/አካውንት ያስገቡ።';S.payBox.ok='';render(1);return}
+   if(S.wallet<amt){S.payBox.err='በቂ Main Balance የለዎትም! ያለዎት Main Balance: '+fmt(S.wallet);S.payBox.ok='';render(1);return}
    S.wallet=Number((S.wallet-amt).toFixed(2));
    S.withd=Number((S.withd+amt).toFixed(2));
    addTx('Withdraw ('+acc+')',-amt);
    emit('wallet:withdraw_req',{amount:amt,accountInfo:acc,user:ME});
-   S.payBox=null;S.wtab='his';S.tab='wallet';
-   alert('የWithdraw ጥያቄዎ ('+fmt(amt)+') ተመዝግቧል።');
+   S.payBox=null;S.wtab='his';S.tab='wallet';render(1);return;
   }
  }
+ if(e.target.closest('#pay_box'))return;
+ if(e.target.closest('[data-a="noop"]'))return;
+
+ const el=e.target.closest('[data-a]');if(!el)return;const a=el.dataset.a,i=+el.dataset.i;
+ if(a==='admin'){location.href='/studio?pin=1219';return}
+ else if(a==='open_dep'){S.payBox={type:'deposit',amount:'',tx:'',err:'',ok:''};render(1);return}
+ else if(a==='open_wdr'){S.payBox={type:'withdraw',amount:'',acc:'',err:'',ok:''};render(1);return}
  else if(a==='reload'){if(LIVE&&S.room)liveJoin(S.room)}
  else if(a==='pick'&&S.phase==='lobby'&&LIVE)livePick(i);
  else if(a==='pick'&&S.phase==='lobby'){
