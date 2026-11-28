@@ -1771,3 +1771,384 @@ app.post('/api/studio/game-control', requireStudioPin, (req, res) => {
     gameState.phase = 'PAUSED';
   }
   res.json({
+    ok: true,
+    live: {
+      phase: gameState.phase,
+      countdown: gameState.countdown,
+      gameId: gameState.gameId,
+      gameCode: gameState.gameCode,
+      stake: gameState.stake,
+      takenBoardsCount: gameState.takenBoards.size,
+      prizePool: calculatePrizePool()
+    }
+  });
+});
+
+app.post('/api/studio/requests/:id/approve', requireStudioPin, (req, res) => {
+  const result = approveRequestById(req.params.id);
+  if (!result.ok) return res.status(400).json(result);
+  res.json(result);
+});
+
+app.post('/api/studio/requests/:id/reject', requireStudioPin, (req, res) => {
+  const result = rejectRequestById(req.params.id);
+  if (!result.ok) return res.status(400).json(result);
+  res.json(result);
+});
+
+app.use(express.static(__dirname));
+
+io.on('connection', (socket) => {
+  socket.on('wallet:get', (payload = {}) => {
+    const uid = String((payload.user && payload.user.id) || payload.userId || getSocketKey(socket));
+    if (payload.user && payload.user.id) {
+      socket.data.userId = String(payload.user.id);
+      if (payload.user.name) socket.data.username = payload.user.name;
+    }
+    getOrCreateUser(uid, {
+      firstName: (payload.user && payload.user.name) || socket.data.username || 'Player'
+    });
+    emitWalletToUser(uid, socket);
+  });
+
+  socket.on('room:join', (payload = {}) => {
+    if (payload.stake && gameState.phase === 'LOBBY' && gameState.takenBoards.size === 0) {
+      gameState.stake = Number(payload.stake) || gameState.stake;
+    }
+    if (payload.user) {
+      socket.data.userId = payload.user.id ? String(payload.user.id) : socket.id;
+      socket.data.username = payload.user.name || 'Player';
+      getOrCreateUser(socket.data.userId, { firstName: socket.data.username });
+    }
+    emitRoomStateToSocket(socket);
+  });
+
+  socket.on('room:leave', () => {
+    const key = getSocketKey(socket);
+    const user = getOrCreateUser(key, { firstName: socket.data.username || 'Player' });
+    let changed = false;
+    let refunded = false;
+
+    for (const [boardId, info] of gameState.takenBoards.entries()) {
+      if (info.socketId === socket.id && gameState.phase === 'LOBBY') {
+        if (info.paidInfo) {
+          refundStake(user, info.paidInfo);
+          refunded = true;
+        }
+        gameState.takenBoards.delete(boardId);
+        io.emit('board:released', { board: boardId, booked: getBookedMap() });
+        changed = true;
+      }
+    }
+
+    if (refunded) {
+      saveStore();
+      emitWalletToUser(key, socket);
+    }
+
+    if (changed) {
+      io.emit('room:state', {
+        phase: mapPhaseForClient(gameState.phase),
+        t: gameState.countdown,
+        stake: gameState.stake,
+        rn: gameState.roundNumber,
+        booked: getBookedMap(),
+        called: gameState.calledNumbers,
+        gid: gameState.gameId,
+        gcode: gameState.gameCode,
+        pool: calculatePrizePool(),
+        players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size
+      });
+    }
+  });
+
+  socket.on('board:pick', (payload = {}) => {
+    const boardId = Number(payload.board);
+    if (payload.user) {
+      socket.data.userId = payload.user.id ? String(payload.user.id) : socket.data.userId || socket.id;
+      socket.data.username = payload.user.name || socket.data.username || 'Player';
+    }
+    const username = socket.data.username || 'Player';
+    const userId = getSocketKey(socket);
+    const user = getOrCreateUser(userId, { firstName: username });
+
+    if (user.status && user.status !== 'active') {
+      socket.emit('board:rejected', { board: boardId, reason: 'restricted' });
+      return;
+    }
+
+    if (gameState.phase !== 'LOBBY') {
+      socket.emit('board:rejected', { board: boardId, reason: 'in_progress' });
+      return;
+    }
+
+    const myBoardsCount = [...gameState.takenBoards.values()].filter(
+      (b) => b.socketId === socket.id
+    ).length;
+
+    if (myBoardsCount >= 2) {
+      socket.emit('board:rejected', { board: boardId, reason: 'max_boards' });
+      return;
+    }
+
+    if (!boardTemplates.has(boardId) || gameState.takenBoards.has(boardId)) {
+      socket.emit('board:rejected', { board: boardId, reason: 'taken' });
+      return;
+    }
+
+    const paidInfo = deductStake(user, gameState.stake);
+    if (!paidInfo) {
+      socket.emit('board:rejected', { board: boardId, reason: 'insufficient', need: gameState.stake });
+      emitWalletToUser(userId, socket);
+      return;
+    }
+
+    gameState.takenBoards.set(boardId, {
+      boardId,
+      board: boardTemplates.get(boardId),
+      socketId: socket.id,
+      userId,
+      username,
+      paidInfo
+    });
+    saveStore();
+
+    io.emit('board:taken', {
+      board: boardId,
+      userId,
+      username,
+      booked: getBookedMap()
+    });
+
+    socket.emit('board:picked', {
+      board: boardId,
+      grid: boardTemplates.get(boardId)
+    });
+    emitWalletToUser(userId, socket);
+  });
+
+  const releaseBoardHandler = (payload = {}) => {
+    const boardId = Number(payload.board);
+    if (gameState.phase !== 'LOBBY') return;
+
+    const entry = gameState.takenBoards.get(boardId);
+    if (entry && entry.socketId === socket.id) {
+      const uid = entry.userId || getSocketKey(socket);
+      const user = getOrCreateUser(uid, { firstName: entry.username });
+      refundStake(user, entry.paidInfo);
+      gameState.takenBoards.delete(boardId);
+      saveStore();
+
+      io.emit('board:released', {
+        board: boardId,
+        booked: getBookedMap()
+      });
+      emitWalletToUser(uid, socket);
+    }
+  };
+
+  socket.on('board:release', releaseBoardHandler);
+  socket.on('board:unpick', releaseBoardHandler);
+
+  socket.on('wallet:deposit_req', (payload = {}) => {
+    const uInfo = payload.user || {};
+    const userId = String(uInfo.id || payload.userId || getSocketKey(socket));
+    const userName = uInfo.name || socket.data.username || 'Player';
+    const amount = Number(payload.amount);
+    const txNumber = String(payload.txNumber || '').trim();
+    const photoData = String(payload.photoData || '').trim();
+
+    const user = getOrCreateUser(userId, { firstName: userName });
+
+    if (!Number.isFinite(amount) || amount < Number(store.settings.minDeposit) || txNumber.length < 3) {
+      socket.emit('wallet:req_error', {
+        type: 'deposit',
+        message: `ቢያንስ ${store.settings.minDeposit} ብር እና ትክክለኛ Transaction No ያስገቡ።`
+      });
+      emitWalletToUser(userId, socket);
+      return;
+    }
+
+    const reqId = `DEP_${Date.now()}_${userId}`;
+    let photoUrl = '';
+
+    const match = photoData.match(/^data:image\/(png|jpe?g|webp|gif);base64,(.+)$/i);
+    if (match) {
+      const ext = match[1].toLowerCase() === 'jpeg' ? 'jpg' : match[1].toLowerCase();
+      const buf = Buffer.from(match[2], 'base64');
+      if (buf.length > 0 && buf.length <= 5 * 1024 * 1024) {
+        const fileName = `${reqId}.${ext}`;
+        const fullPath = path.join(UPLOADS_DIR, fileName);
+        try {
+          fs.writeFileSync(fullPath, buf);
+          photoUrl = `/uploads/${fileName}`;
+        } catch (err) {
+          console.error('MiniApp screenshot save error:', err.message);
+        }
+      }
+    }
+
+    store.requests[reqId] = {
+      id: reqId,
+      type: 'deposit',
+      userId,
+      userName,
+      amount: Number(amount.toFixed(2)),
+      txNumber,
+      photoUrl,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    addHistory(user, {
+      type: 'deposit_request',
+      amount: Number(amount.toFixed(2)),
+      txNumber,
+      reqId
+    });
+    saveStore();
+    emitWalletToUser(userId, socket);
+
+    socket.emit('wallet:req_submitted', {
+      type: 'deposit',
+      reqId,
+      amount: Number(amount.toFixed(2)),
+      txNumber
+    });
+
+    tgApi('sendMessage', {
+      chat_id: ADMIN_ID,
+      text:
+        `💰 *ከMini App የDeposit ጥያቄ!*\n\n` +
+        `• Request ID: \`${reqId}\`\n` +
+        `• ተጫዋች: *${userName}* (\`${userId}\`)\n` +
+        `• መጠን: *${amount.toFixed(2)} ብር*\n` +
+        `• Transaction No: \`${txNumber}\`\n` +
+        `• Screenshot: ${photoUrl ? 'ተልኳል ✅' : 'የለም'}\n` +
+        `• Studio: ${WEBAPP_URL}/studio?pin=${ADMIN_PIN}`,
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '✅ Approve Deposit', callback_data: `req_app_${reqId}` },
+            { text: '❌ Reject', callback_data: `req_rej_${reqId}` }
+          ]
+        ]
+      }
+    });
+  });
+
+  socket.on('wallet:withdraw_req', (payload = {}) => {
+    const uInfo = payload.user || {};
+    const userId = String(uInfo.id || payload.userId || getSocketKey(socket));
+    const userName = uInfo.name || socket.data.username || 'Player';
+    const amount = Number(payload.amount);
+    const accountInfo = String(payload.accountInfo || '').trim();
+
+    const user = getOrCreateUser(userId, { firstName: userName });
+
+    if (!Number.isFinite(amount) || amount < Number(store.settings.minWithdraw) || !accountInfo) {
+      socket.emit('wallet:req_error', {
+        type: 'withdraw',
+        message: `ዝቅተኛው ማውጫ ${store.settings.minWithdraw} ብር ነው። መጠን እና አካውንት ያስገቡ።`
+      });
+      emitWalletToUser(userId, socket);
+      return;
+    }
+
+    if (user.main < amount) {
+      socket.emit('wallet:req_error', {
+        type: 'withdraw',
+        message: `በቂ Main Balance የለዎትም! ያለዎት Main Balance: ${user.main.toFixed(2)} ብር ነው።`
+      });
+      emitWalletToUser(userId, socket);
+      return;
+    }
+
+    user.main = Number((user.main - amount).toFixed(2));
+    const reqId = `WDR_${Date.now()}_${userId}`;
+    store.requests[reqId] = {
+      id: reqId,
+      type: 'withdraw',
+      userId,
+      userName,
+      amount: Number(amount.toFixed(2)),
+      accountInfo,
+      amountHeld: true,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    addHistory(user, {
+      type: 'withdraw_request',
+      amount: Number(amount.toFixed(2)),
+      reqId,
+      accountInfo
+    });
+    saveStore();
+    emitWalletToUser(userId, socket);
+
+    socket.emit('wallet:req_submitted', {
+      type: 'withdraw',
+      reqId,
+      amount: Number(amount.toFixed(2)),
+      accountInfo
+    });
+
+    tgApi('sendMessage', {
+      chat_id: ADMIN_ID,
+      text:
+        `💸 *ከMini App የWithdraw ጥያቄ!*\n\n` +
+        `• Request ID: \`${reqId}\`\n` +
+        `• ተጫዋች: *${userName}* (\`${userId}\`)\n` +
+        `• ቀሪ Main Balance: *${user.main.toFixed(2)} ብር*\n` +
+        `• የሚወጣ መጠን: *${amount.toFixed(2)} ብር*\n` +
+        `• መቀበያ አካውንት: \`${accountInfo}\`\n` +
+        `• Studio: ${WEBAPP_URL}/studio?pin=${ADMIN_PIN}`,
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '✅ Approve Withdraw', callback_data: `req_app_${reqId}` },
+            { text: '❌ Reject', callback_data: `req_rej_${reqId}` }
+          ]
+        ]
+      }
+    });
+  });
+
+  socket.on('disconnect', () => {
+    let changed = false;
+    for (const [boardId, entry] of gameState.takenBoards.entries()) {
+      if (entry.socketId === socket.id) {
+        if (gameState.phase === 'LOBBY' && entry.paidInfo) {
+          const user = getOrCreateUser(entry.userId || getSocketKey(socket), { firstName: entry.username });
+          refundStake(user, entry.paidInfo);
+        }
+        gameState.takenBoards.delete(boardId);
+        changed = true;
+      }
+    }
+    if (changed) {
+      saveStore();
+      if (gameState.phase === 'LOBBY') {
+        io.emit('room:state', {
+          phase: 'lobby',
+          t: gameState.countdown,
+          stake: gameState.stake,
+          rn: gameState.roundNumber,
+          booked: getBookedMap(),
+          called: [],
+          gid: gameState.gameId,
+          gcode: gameState.gameCode,
+          pool: calculatePrizePool(),
+          players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size
+        });
+      }
+    }
+  });
+});
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Bingo server running on port ${PORT}`);
+  startLobby();
+  startBotPolling();
+});
