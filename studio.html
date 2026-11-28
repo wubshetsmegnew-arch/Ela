@@ -33,7 +33,7 @@
     .tab.active { background: #2563eb; color: #fff; border-color: #3b82f6; }
     .row-gap { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .req-item { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
-    .req-img { max-width: 100%; max-height: 220px; border-radius: 8px; margin: 8px 0; display: block; border: 1px solid #475569; }
+    .req-img { max-width: 100%; max-height: 240px; border-radius: 8px; margin: 8px 0; display: block; border: 1px solid #475569; }
     .badge { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
     .pending { background: #f59e0b; color: #0f172a; }
     .approved { background: #16a34a; color: #fff; }
@@ -51,9 +51,20 @@
   <script>
     const ADMIN_IDS = ['7379955498'];
     const currentPin = '1219';
-    const STORE_KEY = 'zina_studio_master_v3';
+    const STORE_KEY = 'zina_studio_master_v4';
     let settingsInitialized = false;
-    let liveCache = { phase: '-', countdown: '-', gameCode: '-', takenBoardsCount: 0, prizePool: 0, usersCount: 0, settings: {}, requests: [] };
+    let liveCache = {
+      phase: '-',
+      countdown: '-',
+      gameCode: '-',
+      stake: 10,
+      takenBoardsCount: 0,
+      prizePool: 0,
+      usersCount: 0,
+      users: [],
+      settings: {},
+      requests: []
+    };
 
     const SECTIONS = [
       ['dashboard', '📡 Dashboard & Live'],
@@ -79,10 +90,24 @@
       }[ch]));
     }
 
+    function getPin() {
+      try {
+        const q = new URLSearchParams(location.search);
+        const p = (q.get('pin') || '').trim();
+        if (p === currentPin || ADMIN_IDS.includes(p)) {
+          sessionStorage.setItem('zina_adm_pin', p);
+          return p;
+        }
+        return sessionStorage.getItem('zina_adm_pin') || currentPin;
+      } catch (e) {
+        return currentPin;
+      }
+    }
+
     function isAdminAuthorized() {
       try {
         const q = new URLSearchParams(location.search);
-        if (q.get('admin') === '1' || q.get('pin') === currentPin) {
+        if (q.get('admin') === '1' || q.get('pin') === currentPin || ADMIN_IDS.includes(String(q.get('pin') || ''))) {
           sessionStorage.setItem('zina_adm_ok', '1');
           return true;
         }
@@ -101,6 +126,7 @@
       const val = (input ? input.value : '').trim();
       if (ADMIN_IDS.includes(val) || val === currentPin) {
         sessionStorage.setItem('zina_adm_ok', '1');
+        sessionStorage.setItem('zina_adm_pin', val);
         settingsInitialized = false;
         toast('Admin access verified');
         renderLayout();
@@ -112,7 +138,7 @@
 
     function defaultState() {
       return {
-        activeSec: 'dashboard',
+        activeSec: 'requests',
         botOnline: true,
         players: [
           { id: '7379955498', name: 'Admin', username: '@admin', balance: 2500, status: 'active' },
@@ -156,6 +182,13 @@
       saveState();
       renderAudit();
       toast('✅ ' + msg);
+    }
+
+    function headers() {
+      return {
+        'Content-Type': 'application/json',
+        'x-admin-pin': getPin()
+      };
     }
 
     function renderLayout() {
@@ -425,13 +458,6 @@
       renderTabs();
     }
 
-    function headers() {
-      return {
-        'Content-Type': 'application/json',
-        'x-admin-pin': currentPin
-      };
-    }
-
     function applyLiveToDom() {
       const d = liveCache;
       const pendingCount = (d.requests || []).filter(r => r.status === 'pending').length;
@@ -456,12 +482,13 @@
         settingsInitialized = true;
       }
       renderRequests(d.requests || []);
+      renderPlayers();
     }
 
     async function loadAll() {
       if (!isAdminAuthorized()) return;
       try {
-        const r = await fetch('/api/studio/data', { headers: { 'x-admin-pin': currentPin } });
+        const r = await fetch('/api/studio/data', { headers: headers() });
         if (!r.ok) {
           if (document.getElementById('requestsList')) {
             document.getElementById('requestsList').innerHTML = '<div style="color:#f87171;">ዳታ መጫን አልተቻለም (' + r.status + ')</div>';
@@ -473,9 +500,11 @@
           phase: d.live ? d.live.phase : '-',
           countdown: d.live ? d.live.countdown : '-',
           gameCode: d.live ? d.live.gameCode : '-',
+          stake: d.live ? d.live.stake : 10,
           takenBoardsCount: d.live ? d.live.takenBoardsCount : 0,
           prizePool: d.live ? d.live.prizePool : 0,
           usersCount: d.usersCount ?? 0,
+          users: d.users || [],
           settings: d.settings || {},
           requests: d.requests || []
         };
@@ -491,7 +520,7 @@
       const box = document.getElementById('requestsList');
       if (!box) return;
       if (!list.length) {
-        box.innerHTML = '<div class="label">ምንም ጥያቄ የለም።</div>';
+        box.innerHTML = '<div class="label">ምንም Deposit ወይም Withdraw ጥያቄ የለም።</div>';
         return;
       }
       box.innerHTML = list.map((req) => {
@@ -499,7 +528,7 @@
         const safeId = escapeHtml(req.id);
         const imgHtml = req.photoUrl
           ? '<a href="' + escapeHtml(req.photoUrl) + '" target="_blank"><img class="req-img" src="' + escapeHtml(req.photoUrl) + '" alt="Screenshot" /></a>'
-          : '';
+          : '<div class="label">ምንም Screenshot አልተላከም</div>';
         const txHtml = req.txNumber ? '<div><b>Tx No:</b> <code>' + escapeHtml(req.txNumber) + '</code></div>' : '';
         const accHtml = req.accountInfo ? '<div><b>Account:</b> <code>' + escapeHtml(req.accountInfo) + '</code></div>' : '';
         const actionsHtml = req.status === 'pending'
@@ -530,13 +559,21 @@
       const tbody = document.getElementById('playersTbody');
       if (!tbody) return;
       const q = (document.getElementById('playerQuery')?.value || '').toLowerCase();
-      const rows = EXT.players.filter(p => !q || String(p.id).includes(q) || String(p.username).toLowerCase().includes(q) || String(p.name).toLowerCase().includes(q));
-      tbody.innerHTML = rows.map(p => `
+      const sourceList = (Array.isArray(liveCache.users) && liveCache.users.length) ? liveCache.users : EXT.players;
+      const rows = sourceList.filter(p =>
+        !q ||
+        String(p.id).toLowerCase().includes(q) ||
+        String(p.username || '').toLowerCase().includes(q) ||
+        String(p.name || '').toLowerCase().includes(q)
+      );
+      tbody.innerHTML = rows.map(p => {
+        const bal = Number(p.main ?? p.balance ?? 0);
+        return `
         <tr>
           <td>${escapeHtml(p.id)}</td>
-          <td>${escapeHtml(p.name)} (${escapeHtml(p.username)})</td>
-          <td><b>Br ${escapeHtml(p.balance)}</b></td>
-          <td><span class="badge ${p.status==='active'?'approved':'pending'}">${escapeHtml(p.status)}</span></td>
+          <td>${escapeHtml(p.name)} (${escapeHtml(p.username || '@player')})</td>
+          <td><b>Br ${escapeHtml(bal.toFixed(2))}</b></td>
+          <td><span class="badge ${p.status==='active'?'approved':'pending'}">${escapeHtml(p.status || 'active')}</span></td>
           <td>
             <div class="row-gap">
               <button class="btn btn-green" type="button" onclick="setPlayerStatus('${escapeHtml(p.id)}','active')">Active</button>
@@ -544,24 +581,40 @@
               <button class="btn btn-red" type="button" onclick="setPlayerStatus('${escapeHtml(p.id)}','banned')">Ban</button>
             </div>
           </td>
-        </tr>`).join('');
+        </tr>`;
+      }).join('');
     }
 
-    function setPlayerStatus(id, st) {
+    async function setPlayerStatus(id, st) {
+      try {
+        await fetch('/api/studio/player-status', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ userId: id, status: st })
+        });
+      } catch (e) {}
       const p = EXT.players.find(x => x.id === id);
-      if (!p) return;
-      p.status = st;
-      EXT.audit.unshift({ user: p.username, action: 'STATUS_' + st.toUpperCase(), amount: '-', reason: 'Updated by Admin' });
+      if (p) p.status = st;
+      EXT.audit.unshift({ user: id, action: 'STATUS_' + st.toUpperCase(), amount: '-', reason: 'Updated by Admin' });
       saveState();
-      renderPlayers();
       renderAudit();
       toast('Player updated: ' + st);
+      loadAll();
     }
 
-    function setGameState(phase, msg) {
+    async function setGameState(phase, msg) {
+      const actionMap = { RUNNING: 'play_now', PAUSED: 'pause', CANCELLED: 'pause', LOBBY: 'start' };
+      try {
+        await fetch('/api/studio/game-control', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ action: actionMap[phase] || 'start', stake: liveCache.stake || 10 })
+        });
+      } catch (e) {}
       liveCache.phase = phase;
       applyLiveToDom();
       notifyAction(msg);
+      loadAll();
     }
 
     function renderWinners() {
@@ -695,6 +748,7 @@
         document.getElementById('balUserId').value = '';
         document.getElementById('balDelta').value = '';
         if (document.getElementById('balReason')) document.getElementById('balReason').value = '';
+        loadAll();
       } else {
         alert('❌ ' + (d.error || 'ስህተት'));
       }
