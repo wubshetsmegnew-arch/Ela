@@ -34,7 +34,8 @@ const ADMIN_PIN = String(process.env.ADMIN_PIN || '1219').trim();
 const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME || '@zinabingo';
 const CHANNEL_URL = process.env.CHANNEL_URL || 'https://t.me/zinabingo';
 const WEBAPP_URL = process.env.WEBAPP_URL || 'https://ela-jbix.onrender.com';
-const SUPPORT_USERNAME = process.env.SUPPORT_USERNAME || '@ZinaBingoBot';
+const SUPPORT_USER_ID = String(process.env.SUPPORT_USER_ID || ADMIN_ID).trim();
+const SUPPORT_USERNAME = String(process.env.SUPPORT_USERNAME || SUPPORT_USER_ID).trim();
 
 const HOUSE_COMMISSION = 0.20;
 const LOBBY_SECONDS = 30;
@@ -42,6 +43,7 @@ const CALL_INTERVAL_MS = 2500;
 const TOTAL_BOARDS = 600;
 
 const DATA_FILE = path.join(__dirname, 'zina_bingo_data.json');
+const BACKUP_FILE = path.join(__dirname, 'zina_bingo_data.bak.json');
 
 let store = {
   settings: {
@@ -55,24 +57,51 @@ let store = {
   requests: {}
 };
 
+function parseStoreFile(filePath) {
+  if (!fs.existsSync(filePath)) return null;
+  const rawStr = fs.readFileSync(filePath, 'utf8');
+  if (!rawStr || !rawStr.trim()) return null;
+  const raw = JSON.parse(rawStr);
+  if (!raw || typeof raw !== 'object') return null;
+  return raw;
+}
+
 function loadStore() {
   try {
-    if (fs.existsSync(DATA_FILE)) {
-      const raw = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-      if (raw && typeof raw === 'object') {
-        store.settings = { ...store.settings, ...(raw.settings || {}) };
-        store.users = raw.users || {};
-        store.requests = raw.requests || {};
-      }
+    const primary = parseStoreFile(DATA_FILE);
+    const backup = parseStoreFile(BACKUP_FILE);
+
+    const primaryUsersCount = primary && primary.users ? Object.keys(primary.users).length : 0;
+    const backupUsersCount = backup && backup.users ? Object.keys(backup.users).length : 0;
+
+    const chosen = (primaryUsersCount === 0 && backupUsersCount > 0) ? backup : (primary || backup);
+    if (chosen) {
+      store.settings = { ...store.settings, ...(chosen.settings || {}) };
+      store.users = chosen.users || {};
+      store.requests = chosen.requests || {};
     }
   } catch (err) {
     console.error('Failed to load store:', err.message);
+    try {
+      const backup = parseStoreFile(BACKUP_FILE);
+      if (backup) {
+        store.settings = { ...store.settings, ...(backup.settings || {}) };
+        store.users = backup.users || {};
+        store.requests = backup.requests || {};
+      }
+    } catch (bErr) {
+      console.error('Failed to load backup store:', bErr.message);
+    }
   }
 }
 
 function saveStore() {
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2));
+    const serialized = JSON.stringify(store, null, 2);
+    const tmpFile = `${DATA_FILE}.tmp`;
+    fs.writeFileSync(tmpFile, serialized);
+    fs.renameSync(tmpFile, DATA_FILE);
+    fs.writeFileSync(BACKUP_FILE, serialized);
   } catch (err) {
     console.error('Failed to save store:', err.message);
   }
@@ -629,6 +658,21 @@ function isAdmin(userId) {
   return Number(userId) === ADMIN_ID;
 }
 
+function getSupportContactInfo() {
+  const clean = SUPPORT_USERNAME.trim();
+  if (clean.startsWith('@')) {
+    return {
+      label: clean,
+      url: `https://t.me/${clean.slice(1)}`
+    };
+  }
+  const numericId = /^\d+$/.test(clean) ? clean : SUPPORT_USER_ID;
+  return {
+    label: `ID: ${numericId}`,
+    url: `tg://user?id=${numericId}`
+  };
+}
+
 function getMainMenuKeyboard(userId) {
   const rows = [
     [{ text: '🎮 Play Game', web_app: { url: WEBAPP_URL } }],
@@ -862,9 +906,10 @@ function rejectRequestById(reqId) {
   saveStore();
   emitWalletToUser(uid);
 
+  const supportInfo = getSupportContactInfo();
   tgApi('sendMessage', {
     chat_id: uid,
-    text: `❌ የእርስዎ የ *${reqObj.type.toUpperCase()}* (\`${reqId}\`፣ *${reqObj.amount} ብር*) ጥያቄ ተቀባይነት አላገኘም። ዝርዝር ካስፈለገዎት ${SUPPORT_USERNAME} ያነጋግሩ።`,
+    text: `❌ የእርስዎ የ *${reqObj.type.toUpperCase()}* (\`${reqId}\`፣ *${reqObj.amount} ብር*) ጥያቄ ተቀባይነት አላገኘም። ዝርዝር ካስፈለገዎት ${supportInfo.label} ያነጋግሩ።`,
     parse_mode: 'Markdown'
   });
 
@@ -1371,15 +1416,22 @@ async function handleBotMessage(msg) {
   }
 
   if (text === '📞 Support') {
+    const supportInfo = getSupportContactInfo();
     await tgApi('sendMessage', {
       chat_id: chatId,
       text:
         `📞 *Zina Bingo Support*\n\n` +
         `🆔 የእርስዎ ID: \`${user.id}\`\n` +
-        `ለማንኛውም ጥያቄ ወይም ደረሰኝ ለመላክ፦ ${SUPPORT_USERNAME}`,
+        `ችግር ሲያጋጥምዎት ከታች ባለው ቁልፍ ወደ አስተዳዳሪው የግል መልዕክት ይላኩ፦\n` +
+        `• የግል መለያ: \`${supportInfo.label}\``,
       parse_mode: 'Markdown',
-      reply_markup: getMainMenuKeyboard(user.id)
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '💬 ወደ የግል መልዕክት ላክ (Direct PM)', url: supportInfo.url }]
+        ]
+      }
     });
+    await sendPersistentKeyboardOnly(chatId, user.id, '👇 የሜኑ ቁልፎች፦');
     return;
   }
 
@@ -1692,6 +1744,26 @@ app.get('/api/studio/data', requireStudioPin, (req, res) => {
     users: usersList,
     usersCount: usersList.length
   });
+});
+
+app.get('/api/studio/export', requireStudioPin, (req, res) => {
+  res.json({
+    ok: true,
+    exportedAt: new Date().toISOString(),
+    data: store
+  });
+});
+
+app.post('/api/studio/import', requireStudioPin, (req, res) => {
+  const incoming = req.body?.data || req.body;
+  if (!incoming || typeof incoming !== 'object' || !incoming.users || typeof incoming.users !== 'object') {
+    return res.status(400).json({ ok: false, error: 'Invalid import payload.' });
+  }
+  store.settings = { ...store.settings, ...(incoming.settings || {}) };
+  store.users = incoming.users;
+  store.requests = incoming.requests || {};
+  saveStore();
+  return res.json({ ok: true, usersCount: Object.keys(store.users).length });
 });
 
 app.post('/api/studio/settings', requireStudioPin, (req, res) => {
