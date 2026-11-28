@@ -416,9 +416,9 @@ function emitRoomStateToSocket(socket) {
     gid: gameState.gameId,
     gcode: gameState.gameCode,
     pool: calculatePrizePool(),
-    players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size,
-    wallet: walletPayload(u)
+    players: new Set([...gameState.takenBoards.values()].map((b) => b.socketId)).size
   });
+  emitWalletToUser(key, socket);
 }
 
 function evaluateWinners() {
@@ -1745,7 +1745,7 @@ app.get('/status', (req, res) => {
 app.get('/api/wallet/:userId', (req, res) => {
   const uid = String(req.params.userId || '').trim();
   if (!uid) return res.status(400).json({ ok: false, error: 'Missing userId' });
-  const u = getOrCreateUser(uid);
+  const u = store.users[uid] || getOrCreateUser(uid);
   return res.json({ ok: true, wallet: walletPayload(u) });
 });
 
@@ -1928,7 +1928,7 @@ io.on('connection', (socket) => {
       socket.data.userId = String(payload.user.id);
       if (payload.user.name) socket.data.username = payload.user.name;
     }
-    getOrCreateUser(uid, {
+    const existing = store.users[uid] || getOrCreateUser(uid, {
       firstName: (payload.user && payload.user.name) || socket.data.username || 'Player'
     });
     emitWalletToUser(uid, socket);
