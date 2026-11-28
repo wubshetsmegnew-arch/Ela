@@ -54,7 +54,8 @@ let store = {
     minWithdraw: 50
   },
   users: {},
-  requests: {}
+  requests: {},
+  claimedBonusUsers: {}
 };
 
 function parseStoreFile(filePath) {
@@ -79,6 +80,7 @@ function loadStore() {
       store.settings = { ...store.settings, ...(chosen.settings || {}) };
       store.users = chosen.users || {};
       store.requests = chosen.requests || {};
+      store.claimedBonusUsers = chosen.claimedBonusUsers || {};
     }
   } catch (err) {
     console.error('Failed to load store:', err.message);
@@ -88,6 +90,7 @@ function loadStore() {
         store.settings = { ...store.settings, ...(backup.settings || {}) };
         store.users = backup.users || {};
         store.requests = backup.requests || {};
+        store.claimedBonusUsers = backup.claimedBonusUsers || {};
       }
     } catch (bErr) {
       console.error('Failed to load backup store:', bErr.message);
@@ -139,18 +142,45 @@ function addHistory(user, entry) {
     ...entry,
     time: new Date().toISOString()
   });
-  if (user.history.length > 50) {
-    user.history = user.history.slice(0, 50);
+  if (user.history.length > 200) {
+    user.history = user.history.slice(0, 200);
   }
+}
+
+function normalizeUserRecord(u, key, info = {}) {
+  if (!u || typeof u !== 'object') return null;
+  u.id = String(key);
+  if (info.firstName && info.firstName !== 'Guest') u.firstName = info.firstName;
+  if (!u.firstName) u.firstName = 'Player';
+  if (info.username) u.username = info.username;
+  if (typeof u.username !== 'string') u.username = '';
+  if (!u.status) u.status = 'active';
+  if (!Array.isArray(u.history)) u.history = [];
+  if (u.main == null || !Number.isFinite(Number(u.main))) u.main = 0;
+  if (u.bonus == null || !Number.isFinite(Number(u.bonus))) u.bonus = 0;
+  if (u.dep == null || !Number.isFinite(Number(u.dep))) u.dep = 0;
+  if (u.withd == null || !Number.isFinite(Number(u.withd))) u.withd = 0;
+  if (u.winsCount == null || !Number.isFinite(Number(u.winsCount))) u.winsCount = 0;
+  if (u.totalWon == null || !Number.isFinite(Number(u.totalWon))) u.totalWon = 0;
+  if (typeof u.bonusClaimed !== 'boolean') {
+    u.bonusClaimed = Boolean(u.welcomeBonusGiven || store.claimedBonusUsers[String(key)] || Number(u.bonus) > 0);
+  }
+  u.welcomeBonusGiven = u.bonusClaimed;
+  if (!u.createdAt) u.createdAt = new Date().toISOString();
+  return u;
 }
 
 function getOrCreateUser(userId, info = {}) {
   const key = String(userId).trim();
   const defaultBonus = Number(store.settings.welcomeBonus) || 0;
+  let changed = false;
 
   if (!store.users[key]) {
-    const initialBonus = defaultBonus > 0 ? defaultBonus : 0;
-    store.users[key] = {
+    const alreadyClaimedBefore = Boolean(store.claimedBonusUsers[key]);
+    const grantBonus = !alreadyClaimedBefore && defaultBonus > 0;
+    const initialBonus = grantBonus ? defaultBonus : 0;
+
+    store.users[key] = normalizeUserRecord({
       id: key,
       firstName: info.firstName || 'Player',
       username: info.username || '',
@@ -158,31 +188,45 @@ function getOrCreateUser(userId, info = {}) {
       bonus: initialBonus,
       dep: 0,
       withd: 0,
+      winsCount: 0,
+      totalWon: 0,
       status: 'active',
-      welcomeBonusGiven: initialBonus > 0,
+      bonusClaimed: grantBonus || alreadyClaimedBefore,
+      welcomeBonusGiven: grantBonus || alreadyClaimedBefore,
+      createdAt: new Date().toISOString(),
       history: []
-    };
-    if (initialBonus > 0) {
+    }, key, info);
+
+    if (grantBonus) {
+      store.claimedBonusUsers[key] = {
+        claimedAt: new Date().toISOString(),
+        amount: initialBonus
+      };
       addHistory(store.users[key], {
         type: 'welcome_bonus',
         amount: initialBonus,
         note: 'የጀማሪ ቦነስ (አንድ ጊዜ ብቻ)'
       });
     }
-    saveStore();
+    changed = true;
   } else {
-    const existing = store.users[key];
-    if (info.firstName && info.firstName !== 'Guest') existing.firstName = info.firstName;
-    if (info.username) existing.username = info.username;
-    if (!existing.status) existing.status = 'active';
-    if (!Array.isArray(existing.history)) existing.history = [];
-    if (existing.main == null || !Number.isFinite(Number(existing.main))) existing.main = 0;
-    if (existing.bonus == null || !Number.isFinite(Number(existing.bonus))) existing.bonus = 0;
-    if (existing.dep == null || !Number.isFinite(Number(existing.dep))) existing.dep = 0;
-    if (existing.withd == null || !Number.isFinite(Number(existing.withd))) existing.withd = 0;
-    if (typeof existing.welcomeBonusGiven !== 'boolean') {
-      existing.welcomeBonusGiven = existing.bonus > 0;
+    const prevFirst = store.users[key].firstName;
+    const prevUser = store.users[key].username;
+    normalizeUserRecord(store.users[key], key, info);
+    if (store.users[key].bonusClaimed && !store.claimedBonusUsers[key]) {
+      store.claimedBonusUsers[key] = {
+        claimedAt: new Date().toISOString(),
+        amount: Number(store.users[key].bonus || defaultBonus || 0)
+      };
+      changed = true;
     }
+    if (prevFirst !== store.users[key].firstName || prevUser !== store.users[key].username) {
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    saveStore();
   }
   return store.users[key];
 }
@@ -194,15 +238,45 @@ function getUserRequests(userId) {
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 }
 
-function walletPayload(u) {
-  const uid = String(u.id);
+function buildUserSummary(u) {
+  const rec = normalizeUserRecord(u, u.id);
+  const hist = Array.isArray(rec.history) ? rec.history : [];
+  const winEntries = hist.filter((h) => h.type === 'win');
+  const winsCount = Math.max(Number(rec.winsCount || 0), winEntries.length);
+  const totalWonFromHist = winEntries.reduce((sum, h) => sum + (Number(h.amount) || 0), 0);
+  const totalWon = Number(Math.max(Number(rec.totalWon || 0), totalWonFromHist).toFixed(2));
+
   return {
-    userId: uid,
-    main: Number(Number(u.main || 0).toFixed(2)),
-    bonus: Number(Number(u.bonus || 0).toFixed(2)),
-    balance: Number(Number(u.main || 0).toFixed(2)),
-    dep: Number(Number(u.dep || 0).toFixed(2)),
-    withd: Number(Number(u.withd || 0).toFixed(2)),
+    id: rec.id,
+    name: rec.firstName || 'Player',
+    username: rec.username ? (rec.username.startsWith('@') ? rec.username : '@' + rec.username) : '@player',
+    main: Number(Number(rec.main || 0).toFixed(2)),
+    bonus: Number(Number(rec.bonus || 0).toFixed(2)),
+    balance: Number(Number(rec.main || 0).toFixed(2)),
+    totalDeposits: Number(Number(rec.dep || 0).toFixed(2)),
+    totalWithdrawals: Number(Number(rec.withd || 0).toFixed(2)),
+    winsCount,
+    totalWon,
+    bonusClaimed: Boolean(rec.bonusClaimed || store.claimedBonusUsers[rec.id]),
+    status: rec.status || 'active',
+    createdAt: rec.createdAt || '',
+    history: hist,
+    requests: getUserRequests(rec.id)
+  };
+}
+
+function walletPayload(u) {
+  const summary = buildUserSummary(u);
+  return {
+    userId: summary.id,
+    main: summary.main,
+    bonus: summary.bonus,
+    balance: summary.balance,
+    dep: summary.totalDeposits,
+    withd: summary.totalWithdrawals,
+    winsCount: summary.winsCount,
+    totalWon: summary.totalWon,
+    bonusClaimed: summary.bonusClaimed,
     settings: {
       telebirr: store.settings.telebirr,
       cbe: store.settings.cbe,
@@ -210,8 +284,8 @@ function walletPayload(u) {
       minDeposit: Number(store.settings.minDeposit || 20),
       minWithdraw: Number(store.settings.minWithdraw || 50)
     },
-    history: Array.isArray(u.history) ? u.history : [],
-    requests: getUserRequests(uid)
+    history: summary.history,
+    requests: summary.requests
   };
 }
 
@@ -403,7 +477,7 @@ function emitRoomStateToSocket(socket) {
   for (const [boardId, info] of gameState.takenBoards.entries()) {
     if (info.socketId === socket.id) mine.push(boardId);
   }
-  const u = getWallet(key);
+  getWallet(key);
 
   socket.emit('room:state', {
     phase: mapPhaseForClient(gameState.phase),
@@ -465,6 +539,8 @@ function evaluateWinners() {
       const wKey = String(w.userId || w.socketId);
       const user = getOrCreateUser(wKey, { firstName: w.name });
       user.main = Number(((user.main || 0) + splitAmount).toFixed(2));
+      user.winsCount = Number(user.winsCount || 0) + 1;
+      user.totalWon = Number(((user.totalWon || 0) + splitAmount).toFixed(2));
       addHistory(user, {
         type: 'win',
         amount: splitAmount,
@@ -813,12 +889,13 @@ async function sendMainMenu(chatId, userId, firstName = 'Player') {
 }
 
 function formatHistoryText(user) {
-  if (!Array.isArray(user.history) || user.history.length === 0) {
+  const summary = buildUserSummary(user);
+  if (!Array.isArray(summary.history) || summary.history.length === 0) {
     return '📜 *የእርስዎ ታሪክ (History)*\n\nእስካሁን ምንም የተመዘገበ ታሪክ የለም።';
   }
-  const lines = user.history.slice(0, 10).map((h) => {
+  const lines = summary.history.slice(0, 15).map((h) => {
     const d = h.time ? h.time.slice(0, 16).replace('T', ' ') : '';
-    if (h.type === 'welcome_bonus') return `• 🎁 ቦነስ: +${h.amount} ብር (${d})`;
+    if (h.type === 'welcome_bonus') return `• 🎁 የጀማሪ ቦነስ: +${h.amount} ብር (${d})`;
     if (h.type === 'deposit_request') return `• ⏳ Deposit Req: +${h.amount} ብር (${d})`;
     if (h.type === 'deposit_approved') return `• 💰 Deposit (Approved): +${h.amount} ብር (${d})`;
     if (h.type === 'deposit_rejected') return `• ❌ Deposit (Rejected): ${h.amount} ብር (${d})`;
@@ -830,7 +907,14 @@ function formatHistoryText(user) {
     if (h.type === 'admin_bonus') return `• 🎁 Admin Bonus Added: +${h.amount} ብር (${d})`;
     return `• ℹ️ ${h.note || h.type}: ${h.amount ?? ''} (${d})`;
   });
-  return `📜 *የእርስዎ የቅርብ ጊዜ ታሪክ (History)*\n\n` + lines.join('\n');
+  return (
+    `📜 *የእርስዎ ሙሉ ማጠቃለያ እና ታሪክ*\n` +
+    `• ጠቅላላ Deposit: *${summary.totalDeposits.toFixed(2)} ብር*\n` +
+    `• ጠቅላላ Withdraw: *${summary.totalWithdrawals.toFixed(2)} ብር*\n` +
+    `• ያሸነፉት ድል: *${summary.winsCount} ጊዜ (${summary.totalWon.toFixed(2)} ብር)*\n` +
+    `• ቦነስ ሁኔታ: *${summary.bonusClaimed ? 'ተወስዷል ✅' : 'አልተወሰደም'}*\n\n` +
+    lines.join('\n')
+  );
 }
 
 function approveRequestById(reqId) {
@@ -1292,6 +1376,12 @@ async function handleBotMessage(msg) {
 
         const targetUser = getOrCreateUser(targetId);
         targetUser.bonus = Number(((Number(targetUser.bonus) || 0) + bonusDelta).toFixed(2));
+        targetUser.bonusClaimed = true;
+        targetUser.welcomeBonusGiven = true;
+        store.claimedBonusUsers[targetId] = store.claimedBonusUsers[targetId] || {
+          claimedAt: new Date().toISOString(),
+          amount: bonusDelta
+        };
         addHistory(targetUser, {
           type: 'admin_bonus',
           amount: bonusDelta,
@@ -1387,17 +1477,17 @@ async function handleBotMessage(msg) {
 
   if (text === '💳 Balance') {
     const freshU = store.users[String(user.id)] || u;
-    const mainVal = Number(freshU.main || 0);
-    const bonusVal = Number(freshU.bonus || 0);
-    const totalBal = Number((mainVal + bonusVal).toFixed(2));
+    const summary = buildUserSummary(freshU);
+    const totalBal = Number((summary.main + summary.bonus).toFixed(2));
     await tgApi('sendMessage', {
       chat_id: chatId,
       text:
         `💳 *የZina Bingo ቀሪ ሂሳብዎ*\n\n` +
-        `👤 ስም: *${freshU.firstName || user.first_name || 'Player'}*\n` +
+        `👤 ስም: *${summary.name}*\n` +
         `🆔 ID: \`${user.id}\`\n` +
-        `💰 Main Balance: *${mainVal.toFixed(2)} ብር*\n` +
-        `🎁 Bonus: *${bonusVal.toFixed(2)} ብር*\n` +
+        `💰 Main Balance: *${summary.main.toFixed(2)} ብር*\n` +
+        `🎁 Bonus: *${summary.bonus.toFixed(2)} ብር* (${summary.bonusClaimed ? 'ቦነስ ተወስዷል ✅' : 'ቦነስ አልተወሰደም'})\n` +
+        `🏆 ድል: *${summary.winsCount} ጊዜ (${summary.totalWon.toFixed(2)} ብር)*\n` +
         `📊 አጠቃላይ (Main + Bonus): *${totalBal.toFixed(2)} ብር*`,
       parse_mode: 'Markdown',
       reply_markup: getMainMenuKeyboard(user.id)
@@ -1753,15 +1843,7 @@ app.get('/api/studio/data', requireStudioPin, (req, res) => {
   const requestsList = Object.values(store.requests).sort(
     (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
   );
-  const usersList = Object.values(store.users).map((u) => ({
-    id: u.id,
-    name: u.firstName || 'Player',
-    username: u.username ? (u.username.startsWith('@') ? u.username : '@' + u.username) : '@player',
-    main: Number(u.main || 0),
-    bonus: Number(u.bonus || 0),
-    balance: Number(u.main || 0),
-    status: u.status || 'active'
-  }));
+  const usersList = Object.values(store.users).map((u) => buildUserSummary(u));
   res.json({
     ok: true,
     live: {
@@ -1797,6 +1879,16 @@ app.post('/api/studio/import', requireStudioPin, (req, res) => {
   store.settings = { ...store.settings, ...(incoming.settings || {}) };
   store.users = incoming.users;
   store.requests = incoming.requests || {};
+  store.claimedBonusUsers = { ...(store.claimedBonusUsers || {}), ...(incoming.claimedBonusUsers || {}) };
+  for (const [uid, rec] of Object.entries(store.users)) {
+    normalizeUserRecord(rec, uid);
+    if (rec.bonusClaimed) {
+      store.claimedBonusUsers[uid] = store.claimedBonusUsers[uid] || {
+        claimedAt: new Date().toISOString(),
+        amount: Number(rec.bonus || store.settings.welcomeBonus || 0)
+      };
+    }
+  }
   saveStore();
   return res.json({ ok: true, usersCount: Object.keys(store.users).length });
 });
@@ -1833,6 +1925,14 @@ app.post('/api/studio/balance', requireStudioPin, (req, res) => {
   }
   targetUser.main = nextMain;
   targetUser.bonus = nextBonus;
+  if (bonusDelta > 0) {
+    targetUser.bonusClaimed = true;
+    targetUser.welcomeBonusGiven = true;
+    store.claimedBonusUsers[targetId] = store.claimedBonusUsers[targetId] || {
+      claimedAt: new Date().toISOString(),
+      amount: bonusDelta
+    };
+  }
   if (delta !== 0) {
     addHistory(targetUser, {
       type: 'admin_add',
@@ -1859,7 +1959,7 @@ app.post('/api/studio/balance', requireStudioPin, (req, res) => {
     parse_mode: 'Markdown'
   });
 
-  res.json({ ok: true, user: targetUser });
+  res.json({ ok: true, user: buildUserSummary(targetUser) });
 });
 
 app.post('/api/studio/player-status', requireStudioPin, (req, res) => {
@@ -1871,7 +1971,7 @@ app.post('/api/studio/player-status', requireStudioPin, (req, res) => {
   const targetUser = getOrCreateUser(targetId);
   targetUser.status = status;
   saveStore();
-  res.json({ ok: true, user: targetUser });
+  res.json({ ok: true, user: buildUserSummary(targetUser) });
 });
 
 app.post('/api/studio/game-control', requireStudioPin, (req, res) => {
@@ -1928,7 +2028,7 @@ io.on('connection', (socket) => {
       socket.data.userId = String(payload.user.id);
       if (payload.user.name) socket.data.username = payload.user.name;
     }
-    const existing = store.users[uid] || getOrCreateUser(uid, {
+    getOrCreateUser(uid, {
       firstName: (payload.user && payload.user.name) || socket.data.username || 'Player'
     });
     emitWalletToUser(uid, socket);
