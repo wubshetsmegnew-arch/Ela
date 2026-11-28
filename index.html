@@ -312,7 +312,7 @@ document.addEventListener('click',e=>{
  if(a==='admin'){location.href='/studio?pin=1219';return}
  else if(a==='open_dep'){S.payBox={type:'deposit',amount:'',tx:'',err:'',ok:''};syncPayModal();return}
  else if(a==='open_wdr'){S.payBox={type:'withdraw',amount:'',acc:'',err:'',ok:''};syncPayModal();return}
- else if(a==='reload'){if(LIVE){emit('wallet:get',{user:ME});if(S.room)liveJoin(S.room)}showBanner('⟳ ታድሷል');return}
+ else if(a==='reload'){fetchLiveWallet();if(LIVE){emit('wallet:get',{user:ME});if(S.room)liveJoin(S.room)}showBanner('⟳ ታድሷል');return}
  else if(a==='pick'&&S.phase==='lobby'&&LIVE)livePick(i);
  else if(a==='pick'&&S.phase==='lobby'){
   if(S.mine.includes(i)){S.mine=S.mine.filter(x=>x!==i);refund(i);delete S.booked[i]}
@@ -377,7 +377,47 @@ function liveBingo(id){
   showWin({winners:[{board:id,name:ME.name,userId:ME.id,pattern:p.t,line:p.c}],pool:S.pool,prize:S.pool,called:[...S.called]},true);
 }
 function playersCount(){const boards=Object.keys(S.booked||{}).length,srv=+S.players;return Math.max(boards,Number.isInteger(srv)&&srv>0?srv:0,S.mine.length)}
-function applyWallet(w){if(!w)return;if(w.main!=null)S.wallet=+w.main;if(w.bonus!=null)S.bonus=+w.bonus;if(w.dep!=null)S.dep=+w.dep;if(w.withd!=null)S.withd=+w.withd;if(w.settings)S.payCfg=Object.assign({},S.payCfg,w.settings)}
+function mapServerHistory(h){
+  if(!h)return null;
+  const ts=h.time?new Date(h.time).getTime():Date.now();
+  const amt=Number(h.amount||0);
+  if(h.type==='welcome_bonus')return{l:'Welcome Bonus',a:amt,ts};
+  if(h.type==='deposit_request')return{l:'Deposit req ('+(h.txNumber||'')+')',a:amt,ts};
+  if(h.type==='deposit_approved')return{l:'Deposit approved'+(h.txNumber?' ('+h.txNumber+')':''),a:amt,ts};
+  if(h.type==='deposit_rejected')return{l:'Deposit rejected',a:0,ts};
+  if(h.type==='withdraw_request')return{l:'Withdraw req ('+(h.accountInfo||'')+')',a:-Math.abs(amt),ts};
+  if(h.type==='withdraw_approved')return{l:'Withdraw approved',a:-Math.abs(amt),ts};
+  if(h.type==='withdraw_rejected')return{l:'Withdraw refunded',a:Math.abs(amt),ts};
+  if(h.type==='win')return{l:'Game prize ('+(h.gameCode||'')+')',a:amt,ts};
+  if(h.type==='admin_add')return{l:'Admin Main adjust',a:amt,ts};
+  if(h.type==='admin_bonus')return{l:'Admin Bonus',a:amt,ts};
+  return{l:h.note||h.type||'Activity',a:amt,ts};
+}
+function applyWallet(w){
+  if(!w)return;
+  if(w.main!=null)S.wallet=Number(w.main)||0;
+  if(w.bonus!=null)S.bonus=Number(w.bonus)||0;
+  if(w.dep!=null)S.dep=Number(w.dep)||0;
+  if(w.withd!=null)S.withd=Number(w.withd)||0;
+  if(w.settings)S.payCfg=Object.assign({},S.payCfg,w.settings);
+  if(Array.isArray(w.history)){
+    const mapped=w.history.map(mapServerHistory).filter(Boolean);
+    if(mapped.length)S.tx=mapped;
+  }
+}
+function fetchLiveWallet(){
+  if(!ME.id||!SERVER_URL)return;
+  fetch(SERVER_URL.replace(/\/$/,'')+'/api/wallet/'+encodeURIComponent(String(ME.id)))
+    .then(r=>r.ok?r.json():null)
+    .then(data=>{
+      if(data&&data.ok&&data.wallet){
+        LIVE=true;
+        applyWallet(data.wallet);
+        render(1);
+      }
+    })
+    .catch(()=>{});
+}
 function initMarks(){S.mine.forEach(id=>{if(!S.marks[id])S.marks[id]=new Set([0]);if(S.auto)S.called.forEach(n=>S.marks[id].add(n))})}
 function endHold(){S.holdUntil=0;const q=S.queued;S.queued=null;if(q){applyState(q);if(S.phase==='play'){S.claimed={};S.played=[...S.mine]}}else{S.phase='lobby';S.win=null;S.marks={};S.called=[];S.claimed={};S.played=null;S.mine=[];S.paid={};S.left=false}render(1)}
 function applyState(d){
@@ -420,9 +460,10 @@ function showWin(d,local){
   render(1)
 }
 function liveInit(){
+  fetchLiveWallet();
   if(!window.io||SERVER_URL.includes('PASTE'))return;
   socket=io(SERVER_URL,{transports:['websocket','polling'],auth:{userId:ME.id,name:ME.name,initData:ME.initData}});
-  socket.on('connect',()=>{LIVE=true;emit('wallet:get',{user:ME});const keep=S.wasConnected&&(S.phase==='play'||(S.holdUntil&&Date.now()<S.holdUntil));
+  socket.on('connect',()=>{LIVE=true;emit('wallet:get',{user:ME});fetchLiveWallet();const keep=S.wasConnected&&(S.phase==='play'||(S.holdUntil&&Date.now()<S.holdUntil));
     if(!keep){S.holdUntil=0;S.queued=null;S.played=null;S.mine=[];S.booked={};S.paid={};S.marks={};S.called=[];S.phase='lobby';S.win=null;S.claimed={}}
     if(!S.wasConnected){S.wasConnected=1}
     if(S.room)liveJoin(S.room);render(1)});
@@ -432,7 +473,9 @@ function liveInit(){
   socket.on(EV.taken,d=>{S.booked[d.board]=d.name||'Player';render()});
   socket.on(EV.freed,d=>{if(!S.mine.includes(+d.board))delete S.booked[d.board];render()});
   socket.on(EV.rejected,d=>{const b=+d.board;S.mine=S.mine.filter(x=>x!==b);delete S.paid[b];delete S.booked[b];if(d.reason==='insufficient')S.lowNeed=S.stake;render(1)});
-  socket.on(EV.wallet,w=>{if(!w||!w.userId||String(w.userId)===String(ME.id)){applyWallet(w);render(1)}});
+  const onWalletMsg=w=>{if(!w||!w.userId||String(w.userId)===String(ME.id)){applyWallet(w);render(1)}};
+  socket.on(EV.wallet,onWalletMsg);
+  socket.on('wallet:data',onWalletMsg);
   socket.on('wallet:req_submitted',d=>{if(d&&d.message)showBanner(d.message)});
   socket.on('wallet:req_error',d=>{if(d&&d.message)showBanner('⚠ '+d.message)});
   socket.on(EV.card,d=>{if(d&&d.rows)setCards({[d.board]:d.rows});render()});
