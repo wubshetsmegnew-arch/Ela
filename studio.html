@@ -8,7 +8,7 @@
   <style>
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body { font-family: 'Plus Jakarta Sans', 'Noto Sans Ethiopic', system-ui, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 14px; }
-    .wrap { max-width: 980px; margin: 0 auto; }
+    .wrap { max-width: 1040px; margin: 0 auto; }
     .card { background: #1e293b; border-radius: 12px; padding: 14px; margin-bottom: 14px; border: 1px solid #334155; }
     h2, h3 { margin: 0 0 10px 0; }
     .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -38,20 +38,25 @@
     .pending { background: #f59e0b; color: #0f172a; }
     .approved { background: #16a34a; color: #fff; }
     .rejected { background: #dc2626; color: #fff; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #263349; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #263349; vertical-align: top; }
     th { color: #94a3b8; font-size: 11px; }
     .tbl-wrap { overflow-x: auto; }
     .toast { position: fixed; bottom: 16px; right: 16px; background: #16a34a; color: #fff; padding: 10px 14px; border-radius: 10px; font-weight: 700; font-size: 13px; z-index: 999; }
     .img-ov { position: fixed; inset: 0; background: rgba(0,0,0,0.88); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 1000; }
     .img-ov.show { display: flex; }
     .img-ov img { max-width: 100%; max-height: 85vh; border-radius: 10px; border: 2px solid #475569; }
+    .modal-box { background: #1e293b; border: 1px solid #475569; border-radius: 14px; padding: 16px; width: 100%; max-width: 640px; max-height: 85vh; overflow-y: auto; }
+    .hist-row { background: #0f172a; border: 1px solid #263349; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; display: flex; justify-content: space-between; gap: 10px; font-size: 12px; }
   </style>
 </head>
 <body>
   <div class="wrap" id="studioRoot"></div>
   <div class="img-ov" id="imgLightbox" onclick="closeImgPreview()">
     <img id="imgLightboxEl" src="" alt="Screenshot Preview" onclick="event.stopPropagation()" />
+  </div>
+  <div class="img-ov" id="userHistModal" onclick="closeUserHistory()">
+    <div class="modal-box" id="userHistContent" onclick="event.stopPropagation()"></div>
   </div>
 
   <script>
@@ -74,7 +79,7 @@
 
     const SECTIONS = [
       ['dashboard', '📡 Dashboard & Live'],
-      ['players', '👥 Players'],
+      ['players', '👥 Players & History'],
       ['games', '🎮 Games'],
       ['wallet', '💳 Wallet & Audit'],
       ['requests', '📥 Deposits & Withdrawals'],
@@ -106,6 +111,51 @@
 
     function closeImgPreview() {
       const box = document.getElementById('imgLightbox');
+      if (box) box.classList.remove('show');
+    }
+
+    function openUserHistory(userId) {
+      const list = Array.isArray(liveCache.users) ? liveCache.users : [];
+      const u = list.find(x => String(x.id) === String(userId));
+      const box = document.getElementById('userHistModal');
+      const content = document.getElementById('userHistContent');
+      if (!box || !content || !u) return;
+
+      const hist = Array.isArray(u.history) ? u.history : [];
+      const histHtml = hist.length
+        ? hist.map(h => {
+            const amt = Number(h.amount || 0);
+            const dt = h.time ? String(h.time).slice(0, 16).replace('T', ' ') : '';
+            return `<div class="hist-row">
+              <div>
+                <b>${escapeHtml(h.type || 'activity')}</b>
+                <div class="label" style="margin:2px 0 0 0;">${escapeHtml(h.note || h.gameCode || h.txNumber || h.accountInfo || '')} · ${escapeHtml(dt)}</div>
+              </div>
+              <b style="color:${amt >= 0 ? '#22c55e' : '#f87171'};white-space:nowrap;">${amt >= 0 ? '+' : ''}${escapeHtml(amt.toFixed(2))} ብር</b>
+            </div>`;
+          }).join('')
+        : '<div class="label">ምንም የተመዘገበ ታሪክ የለም።</div>';
+
+      content.innerHTML = `
+        <div class="row-gap" style="justify-content:space-between;margin-bottom:10px;">
+          <div>
+            <h3 style="margin:0;">📜 ${escapeHtml(u.name)} (${escapeHtml(u.id)})</h3>
+            <span class="label" style="margin:2px 0 0 0;">
+              Bonus: <b>${u.bonusClaimed ? 'Claimed ✅' : 'Not Claimed'}</b> (${Number(u.bonus || 0).toFixed(2)} ብር) ·
+              Dep: <b>${Number(u.totalDeposits || 0).toFixed(2)}</b> ·
+              Withd: <b>${Number(u.totalWithdrawals || 0).toFixed(2)}</b> ·
+              Wins: <b>${Number(u.winsCount || 0)} (${Number(u.totalWon || 0).toFixed(2)} ብር)</b>
+            </span>
+          </div>
+          <button class="btn-red" type="button" onclick="closeUserHistory()">ዝጋ</button>
+        </div>
+        ${histHtml}
+      `;
+      box.classList.add('show');
+    }
+
+    function closeUserHistory() {
+      const box = document.getElementById('userHistModal');
       if (box) box.classList.remove('show');
     }
 
@@ -159,11 +209,7 @@
       return {
         activeSec: 'requests',
         botOnline: true,
-        players: [
-          { id: '7379955498', name: 'Admin', username: '@admin', balance: 2500, status: 'active' },
-          { id: '100200301', name: 'Player 1', username: '@player1', balance: 420, status: 'active' },
-          { id: '100200302', name: 'Player 2', username: '@player2', balance: 150, status: 'frozen' }
-        ],
+        players: [],
         winners: [
           { id: 'W-1', game: 'R1041', player: '@player1', board: '#44', pattern: 'Diagonal', prize: 320, paid: true }
         ],
@@ -228,7 +274,7 @@
           <div class="row-gap" style="justify-content:space-between;">
             <div>
               <h2 style="margin:0;">🎬 Zina Bingo Studio</h2>
-              <span class="label" style="margin:2px 0 0 0;">Full Admin Control · ነባር ተጫዋቾችና ሂሳቦች ተጠብቀዋል</span>
+              <span class="label" style="margin:2px 0 0 0;">Full Admin Control · ሙሉ ተጠቃሚዎች፣ ቦነስ ክትትል እና ታሪክ</span>
             </div>
             <div class="row-gap">
               <a class="btn btn-blue" href="/" target="_blank">🎮 Mini App ክፈት</a>
@@ -257,9 +303,7 @@
               <div class="stat"><div class="label">Booked Boards</div><div class="val ok" id="dBookedBoards">0</div></div>
               <div class="stat"><div class="label">Pending Requests</div><div class="val warn" id="dPendingReqs">0</div></div>
               <div class="stat"><div class="label">Current Prize Pool</div><div class="val" id="dPrizePool">0 ብር</div></div>
-              <div class="stat"><div class="label">Today's Deposits</div><div class="val ok">Br 14,850</div></div>
-              <div class="stat"><div class="label">Today's Withdrawals</div><div class="val bad">Br 6,200</div></div>
-              <div class="stat"><div class="label">Revenue / Expenses</div><div class="val">Br 98.4k / 14.2k</div></div>
+              <div class="stat"><div class="label">Bonus Claimed Users</div><div class="val ok" id="dBonusUsers">0</div></div>
               <div class="stat"><div class="label">Bot Status</div><div class="val ok" id="dPrizeBot">ONLINE</div></div>
             </div>
           </div>
@@ -267,14 +311,24 @@
 
         <div id="sec-players" class="studio-sec" style="display:none;">
           <div class="card">
-            <h3>👥 Player Management</h3>
+            <h3>👥 Player Management (Deposit, Withdraw, Win, Bonus & Full History)</h3>
             <div class="row-gap" style="margin-bottom:10px;">
-              <input type="text" id="playerQuery" placeholder="በTelegram ID ወይም @username ፈልግ..." style="margin:0;flex:1;min-width:200px;" oninput="renderPlayers()" />
+              <input type="text" id="playerQuery" placeholder="በTelegram ID፣ ስም ወይም @username ፈልግ..." style="margin:0;flex:1;min-width:200px;" oninput="renderPlayers()" />
               <button class="btn btn-blue" type="button" onclick="renderPlayers()">ፈልግ</button>
             </div>
             <div class="tbl-wrap">
               <table>
-                <thead><tr><th>Telegram ID</th><th>Player</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>Telegram ID</th>
+                    <th>Player</th>
+                    <th>Main / Bonus</th>
+                    <th>Bonus Status</th>
+                    <th>Dep / Withd</th>
+                    <th>Wins</th>
+                    <th>Status & History</th>
+                  </tr>
+                </thead>
                 <tbody id="playersTbody"></tbody>
               </table>
             </div>
@@ -291,21 +345,16 @@
               <button class="btn btn-red" type="button" onclick="setGameState('CANCELLED','ጨዋታው ተሰርዟል')">✖ Cancel</button>
               <button class="btn btn-gray" type="button" onclick="setGameState('LOBBY','ጨዋታው እንደገና ተጀምሯል')">↻ Restart</button>
             </div>
-            <div class="grid3">
-              <div><span class="label">Min Players</span><input type="number" id="gmMinP" value="2" /></div>
-              <div><span class="label">Max Players</span><input type="number" id="gmMaxP" value="600" /></div>
-              <div><span class="label">Call Interval (sec)</span><input type="number" id="gmInterval" value="4" /></div>
-            </div>
-            <button class="btn btn-green" type="button" onclick="notifyAction('የጨዋታ ቅንብር ተቀምጧል')">💾 አስቀምጥ</button>
           </div>
         </div>
 
         <div id="sec-wallet" class="studio-sec" style="display:none;">
           <div class="card">
-            <h3>💳 የተጫዋች ሂሳብ ጨምር / ቀንስ</h3>
-            <div class="grid">
+            <h3>💳 የተጫዋች Main / Bonus ሂሳብ ጨምር ወይም ቀንስ</h3>
+            <div class="grid3">
               <input type="text" id="balUserId" placeholder="User ID (ለምሳሌ 7379955498)" />
-              <input type="number" id="balDelta" placeholder="መጠን (ለምሳሌ 50 ወይም -20)" />
+              <input type="number" id="balDelta" placeholder="Main መጠን (ለምሳሌ 50 ወይም -20)" />
+              <input type="number" id="balBonusDelta" placeholder="Bonus መጠን (ለምሳሌ 20)" />
             </div>
             <input type="text" id="balReason" placeholder="የማስተካከያ ምክንያት (Audit Reason)" />
             <button class="btn btn-blue" type="button" onclick="adjustBalance()">ሂሳብ አዘምን</button>
@@ -350,7 +399,7 @@
             <input type="text" id="cfgCbe" />
             <div class="grid">
               <div>
-                <div class="label">Welcome Bonus (ብር)</div>
+                <div class="label">Welcome Bonus (አንድ ጊዜ ብር)</div>
                 <input type="number" id="cfgBonus" />
               </div>
               <div>
@@ -394,13 +443,7 @@
         <div id="sec-reports" class="studio-sec" style="display:none;">
           <div class="card">
             <h3>📈 Reports & Statistics</h3>
-            <div class="grid">
-              <div class="stat"><div class="label">Net Profit</div><div class="val ok">Br 84,200.00</div></div>
-              <div class="stat"><div class="label">Player Wallet Liabilities</div><div class="val warn">Br 3,070.00</div></div>
-            </div>
-            <div style="margin-top:10px;">
-              <button class="btn btn-green" type="button" onclick="exportCsv()">⬇ Export CSV Report</button>
-            </div>
+            <button class="btn btn-green" type="button" onclick="exportCsv()">⬇ Export CSV Report</button>
           </div>
         </div>
 
@@ -409,51 +452,34 @@
             <h3>🎧 Support Tickets</h3>
             <div id="ticketsBox"></div>
           </div>
-          <div class="card">
-            <h3>🛡 Admin & Staff Roles</h3>
-            <div class="tbl-wrap">
-              <table>
-                <thead><tr><th>Role</th><th>Permissions</th></tr></thead>
-                <tbody>
-                  <tr><td>Super Admin</td><td>Full system & financial control</td></tr>
-                  <tr><td>Finance Admin</td><td>Deposits, withdrawals, wallet audits</td></tr>
-                  <tr><td>Game Manager</td><td>Games, cards, winners, settings</td></tr>
-                  <tr><td>Support Admin</td><td>Player tickets & replies</td></tr>
-                  <tr><td>Report Viewer</td><td>Read-only reports & exports</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
 
         <div id="sec-system" class="studio-sec" style="display:none;">
           <div class="card">
             <h3>🖥 Server & Bot Control</h3>
-            <div class="grid4" style="margin-bottom:10px;">
-              <div class="stat"><div class="label">Bot Status</div><div class="val ok" id="sysBot">ONLINE</div></div>
-              <div class="stat"><div class="label">CPU / RAM</div><div class="val">14% / 218MB</div></div>
-              <div class="stat"><div class="label">Disk / DB</div><div class="val">1.2GB · OK</div></div>
-              <div class="stat"><div class="label">Uptime</div><div class="val">18d 06h</div></div>
-            </div>
             <div class="row-gap">
               <button class="btn btn-green" type="button" onclick="toggleBotStatus(true)">Bot Online</button>
               <button class="btn btn-red" type="button" onclick="toggleBotStatus(false)">Bot Offline</button>
-              <button class="btn btn-yellow" type="button" onclick="notifyAction('Bot restart signal sent')">↻ Restart Bot</button>
             </div>
           </div>
 
           <div class="card">
-            <h3>🗄 Database Backups & Safe Migration</h3>
-            <p class="label">ነባር የተጫዋቾች መለያዎች፣ Telegram IDs፣ ባላንስ፣ ግብይት እና ጨዋታ ታሪኮች በማሻሻያ ወቅት ይጠበቃሉ።</p>
-            <button class="btn btn-green" type="button" onclick="createBackup()">+ Create Database Backup</button>
-            <div id="backupList" style="margin-top:10px;"></div>
+            <h3>🗄 Full Database Backup (JSON Export / Import)</h3>
+            <p class="label">ሁሉንም ተጠቃሚዎች፣ ቦነስ ዝርዝር፣ Deposit/Withdraw/Win ታሪክ እና ቅንብሮችን በ JSON ማውረድ ወይም መመለስ ይችላሉ።</p>
+            <div class="row-gap" style="margin-bottom:10px;">
+              <button class="btn btn-green" type="button" onclick="exportFullJson()">⬇ Export Full Store JSON</button>
+              <label class="btn btn-blue" style="margin:0;">
+                ⬆ Import Store JSON
+                <input type="file" accept="application/json,.json" style="display:none;" onchange="importFullJson(event)" />
+              </label>
+            </div>
+            <div id="backupList"></div>
           </div>
         </div>
       `;
 
       renderTabs();
       applyLiveToDom();
-      renderPlayers();
       renderWinners();
       renderAudit();
       renderTickets();
@@ -479,18 +505,21 @@
 
     function applyLiveToDom() {
       const d = liveCache;
+      const users = Array.isArray(d.users) ? d.users : [];
       const pendingCount = (d.requests || []).filter(r => r.status === 'pending').length;
+      const bonusClaimedCount = users.filter(u => u.bonusClaimed).length;
+
       if (document.getElementById('sPhase')) document.getElementById('sPhase').textContent = d.phase || '-';
       if (document.getElementById('sCount')) document.getElementById('sCount').textContent = (d.countdown != null && d.countdown !== '-' ? d.countdown + 's' : '-');
       if (document.getElementById('sCode')) document.getElementById('sCode').textContent = d.gameCode || '-';
       if (document.getElementById('sPool')) document.getElementById('sPool').textContent = (d.takenBoardsCount ?? 0) + 'b / ' + (d.prizePool ?? 0) + 'ብር';
 
-      if (document.getElementById('dTotalPlayers')) document.getElementById('dTotalPlayers').textContent = String(d.usersCount ?? 0);
+      if (document.getElementById('dTotalPlayers')) document.getElementById('dTotalPlayers').textContent = String(d.usersCount ?? users.length);
       if (document.getElementById('dBookedBoards')) document.getElementById('dBookedBoards').textContent = String(d.takenBoardsCount ?? 0);
       if (document.getElementById('dPendingReqs')) document.getElementById('dPendingReqs').textContent = String(pendingCount);
       if (document.getElementById('dPrizePool')) document.getElementById('dPrizePool').textContent = (d.prizePool ?? 0) + ' ብር';
+      if (document.getElementById('dBonusUsers')) document.getElementById('dBonusUsers').textContent = String(bonusClaimedCount);
       if (document.getElementById('dPrizeBot')) document.getElementById('dPrizeBot').textContent = EXT.botOnline ? 'ONLINE' : 'OFFLINE';
-      if (document.getElementById('sysBot')) document.getElementById('sysBot').textContent = EXT.botOnline ? 'ONLINE' : 'OFFLINE';
 
       if (!settingsInitialized && d.settings && document.getElementById('cfgTelebirr')) {
         document.getElementById('cfgTelebirr').value = d.settings.telebirr || '';
@@ -581,23 +610,39 @@
       const tbody = document.getElementById('playersTbody');
       if (!tbody) return;
       const q = (document.getElementById('playerQuery')?.value || '').toLowerCase();
-      const sourceList = (Array.isArray(liveCache.users) && liveCache.users.length) ? liveCache.users : EXT.players;
+      const sourceList = Array.isArray(liveCache.users) ? liveCache.users : [];
       const rows = sourceList.filter(p =>
         !q ||
         String(p.id).toLowerCase().includes(q) ||
         String(p.username || '').toLowerCase().includes(q) ||
         String(p.name || '').toLowerCase().includes(q)
       );
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="label">ምንም የተመዘገበ ተጫዋች አልተገኘም።</td></tr>';
+        return;
+      }
       tbody.innerHTML = rows.map(p => {
-        const bal = Number(p.main ?? p.balance ?? 0);
+        const mainBal = Number(p.main ?? p.balance ?? 0).toFixed(2);
+        const bonusBal = Number(p.bonus ?? 0).toFixed(2);
+        const depAmt = Number(p.totalDeposits ?? 0).toFixed(2);
+        const withdAmt = Number(p.totalWithdrawals ?? 0).toFixed(2);
+        const winsCnt = Number(p.winsCount ?? 0);
+        const wonAmt = Number(p.totalWon ?? 0).toFixed(2);
+        const claimedBadge = p.bonusClaimed
+          ? '<span class="badge approved">Claimed ✅</span>'
+          : '<span class="badge pending">No Bonus</span>';
+
         return `
         <tr>
-          <td>${escapeHtml(p.id)}</td>
-          <td>${escapeHtml(p.name)} (${escapeHtml(p.username || '@player')})</td>
-          <td><b>Br ${escapeHtml(bal.toFixed(2))}</b></td>
-          <td><span class="badge ${p.status==='active'?'approved':'pending'}">${escapeHtml(p.status || 'active')}</span></td>
+          <td><code>${escapeHtml(p.id)}</code></td>
+          <td><b>${escapeHtml(p.name)}</b><br><span class="label">${escapeHtml(p.username || '@player')}</span></td>
+          <td>Main: <b>${escapeHtml(mainBal)}</b><br><span class="label">Bonus: ${escapeHtml(bonusBal)}</span></td>
+          <td>${claimedBadge}</td>
+          <td>Dep: <span class="ok">${escapeHtml(depAmt)}</span><br>Withd: <span class="bad">${escapeHtml(withdAmt)}</span></td>
+          <td><b>${escapeHtml(winsCnt)}</b> wins<br><span class="label">${escapeHtml(wonAmt)} ብር</span></td>
           <td>
             <div class="row-gap">
+              <button class="btn btn-blue" type="button" onclick="openUserHistory('${escapeHtml(p.id)}')">📜 History (${(p.history || []).length})</button>
               <button class="btn btn-green" type="button" onclick="setPlayerStatus('${escapeHtml(p.id)}','active')">Active</button>
               <button class="btn btn-yellow" type="button" onclick="setPlayerStatus('${escapeHtml(p.id)}','frozen')">Freeze</button>
               <button class="btn btn-red" type="button" onclick="setPlayerStatus('${escapeHtml(p.id)}','banned')">Ban</button>
@@ -615,8 +660,6 @@
           body: JSON.stringify({ userId: id, status: st })
         });
       } catch (e) {}
-      const p = EXT.players.find(x => x.id === id);
-      if (p) p.status = st;
       EXT.audit.unshift({ user: id, action: 'STATUS_' + st.toUpperCase(), amount: '-', reason: 'Updated by Admin' });
       saveState();
       renderAudit();
@@ -680,12 +723,59 @@
     }
 
     function exportCsv() {
-      const csv = 'Section,Value\nRegistered Users,' + (liveCache.usersCount ?? 0) + '\nBooked Boards,' + (liveCache.takenBoardsCount ?? 0) + '\nToday Deposits,14850\nToday Withdrawals,6200';
+      const users = Array.isArray(liveCache.users) ? liveCache.users : [];
+      const header = 'ID,Name,Username,Main,Bonus,BonusClaimed,TotalDeposits,TotalWithdrawals,WinsCount,TotalWon,Status\n';
+      const lines = users.map(u =>
+        [u.id, u.name, u.username, u.main, u.bonus, u.bonusClaimed, u.totalDeposits, u.totalWithdrawals, u.winsCount, u.totalWon, u.status]
+          .map(v => `"${String(v ?? '').replace(/"/g, '""')}"`)
+          .join(',')
+      );
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-      a.download = 'zina-bingo-report.csv';
+      a.href = URL.createObjectURL(new Blob([header + lines.join('\n')], { type: 'text/csv' }));
+      a.download = 'zina-bingo-users-report.csv';
       a.click();
       toast('CSV ወርዷል');
+    }
+
+    async function exportFullJson() {
+      try {
+        const r = await fetch('/api/studio/export', { headers: headers() });
+        const d = await r.json();
+        if (!r.ok || !d.ok) return alert('❌ Export አልተሳካም');
+        const blob = new Blob([JSON.stringify(d.data, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'zina-bingo-store-' + new Date().toISOString().slice(0, 10) + '.json';
+        a.click();
+        EXT.backups.unshift({ id: 'EXP-' + String(Date.now()).slice(-5), note: 'Full store JSON exported (' + Object.keys(d.data.users || {}).length + ' users)' });
+        saveState();
+        renderBackups();
+        toast('Full Store JSON ወርዷል');
+      } catch (e) {
+        alert('❌ ስህተት: ' + e.message);
+      }
+    }
+
+    async function importFullJson(ev) {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      try {
+        const txt = await file.text();
+        const parsed = JSON.parse(txt);
+        const r = await fetch('/api/studio/import', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ data: parsed })
+        });
+        const d = await r.json();
+        if (!r.ok || !d.ok) return alert('❌ Import አልተሳካም: ' + (d.error || ''));
+        alert('✅ Store በተሳካ ሁኔታ ተመልሷል! Users: ' + d.usersCount);
+        loadAll();
+      } catch (e) {
+        alert('❌ የ JSON ፋይል ስህተት: ' + e.message);
+      } finally {
+        ev.target.value = '';
+      }
     }
 
     function renderTickets() {
@@ -713,13 +803,6 @@
       applyLiveToDom();
       saveState();
       notifyAction('Bot status: ' + (on ? 'ONLINE' : 'OFFLINE'));
-    }
-
-    function createBackup() {
-      EXT.backups.unshift({ id: 'BKP-' + String(Date.now()).slice(-5), note: 'Safe backup — all balances & history intact' });
-      saveState();
-      renderBackups();
-      toast('Backup created');
     }
 
     function renderBackups() {
@@ -754,21 +837,28 @@
 
     async function adjustBalance() {
       const userId = document.getElementById('balUserId').value.trim();
-      const delta = Number(document.getElementById('balDelta').value);
+      const delta = Number(document.getElementById('balDelta').value || 0);
+      const bonusDelta = Number(document.getElementById('balBonusDelta')?.value || 0);
       const reason = (document.getElementById('balReason')?.value || 'Admin balance adjustment').trim();
       const r = await fetch('/api/studio/balance', {
         method: 'POST',
         headers: headers(),
-        body: JSON.stringify({ userId, delta })
+        body: JSON.stringify({ userId, delta, bonusDelta })
       });
       const d = await r.json();
       if (r.ok) {
-        EXT.audit.unshift({ user: userId, action: 'BALANCE_ADJ', amount: (delta >= 0 ? '+' : '') + delta + ' ብር', reason });
+        EXT.audit.unshift({
+          user: userId,
+          action: 'BALANCE_ADJ',
+          amount: `Main ${delta >= 0 ? '+' : ''}${delta} / Bonus ${bonusDelta >= 0 ? '+' : ''}${bonusDelta}`,
+          reason
+        });
         saveState();
         renderAudit();
-        alert('✅ ሂሳብ ተዘምኗል! አዲስ Main Balance: ' + d.user.main + ' ብር');
+        alert('✅ ሂሳብ ተዘምኗል! Main: ' + d.user.main + ' ብር | Bonus: ' + d.user.bonus + ' ብር');
         document.getElementById('balUserId').value = '';
         document.getElementById('balDelta').value = '';
+        if (document.getElementById('balBonusDelta')) document.getElementById('balBonusDelta').value = '';
         if (document.getElementById('balReason')) document.getElementById('balReason').value = '';
         loadAll();
       } else {
